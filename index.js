@@ -3,6 +3,11 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
+app.use(cors({
+  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
+  credentials: true, // Permitir cookies (se necessário)
+}));
 // Carregar variáveis de ambiente
 dotenv.config();
 
@@ -12,6 +17,12 @@ const prescriptionRoutes = require('./routes/prescription.routes');
 
 // Inicializar app
 const app = express();
+
+app.use(cors({
+  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
+  credentials: true, // Permitir cookies (se necessário)
+}));
 
 // Middleware
 app.use(express.json());
