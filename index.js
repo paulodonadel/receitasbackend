@@ -15,7 +15,11 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos HTTP permitidos
+  credentials: true, // Permitir cookies se necessário
+}));
 
 // Conectar ao MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
