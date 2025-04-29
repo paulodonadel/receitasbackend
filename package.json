@@ -27,6 +27,8 @@
     "validator": "^13.9.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "autoprefixer": "^10.4.21",
+    "nodemon": "^2.0.22",
+    "postcss": "^8.5.3"
   }
 }
