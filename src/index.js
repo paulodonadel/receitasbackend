@@ -1,72 +1,60 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const mongoose = require('mongoose');
+require("dotenv").config(); // Carrega variáveis de ambiente do .env primeiro
 
-app.use(cors({
-  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
-  credentials: true, // Permitir cookies (se necessário)
-}));
-// Carregar variáveis de ambiente
-dotenv.config();
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
 
 // Importar rotas
-const authRoutes = require('./routes/auth.routes');
-const prescriptionRoutes = require('./routes/prescription.routes');
+const authRoutes = require("./auth.routes");
+const prescriptionRoutes = require("./prescription.routes");
 
-// Inicializar app
+// Inicializar app Express
 const app = express();
 
-app.use(cors({
-  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
-  credentials: true, // Permitir cookies (se necessário)
-}));
+// Configurar CORS
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || "https://sistema-receitas-frontend.onrender.com", // Permite o frontend especificado ou um do .env
+  methods: ["GET", "POST", "PUT", "DELETE"], // Métodos HTTP permitidos
+  credentials: true, // Permitir envio de cookies (se necessário para autenticação)
+};
+app.use(cors(corsOptions));
 
-// Middleware
+// Middleware para parsear JSON
 app.use(express.json());
-app.use(cors({
-  origin: 'https://sistema-receitas-frontend.onrender.com', // Domínio do frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos HTTP permitidos
-  credentials: true, // Permitir cookies se necessário
-}));
 
 // Conectar ao MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => console.log('MongoDB conectado'))
-  .catch(err => console.error('Erro ao conectar ao MongoDB:', err));
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log("MongoDB conectado com sucesso"))
+  .catch(err => console.error("Erro ao conectar ao MongoDB:", err));
 
-// Montar rotas
-app.use('/api/auth', authRoutes);
-app.use('/api/prescriptions', prescriptionRoutes);
+// Montar rotas da API
+app.use("/api/auth", authRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
 
-// Rota de teste
-app.get('/', (req, res) => {
-  res.json({ message: 'API do Sistema de Gerenciamento de Receitas Médicas' });
+// Rota raiz para teste básico da API
+app.get("/", (req, res) => {
+  res.json({ message: "API do Sistema de Gerenciamento de Receitas Médicas está operacional" });
 });
 
-// Middleware de tratamento de erros
+// Middleware de tratamento de erros (deve ser o último middleware)
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     success: false,
-    message: 'Erro interno do servidor'
+    message: "Ocorreu um erro interno no servidor.",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined // Mostra mais detalhes em dev
   });
 });
 
-// Definir porta
+// Definir porta e iniciar servidor
 const PORT = process.env.PORT || 5000;
-
-// Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`Servidor backend rodando na porta ${PORT}`);
 });
 
-// Para tratamento adequado de erros não capturados
-process.on('unhandledRejection', (err) => {
-  console.log('ERRO NÃO TRATADO:', err);
+// Tratamento para promessas não capturadas
+process.on("unhandledRejection", (err, promise) => {
+  console.error(`Erro não tratado na Promise: ${err.message}`, err);
+  // Opcional: fechar o servidor graciosamente
+  // server.close(() => process.exit(1));
 });
