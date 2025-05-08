@@ -13,7 +13,7 @@ const PrescriptionSchema = new mongoose.Schema({
   },
   dosage: {
     type: String,
-    trim: true // Dosagem pode ser opcional ou vir nas observações
+    trim: true
   },
   prescriptionType: {
     type: String,
@@ -22,9 +22,29 @@ const PrescriptionSchema = new mongoose.Schema({
   },
   deliveryMethod: {
     type: String,
-    enum: ["email", "retirar_clinica"], // Corrigido: Padronizado para 'retirar_clinica'
-    required: [true, "Por favor, selecione o método de entrega"],
-    // default: 'retirar_clinica' // Definir um padrão pode ser útil
+    enum: ["email", "retirar_clinica"],
+    required: [true, "Por favor, selecione o método de entrega"]
+  },
+  // Novos campos adicionados para armazenar informações do paciente
+  patientCPF: {
+    type: String,
+    trim: true
+  },
+  patientEmail: {
+    type: String,
+    trim: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Por favor, informe um e-mail válido'
+    ]
+  },
+  patientCEP: {
+    type: String,
+    trim: true
+  },
+  patientAddress: {
+    type: String,
+    trim: true
   },
   status: {
     type: String,
@@ -35,11 +55,11 @@ const PrescriptionSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  internalNotes: { // Notas internas para admin/secretaria
+  internalNotes: {
     type: String,
     trim: true
   },
-  rejectionReason: { // Motivo caso seja rejeitada
+  rejectionReason: {
     type: String,
     trim: true
   },
@@ -50,13 +70,13 @@ const PrescriptionSchema = new mongoose.Schema({
   updatedAt: {
     type: Date
   },
-  approvedAt: { // Data de aprovação
+  approvedAt: {
     type: Date
   },
-  readyAt: { // Data que ficou pronta para retirada/envio
+  readyAt: {
     type: Date
   },
-  sentAt: { // Data de envio (para email)
+  sentAt: {
     type: Date
   }
 });
@@ -67,8 +87,10 @@ PrescriptionSchema.pre("save", function(next) {
   next();
 });
 
-// Opcional: Índice para otimizar buscas comuns
+// Índices para otimizar buscas
 PrescriptionSchema.index({ patient: 1, createdAt: -1 });
 PrescriptionSchema.index({ status: 1, createdAt: -1 });
+// Novo índice para buscar por e-mail do paciente (útil para envios por e-mail)
+PrescriptionSchema.index({ patientEmail: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Prescription", PrescriptionSchema);
