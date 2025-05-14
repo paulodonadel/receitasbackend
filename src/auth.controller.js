@@ -1,20 +1,20 @@
-const User = require("./user.model"); // Corrigido: Caminho do modelo ajustado
+const User = require("./user.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto"); // Para gerar o token de reset
+const emailService = require("./emailService");
 
 // @desc    Registrar usuário
 // @route   POST /api/auth/register
 // @access  Public
-exports.register = async (req, res, next) => { // Adicionado next para tratamento de erro
+exports.register = async (req, res, next) => {
   try {
-    const { name, email, cpf, password, address } = req.body;
+    const { name, email, cpf, password, address, phone, birthDate } = req.body;
 
-    // Validação básica de entrada
     if (!name || !email || !cpf || !password) {
         return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF e senha." });
     }
 
-    // Verificar se o usuário já existe
     const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
 
     if (userExists) {
@@ -24,20 +24,19 @@ exports.register = async (req, res, next) => { // Adicionado next para tratament
       });
     }
 
-    // Criar usuário
     const user = await User.create({
       name,
       email,
       cpf,
-      password, // O hash da senha é feito no pre-save hook do model
-      address, // Opcional, pode não ser necessário para todos os roles
-      role: "patient" // Por padrão, novos registros são pacientes
+      password,
+      address,
+      phone,
+      birthDate,
+      role: "patient"
     });
 
-    // Gerar token JWT
     const token = user.getSignedJwtToken();
 
-    // Omitir senha e outros campos sensíveis da resposta
     const userResponse = {
         id: user._id,
         name: user.name,
@@ -46,6 +45,15 @@ exports.register = async (req, res, next) => { // Adicionado next para tratament
         role: user.role
     };
 
+    try {
+      const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
+      const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+      await emailService.sendEmail(email, subject, textBody, htmlBody);
+    } catch (emailError) {
+      console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
+    }
+
     res.status(201).json({
       success: true,
       token,
@@ -53,7 +61,6 @@ exports.register = async (req, res, next) => { // Adicionado next para tratament
     });
   } catch (error) {
     console.error("Erro no registro:", error);
-    // Passar o erro para o middleware de tratamento de erros
     next(error); 
   }
 };
@@ -61,11 +68,10 @@ exports.register = async (req, res, next) => { // Adicionado next para tratament
 // @desc    Login de usuário
 // @route   POST /api/auth/login
 // @access  Public
-exports.login = async (req, res, next) => { // Adicionado next
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Validar email e senha
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -73,30 +79,26 @@ exports.login = async (req, res, next) => { // Adicionado next
       });
     }
 
-    // Verificar se o usuário existe e incluir a senha para comparação
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Credenciais inválidas" // Mensagem genérica por segurança
+        message: "Credenciais inválidas"
       });
     }
 
-    // Verificar se a senha está correta
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Credenciais inválidas" // Mensagem genérica por segurança
+        message: "Credenciais inválidas"
       });
     }
 
-    // Gerar token JWT
     const token = user.getSignedJwtToken();
 
-    // Omitir senha e outros campos sensíveis da resposta
     const userResponse = {
         id: user._id,
         name: user.name,
@@ -119,24 +121,23 @@ exports.login = async (req, res, next) => { // Adicionado next
 // @desc    Obter usuário atual (logado)
 // @route   GET /api/auth/me
 // @access  Private
-exports.getMe = async (req, res, next) => { // Adicionado next
+exports.getMe = async (req, res, next) => {
   try {
-    // req.user é adicionado pelo middleware 'protect'
     const user = await User.findById(req.user.id);
 
     if (!user) {
-        // Isso não deveria acontecer se o token for válido, mas é uma boa verificação
         return res.status(404).json({ success: false, message: "Usuário não encontrado." });
     }
 
-    // Omitir senha e outros campos sensíveis da resposta
     const userResponse = {
         id: user._id,
         name: user.name,
         email: user.email,
         cpf: user.cpf,
         role: user.role,
-        address: user.address // Incluir endereço se relevante
+        address: user.address,
+        phone: user.phone,
+        birthDate: user.birthDate
     };
 
     res.status(200).json({
@@ -152,16 +153,14 @@ exports.getMe = async (req, res, next) => { // Adicionado next
 // @desc    Criar usuário administrativo ou secretária (por um admin)
 // @route   POST /api/auth/admin/create
 // @access  Private/Admin
-exports.createAdminUser = async (req, res, next) => { // Adicionado next
+exports.createAdminUser = async (req, res, next) => {
   try {
     const { name, email, cpf, password, role } = req.body;
 
-    // Validação básica de entrada
     if (!name || !email || !cpf || !password || !role) {
         return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF, senha e role." });
     }
 
-    // Verificar se o usuário já existe
     const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
 
     if (userExists) {
@@ -171,25 +170,30 @@ exports.createAdminUser = async (req, res, next) => { // Adicionado next
       });
     }
 
-    // Verificar se o papel é válido (admin ou secretary)
     if (!["secretary", "admin"].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: "Papel inválido. Deve ser 'secretary' ou 'admin'"
+        message: "Papel inválido. Deve ser \"secretary\" ou \"admin\""
       });
     }
 
-    // Criar usuário
     const user = await User.create({
       name,
       email,
       cpf,
-      password, // Hash será feito pelo model
+      password,
       role
-      // Endereço não é obrigatório para admin/secretária neste fluxo
     });
 
-    // Omitir senha da resposta
+    try {
+      const subject = `Sua conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada`;
+      const textBody = `Olá ${name},\n\nUma conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha fornecida para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha fornecida para acessar o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+      await emailService.sendEmail(email, subject, textBody, htmlBody);
+    } catch (emailError) {
+      console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
+    }
+
     const userResponse = {
         id: user._id,
         name: user.name,
@@ -207,3 +211,106 @@ exports.createAdminUser = async (req, res, next) => { // Adicionado next
     next(error);
   }
 };
+
+// @desc    Solicitar redefinição de senha
+// @route   POST /api/auth/forgotpassword
+// @access  Public
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // Não revelar se o usuário existe ou não por segurança
+      return res.status(200).json({ success: true, message: "Se um usuário com este e-mail existir, um link para redefinição de senha será enviado." });
+    }
+
+    // Gerar e salvar o token de reset
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false }); // Salva sem validar outros campos
+
+    // ATENÇÃO: A URL que o usuário final receberá deve apontar para a página de reset de senha do seu frontend.
+    const frontendResetUrl = `https://sistema-receitas-frontend.onrender.com/reset-password/${resetToken}`; 
+
+    const message = `Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha: \n\n ${frontendResetUrl} \n\nSe você não solicitou esta redefinição, por favor, ignore este e-mail. Este link é válido por 10 minutos.`;
+    const htmlMessage = `<p>Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha:</p><p><a href="${frontendResetUrl}">${frontendResetUrl}</a></p><p>Se você não solicitou esta redefinição, por favor, ignore este e-mail. Este link é válido por 10 minutos.</p>`;
+
+    try {
+      await emailService.sendEmail(
+        user.email,
+        "Redefinição de Senha - Sistema de Receitas",
+        message,
+        htmlMessage
+      );
+      res.status(200).json({ success: true, message: "E-mail de redefinição de senha enviado com sucesso." });
+    } catch (err) {
+      console.error("Erro ao enviar e-mail de redefinição:", err);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+      return next(new Error("Não foi possível enviar o e-mail de redefinição. Tente novamente."));
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Redefinir senha
+// @route   PUT /api/auth/resetpassword/:resettoken
+// @access  Public
+exports.resetPassword = async (req, res, next) => {
+  try {
+    // Obter token hasheado da URL
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.resettoken)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }, // Verificar se não expirou
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Token de redefinição inválido ou expirado." });
+    }
+
+    // Definir nova senha
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    // Enviar e-mail de confirmação de alteração de senha
+    try {
+        const subject = "Sua senha foi alterada com sucesso";
+        const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+        const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+        await emailService.sendEmail(user.email, subject, textBody, htmlBody);
+    } catch (emailError) {
+        console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
+        // Não bloquear a resposta principal por falha no e-mail
+    }
+
+    // Gerar novo token JWT para login automático (opcional, mas boa UX)
+    const token = user.getSignedJwtToken();
+    const userResponse = {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        cpf: user.cpf,
+        role: user.role
+    };
+
+    res.status(200).json({ 
+        success: true, 
+        message: "Senha redefinida com sucesso!",
+        token, // Opcional: enviar novo token para login
+        user: userResponse // Opcional: enviar dados do usuário
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
