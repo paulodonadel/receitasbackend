@@ -1,27 +1,62 @@
 const express = require("express");
 const router = express.Router();
-// Corrigido: Caminhos de importação ajustados para a estrutura atual dentro de src/
 const { 
   createPrescription, 
   getMyPrescriptions, 
   getAllPrescriptions, 
   getPrescription, 
-  updatePrescriptionStatus 
+  updatePrescriptionStatus,
+  updatePrescription,
+  deletePrescription
 } = require("./prescription.controller"); 
 const { protect, authorize } = require("./auth.middleware");
 
-// Rotas para pacientes (protegidas, requer login de paciente)
-router.post("/", protect, authorize("patient"), createPrescription);
-router.get("/", protect, authorize("patient"), getMyPrescriptions);
+// Rotas para criação de prescrições (permitir admin e patient)
+router.post("/", 
+  protect, 
+  authorize("admin", "patient"), 
+  createPrescription
+);
 
-// Rotas para admin/secretária (protegidas, requer login de admin ou secretária)
-router.get("/all", protect, authorize("admin", "secretary"), getAllPrescriptions);
+// Rotas para pacientes visualizarem suas prescrições
+router.get("/", 
+  protect, 
+  authorize("patient"), 
+  getMyPrescriptions
+);
 
-// Rota para buscar uma prescrição específica (protegida, acessível por paciente, admin, secretária)
-// A lógica de autorização para quem pode ver qual prescrição deve estar no controller getPrescription
-router.get("/:id", protect, getPrescription);
+// Rotas para admin/secretária visualizarem todas prescrições
+router.get("/all", 
+  protect, 
+  authorize("admin", "secretary"), 
+  getAllPrescriptions
+);
 
-// Rota para atualizar o status da prescrição (protegida, apenas admin ou secretária)
-router.put("/:id/status", protect, authorize("admin", "secretary"), updatePrescriptionStatus);
+// Rota para buscar uma prescrição específica
+router.get("/:id", 
+  protect, 
+  getPrescription
+);
+
+// Rota para atualizar o status da prescrição
+router.put("/:id/status", 
+  protect, 
+  authorize("admin", "secretary"), 
+  updatePrescriptionStatus
+);
+
+// Rota para editar uma prescrição (permitir admin e secretary)
+router.put("/:id", 
+  protect, 
+  authorize("admin", "secretary"), 
+  updatePrescription
+);
+
+// Rota para excluir uma prescrição (permitir apenas admin)
+router.delete("/:id", 
+  protect, 
+  authorize("admin"), 
+  deletePrescription
+);
 
 module.exports = router;
