@@ -1,72 +1,242 @@
 const jwt = require("jsonwebtoken");
-const User = require("./user.model"); // Corrigido: Caminho do modelo ajustado
+const User = require("./user.model");
+const { createRateLimiter } = require("../utils/rateLimiter");
+const { logSecurityEvent } = require("../utils/securityLogger");
 
-// Middleware para proteger rotas verificando o token JWT
-exports.protect = async (req, res, next) => {
-  let token;
+// Cache para tokens revogados
+const revokedTokens = new Set();
 
-  // Verifica se o token está no cabeçalho Authorization
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    // Extrai o token (formato: "Bearer TOKEN")
-    token = req.headers.authorization.split(" ")[1];
-  } 
-  // Opcional: Verificar se o token está em cookies (se aplicável)
-  // else if (req.cookies.token) {
-  //   token = req.cookies.token;
-  // }
-
-  // Garante que o token existe
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Acesso não autorizado. Token não fornecido."
-    });
-  }
-
-  try {
-    // Verifica e decodifica o token usando o segredo
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Encontra o usuário pelo ID contido no token e anexa ao objeto req
-    // Exclui a senha do objeto usuário anexado
-    req.user = await User.findById(decoded.id).select("-password");
-
-    if (!req.user) {
-        // Caso o usuário associado ao token não exista mais
-        return res.status(401).json({ success: false, message: "Usuário não encontrado." });
-    }
-
-    next(); // Passa para o próximo middleware ou rota
-  } catch (error) {
-    console.error("Erro na verificação do token:", error.message);
-    return res.status(401).json({
-      success: false,
-      message: "Acesso não autorizado. Token inválido ou expirado."
-    });
-  }
+// Configurações de segurança
+const SECURITY_CONFIG = {
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  jwtExpiration: process.env.JWT_EXPIRATION || '24h'
 };
 
-// Middleware para autorizar acesso baseado nos papéis (roles) do usuário
-exports.authorize = (...roles) => {
-  return (req, res, next) => {
-    // Verifica se req.user foi anexado pelo middleware protect
-    if (!req.user || !req.user.role) {
-        return res.status(403).json({
-            success: false,
-            message: "Erro de permissão: dados do usuário não disponíveis."
+// Rate limiter para endpoints de autenticação
+const authRateLimiter = createRateLimiter({
+  windowMs: SECURITY_CONFIG.windowMs,
+  max: SECURITY_CONFIG.maxAttempts,
+  message: "Muitas tentativas. Por favor, tente novamente mais tarde."
+});
+
+/**
+ * Middleware para proteger rotas verificando o token JWT
+ * @param {boolean} strict - Se true, verifica também o IP do usuário
+ */
+exports.protect = (strict = false) => {
+  return async (req, res, next) => {
+    // Verificação de rate limiting
+    if (strict) {
+      try {
+        await authRateLimiter(req, res, () => {});
+      } catch (rateLimitError) {
+        return res.status(429).json({
+          success: false,
+          message: rateLimitError.message
         });
+      }
     }
-    
-    // Verifica se o papel do usuário está na lista de papéis permitidos
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
+
+    let token;
+    const authHeader = req.headers.authorization;
+
+    // 1. Extração do token
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
+      logSecurityEvent('AUTH_FAILURE', {
+        ip: req.ip,
+        reason: 'Token não fornecido'
+      });
+      return res.status(401).json({
         success: false,
-        message: `Acesso negado. Papel '${req.user.role}' não tem permissão para acessar este recurso.`
+        code: 'MISSING_TOKEN',
+        message: "Autenticação necessária. Token não fornecido."
       });
     }
-    next(); // Usuário autorizado, passa para o próximo middleware/rota
+
+    // 2. Verificação se o token foi revogado
+    if (revokedTokens.has(token)) {
+      logSecurityEvent('AUTH_FAILURE', {
+        ip: req.ip,
+        userId: req.user?._id,
+        reason: 'Token revogado'
+      });
+      return res.status(401).json({
+        success: false,
+        code: 'REVOKED_TOKEN',
+        message: "Sessão expirada. Faça login novamente."
+      });
+    }
+
+    try {
+      // 3. Verificação e decodificação do token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        algorithms: ['HS256'],
+        maxAge: SECURITY_CONFIG.jwtExpiration
+      });
+
+      // 4. Busca do usuário com cache básico
+      const user = await User.findById(decoded.id)
+        .select("-password -resetToken -resetTokenExpire")
+        .cache(decoded.id, 60); // Cache por 60 segundos
+
+      if (!user) {
+        logSecurityEvent('AUTH_FAILURE', {
+          ip: req.ip,
+          tokenId: decoded.jti,
+          reason: 'Usuário não encontrado'
+        });
+        return res.status(401).json({
+          success: false,
+          code: 'USER_NOT_FOUND',
+          message: "Usuário associado ao token não existe."
+        });
+      }
+
+      // 5. Verificação de segurança adicional (opcional)
+      if (strict && req.ip !== user.lastKnownIp) {
+        logSecurityEvent('AUTH_WARNING', {
+          ip: req.ip,
+          userId: user._id,
+          lastKnownIp: user.lastKnownIp,
+          reason: 'Mudança de IP detectada'
+        });
+      }
+
+      // 6. Anexa o usuário à requisição
+      req.user = user;
+      req.token = token;
+
+      next();
+    } catch (error) {
+      const errorType = getJwtErrorType(error);
+      logSecurityEvent('AUTH_FAILURE', {
+        ip: req.ip,
+        error: errorType,
+        reason: error.message
+      });
+
+      const response = {
+        success: false,
+        code: errorType,
+        message: getFriendlyErrorMessage(errorType)
+      };
+
+      return res.status(401).json(response);
+    }
   };
 };
+
+/**
+ * Middleware para autorização baseada em roles
+ * @param {...string} roles - Lista de roles permitidas
+ */
+exports.authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      logSecurityEvent('AUTH_FAILURE', {
+        ip: req.ip,
+        path: req.path,
+        reason: 'Tentativa de autorização sem autenticação'
+      });
+      return res.status(403).json({
+        success: false,
+        code: 'UNAUTHENTICATED',
+        message: "Autenticação necessária antes da autorização."
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      logSecurityEvent('AUTHORIZATION_FAILURE', {
+        userId: req.user._id,
+        role: req.user.role,
+        requiredRoles: roles,
+        path: req.path
+      });
+      return res.status(403).json({
+        success: false,
+        code: 'UNAUTHORIZED_ROLE',
+        message: `Seu perfil (${req.user.role}) não tem acesso a este recurso.`,
+        requiredRoles: roles
+      });
+    }
+
+    next();
+  };
+};
+
+/**
+ * Middleware para revogação de tokens
+ */
+exports.revokeToken = () => {
+  return (req, res, next) => {
+    if (req.token) {
+      revokedTokens.add(req.token);
+      logSecurityEvent('TOKEN_REVOKED', {
+        userId: req.user._id,
+        tokenId: req.token
+      });
+    }
+    next();
+  };
+};
+
+/**
+ * Middleware para verificação de permissões específicas
+ * @param {...string} permissions - Lista de permissões requeridas
+ */
+exports.hasPermission = (...permissions) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.permissions) {
+      return res.status(403).json({
+        success: false,
+        code: 'MISSING_PERMISSIONS',
+        message: "Verificação de permissão falhou."
+      });
+    }
+
+    const hasAllPermissions = permissions.every(p => 
+      req.user.permissions.includes(p)
+    );
+
+    if (!hasAllPermissions) {
+      logSecurityEvent('PERMISSION_DENIED', {
+        userId: req.user._id,
+        attemptedPermissions: permissions,
+        existingPermissions: req.user.permissions
+      });
+      return res.status(403).json({
+        success: false,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        message: "Permissões insuficientes para esta ação.",
+        requiredPermissions: permissions
+      });
+    }
+
+    next();
+  };
+};
+
+// Utilitários internos
+function getJwtErrorType(error) {
+  if (error.name === 'TokenExpiredError') return 'TOKEN_EXPIRED';
+  if (error.name === 'JsonWebTokenError') return 'INVALID_TOKEN';
+  if (error.name === 'NotBeforeError') return 'TOKEN_NOT_ACTIVE';
+  return 'AUTH_ERROR';
+}
+
+function getFriendlyErrorMessage(code) {
+  const messages = {
+    'TOKEN_EXPIRED': 'Sessão expirada. Faça login novamente.',
+    'INVALID_TOKEN': 'Token de autenticação inválido.',
+    'TOKEN_NOT_ACTIVE': 'Token não está ativo ainda.',
+    'AUTH_ERROR': 'Erro na autenticação. Por favor, tente novamente.'
+  };
+  return messages[code] || messages['AUTH_ERROR'];
+}
