@@ -1,22 +1,13 @@
 {
   "name": "sistema-receitas-backend",
   "version": "1.0.0",
-  "description": "Backend para o Sistema de Gerenciamento de Receitas Médicas",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint src"
+    "prestart": "npm install --production",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "receitas",
-    "médicas",
-    "backend",
-    "api"
-  ],
-  "author": "Dr. Paulo Donadel",
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -27,14 +18,10 @@
     "mongoose": "^7.0.3",
     "nodemailer": "^6.9.1",
     "validator": "^13.9.0",
-    "helmet": "^7.1.0",
-    "xss-clean": "^0.1.1"
+    "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "eslint": "^8.56.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.29.1"
+    "nodemon": "^3.1.10"
   },
   "engines": {
     "node": ">=18.0.0",

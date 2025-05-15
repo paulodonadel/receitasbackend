@@ -1,20 +1,23 @@
-const winston = require('winston');
+const { createLogger, format, transports } = require('winston');
 
-const logger = winston.createLogger({
+const logger = createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  ),
   transports: [
-    new winston.transports.File({ filename: 'logs/security.log' }),
-    new winston.transports.Console()
+    new transports.File({ filename: 'logs/combined.log' }),
+    new transports.Console()
   ]
 });
 
-exports.logSecurityEvent = (eventType, details) => {
-  logger.log({
-    level: 'info',
-    message: `Security Event: ${eventType}`,
-    type: eventType,
-    timestamp: new Date(),
-    ...details
-  });
+module.exports = {
+  logSecurityEvent: (eventType, details) => {
+    logger.log('info', {
+      message: `Security Event: ${eventType}`,
+      type: eventType,
+      ...details
+    });
+  }
 };
