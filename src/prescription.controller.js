@@ -88,21 +88,6 @@ exports.createPrescription = async (req, res, next) => {
 
     const prescription = await Prescription.create(prescriptionData);
 
-    // Notificar admin/secretaria sobre nova solicitação (opcional)
-    // try {
-    //   const adminUsers = await User.find({ role: { $in: ["admin", "secretary"] } });
-    //   const adminEmails = adminUsers.map(u => u.email).filter(e => e);
-    //   if (adminEmails.length > 0) {
-    //     const patientInfo = await User.findById(patientId);
-    //     const subject = "Nova Solicitação de Receita Recebida";
-    //     const textBody = `Uma nova solicitação de receita para ${medicationName} foi feita pelo paciente ${patientInfo?.name || patientCPF}.
-    //                     Acesse o painel administrativo para mais detalhes.`;
-    //     await emailService.sendEmail(adminEmails.join(","), subject, textBody);
-    //   }
-    // } catch (emailError) {
-    //   console.error("Erro ao notificar admin sobre nova receita:", emailError);
-    // }
-
     res.status(201).json({
       success: true,
       data: prescription
@@ -128,6 +113,69 @@ exports.getMyPrescriptions = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter minhas solicitações:", error);
+    next(error);
+  }
+};
+
+// @desc    Obter todas as solicitações (para admin/secretária com filtros)
+// @route   GET /api/prescriptions/all
+// @access  Private/Admin-Secretary
+exports.getAllPrescriptions = async (req, res, next) => {
+  try {
+    const { status, type, patientName, patientCpf, startDate, endDate, medicationName, deliveryMethod } = req.query;
+    let query = {};
+
+    if (status) query.status = status;
+    if (type) query.prescriptionType = type;
+    if (medicationName) query.medicationName = { $regex: medicationName, $options: "i" };
+    if (deliveryMethod) query.deliveryMethod = deliveryMethod;
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+        query.createdAt.$gte.setHours(0, 0, 0, 0);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+        query.createdAt.$lte.setHours(23, 59, 59, 999);
+      }
+    }
+
+    if (patientName || patientCpf) {
+      let patientQueryConditions = [];
+      if (patientName) {
+        patientQueryConditions.push({ name: { $regex: patientName, $options: "i" } });
+      }
+      if (patientCpf) {
+        // CORREÇÃO APLICADA AQUI: removi as aspas incorretas na expressão regular
+        patientQueryConditions.push({ cpf: { $regex: patientCpf.replace(/\.|-/g, ""), $options: "i" } });
+      }
+      
+      if (patientQueryConditions.length > 0) {
+        const patients = await User.find({ $or: patientQueryConditions }).select("_id");
+        const patientIds = patients.map(patient => patient._id);
+        
+        if (patientIds.length === 0 && (patientName || patientCpf)) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+        if (patientIds.length > 0) {
+            query.patient = { $in: patientIds };
+        }
+      }
+    }
+
+    const prescriptions = await Prescription.find(query)
+      .populate("patient", "name email cpf")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: prescriptions.length,
+      data: prescriptions
+    });
+  } catch (error) {
+    console.error("Erro ao obter todas as solicitações:", error);
     next(error);
   }
 };
