@@ -17,7 +17,7 @@ exports.createPrescription = async (req, res, next) => {
       patientEmail,
       patientCEP,
       patientAddress,
-      numberOfBoxes // Adicionado para criação
+      numberOfBoxes
     } = req.body;
 
     const patientId = req.user.id;
@@ -148,8 +148,12 @@ exports.getAllPrescriptions = async (req, res, next) => {
         patientQueryConditions.push({ name: { $regex: patientName, $options: "i" } });
       }
       if (patientCpf) {
-        // CORREÇÃO APLICADA AQUI: removi as aspas incorretas na expressão regular
-        patientQueryConditions.push({ cpf: { $regex: patientCpf.replace(/\.|-/g, ""), $options: "i" } });
+        patientQueryConditions.push({ 
+          cpf: { 
+            $regex: patientCpf.replace(/[.-]/g, ""), 
+            $options: "i" 
+          } 
+        });
       }
       
       if (patientQueryConditions.length > 0) {
@@ -157,69 +161,6 @@ exports.getAllPrescriptions = async (req, res, next) => {
         const patientIds = patients.map(patient => patient._id);
         
         if (patientIds.length === 0 && (patientName || patientCpf)) {
-            return res.status(200).json({ success: true, count: 0, data: [] });
-        }
-        if (patientIds.length > 0) {
-            query.patient = { $in: patientIds };
-        }
-      }
-    }
-
-    const prescriptions = await Prescription.find(query)
-      .populate("patient", "name email cpf")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      count: prescriptions.length,
-      data: prescriptions
-    });
-  } catch (error) {
-    console.error("Erro ao obter todas as solicitações:", error);
-    next(error);
-  }
-};
-
-// @desc    Obter todas as solicitações (para admin/secretária com filtros)
-// @route   GET /api/prescriptions/all
-// @access  Private/Admin-Secretary
-exports.getAllPrescriptions = async (req, res, next) => {
-  try {
-    const { status, type, patientName, patientCpf, startDate, endDate, medicationName, deliveryMethod } = req.query;
-    let query = {};
-
-    if (status) query.status = status;
-    if (type) query.prescriptionType = type;
-    if (medicationName) query.medicationName = { $regex: medicationName, $options: "i" };
-    if (deliveryMethod) query.deliveryMethod = deliveryMethod;
-
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
-        query.createdAt.$gte.setHours(0, 0, 0, 0);
-      }
-      if (endDate) {
-        query.createdAt.$lte = new Date(endDate);
-        query.createdAt.$lte.setHours(23, 59, 59, 999);
-      }
-    }
-
-    if (patientName || patientCpf) {
-      let patientQueryConditions = [];
-      if (patientName) {
-        patientQueryConditions.push({ name: { $regex: patientName, $options: "i" } });
-      }
-      if (patientCpf) {
-        // Busca por CPF exato ou parcial, dependendo da necessidade
-        patientQueryConditions.push({ cpf: { $regex: patientCpf.replace(/\.|-/g, "), $options: "i" } });
-      }
-      
-      if (patientQueryConditions.length > 0) {
-        const patients = await User.find({ $or: patientQueryConditions }).select("_id");
-        const patientIds = patients.map(patient => patient._id);
-        
-        if (patientIds.length === 0 && (patientName || patientCpf)) { // Se filtrou por paciente e não achou, retorna vazio
             return res.status(200).json({ success: true, count: 0, data: [] });
         }
         if (patientIds.length > 0) {
@@ -298,7 +239,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     }
 
     const prescription = await Prescription.findById(prescriptionId)
-      .populate("patient", "name email"); // Popula para pegar o email do paciente
+      .populate("patient", "name email");
 
     if (!prescription) {
       return res.status(404).json({
@@ -321,7 +262,6 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 
     const updatedPrescription = await prescription.save();
 
-    // Enviar e-mail de notificação se o status mudou e o paciente tem e-mail
     if (updatedPrescription.patient && updatedPrescription.patient.email && oldStatus !== status) {
       let emailSubject = "Atualização sobre sua Solicitação de Receita";
       let emailText = `Olá ${updatedPrescription.patient.name},\n\nO status da sua solicitação de receita para ${updatedPrescription.medicationName} foi atualizado para: ${status.replace("_", " ").toUpperCase()}.
@@ -348,36 +288,27 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
             emailSubject = "Sua receita está PRONTA para retirada";
             emailText += `\nSua receita está pronta e disponível para retirada na clínica.\nLembre-se que o prazo para retirada é de 5 dias úteis.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
             emailHtml += `<p>Sua receita está pronta e disponível para retirada na clínica.<br/>Lembre-se que o prazo para retirada é de 5 dias úteis.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          } else {
-            // Se for "pronta" mas entrega por email, não envia email aqui, espera o "enviada"
-            emailSubject = ""; // Para não enviar email duplicado
           }
           break;
         case "enviada":
-          // Aqui seria o local para anexar a receita se fosse o caso, mas o emailService atual não suporta isso diretamente no update de status.
-          // Por enquanto, apenas notifica que foi enviada.
           if (prescription.deliveryMethod === "email" && prescription.prescriptionType === "branco") {
             emailSubject = "Sua receita foi ENVIADA por e-mail";
             emailText += `\nSua receita para ${prescription.medicationName} foi enviada para o seu e-mail (${updatedPrescription.patient.email}). Verifique sua caixa de entrada e spam.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
             emailHtml += `<p>Sua receita para <strong>${prescription.medicationName}</strong> foi enviada para o seu e-mail (${updatedPrescription.patient.email}). Verifique sua caixa de entrada e spam.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          } else {
-            emailSubject = ""; // Não envia email se não for entrega por email
           }
           break;
         default:
-          // Para "em_analise" ou outros status, um e-mail genérico já foi construído.
           emailText += `\n\nPara mais detalhes, acesse o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
           emailHtml += `<p>Para mais detalhes, acesse o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
           break;
       }
 
-      if (emailSubject && emailText && emailHtml) { // Verifica se há conteúdo para enviar
+      if (emailSubject && emailText && emailHtml) {
         try {
           await emailService.sendEmail(updatedPrescription.patient.email, emailSubject, emailText, emailHtml);
           console.log(`Email de notificação de status (${status}) enviado para ${updatedPrescription.patient.email}`);
         } catch (emailError) {
           console.error(`Erro ao enviar e-mail de notificação de status (${status}) para ${updatedPrescription.patient.email}:`, emailError);
-          // Não bloquear a operação principal por falha no e-mail
         }
       }
     }
@@ -409,7 +340,7 @@ exports.createPrescriptionByAdmin = async (req, res, next) => {
       prescriptionType,
       deliveryMethod,
       observations,
-      status, // Admin pode definir o status inicial
+      status,
       patientEmail,
       patientCEP,
       patientAddress,
@@ -418,53 +349,43 @@ exports.createPrescriptionByAdmin = async (req, res, next) => {
       internalNotes
     } = req.body;
 
-    // Validação básica
     if (!patientName || !patientCPF || !medicationName || !dosage || !prescriptionType || !deliveryMethod) {
       return res.status(400).json({ success: false, message: "Campos obrigatórios (Nome Paciente, CPF, Medicação, Dosagem, Tipo, Envio) não preenchidos." });
     }
 
-    // Tenta encontrar ou criar um paciente simplificado se não existir
-    // Esta é uma abordagem simplificada. Idealmente, haveria uma gestão de pacientes mais robusta.
     let patient;
     const existingPatientByCPF = await User.findOne({ cpf: patientCPF });
     
     if (existingPatientByCPF) {
         patient = existingPatientByCPF;
-        // Atualizar dados do paciente se fornecidos e diferentes?
         if (patientEmail && patient.email !== patientEmail) patient.email = patientEmail;
-        // Adicionar outras atualizações se necessário
         await patient.save();
     } else {
-        // Se não existe, cria um usuário paciente básico. 
-        // A senha seria um problema aqui. Poderia gerar uma aleatória e informar ou exigir cadastro prévio.
-        // Por simplicidade, vamos assumir que o admin está ciente e pode orientar o paciente.
-        // Ou, melhor, exigir que o paciente já exista no sistema.
         return res.status(400).json({ success: false, message: `Paciente com CPF ${patientCPF} não encontrado. Cadastre o paciente primeiro.` });
     }
 
     const prescriptionData = {
       patient: patient._id,
-      patientName, // Armazenar o nome como fornecido pelo admin para consistência na listagem
-      patientCPF,  // E o CPF também
+      patientName,
+      patientCPF,
       medicationName,
       dosage,
       numberOfBoxes,
       prescriptionType,
       deliveryMethod,
       observations,
-      status: status || "aprovada", // Padrão para admin
-      patientEmail: patientEmail || patient.email, // Usa o email fornecido ou do cadastro
+      status: status || "aprovada",
+      patientEmail: patientEmail || patient.email,
       patientCEP,
       patientAddress,
       patientPhone,
       patientBirthDate,
       internalNotes,
-      createdBy: req.user.id // Registrar quem criou
+      createdBy: req.user.id
     };
 
     const newPrescription = await Prescription.create(prescriptionData);
 
-    // Notificar paciente se o status for "aprovada" ou "enviada" e tiver e-mail
     if (patient.email && (newPrescription.status === "aprovada" || newPrescription.status === "enviada")) {
         let emailSubject = "Uma nova receita foi emitida para você";
         let emailText = `Olá ${patient.name},\n\nUma nova receita para ${newPrescription.medicationName} foi emitida em seu nome pelo consultório.
@@ -506,7 +427,7 @@ Status: ${newPrescription.status.replace("_", " ").toUpperCase()}.
 exports.updatePrescriptionByAdmin = async (req, res, next) => {
   try {
     const prescriptionId = req.params.id;
-    const updateData = req.body; // Contém todos os campos do PrescriptionAdminFormData
+    const updateData = req.body;
 
     const prescription = await Prescription.findById(prescriptionId).populate("patient", "email name");
 
@@ -514,8 +435,6 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Solicitação não encontrada." });
     }
 
-    // Atualizar campos. Evitar sobrescrever _id ou patient se não for a intenção.
-    // O ideal é ter uma lista de campos permitidos para atualização.
     const allowedUpdates = [
         "patientName", "patientCPF", "medicationName", "dosage", "numberOfBoxes", 
         "prescriptionType", "deliveryMethod", "observations", "status", 
@@ -530,7 +449,7 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
         if (allowedUpdates.includes(key)) {
             prescription[key] = updateData[key];
             if (key === "patientEmail" && updateData[key]) {
-                patientEmailForNotification = updateData[key]; // Usa o email mais recente para notificação
+                patientEmailForNotification = updateData[key];
             }
         }
     }
@@ -539,15 +458,12 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
 
     const updatedPrescription = await prescription.save();
 
-    // Lógica de notificação por e-mail similar à de updatePrescriptionStatus
     if (patientEmailForNotification && prescription.status !== oldStatus) {
         let emailSubject = "Atualização sobre sua Solicitação de Receita";
         let emailText = `Olá ${updatedPrescription.patientName || prescription.patient?.name},\n\nO status da sua solicitação de receita para ${updatedPrescription.medicationName} foi atualizado para: ${updatedPrescription.status.replace("_", " ").toUpperCase()}.
 `;
         let emailHtml = `<p>Olá ${updatedPrescription.patientName || prescription.patient?.name},</p><p>O status da sua solicitação de receita para <strong>${updatedPrescription.medicationName}</strong> foi atualizado para: <strong>${updatedPrescription.status.replace("_", " ").toUpperCase()}</strong>.</p>`;
 
-        // ... (lógica de conteúdo do email baseada no novo status, similar a updatePrescriptionStatus)
-        // Exemplo simplificado:
         switch (updatedPrescription.status) {
             case "aprovada":
               emailSubject = "Sua solicitação de receita foi APROVADA";
@@ -563,7 +479,6 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
               emailText += `\nMotivo: ${reason}`;
               emailHtml += `<p>Motivo: ${reason}</p>`;
               break;
-            // Adicionar outros casos conforme necessário
         }
         emailText += `\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
         emailHtml += `<p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
@@ -588,7 +503,6 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
   }
 };
 
-
 // @desc    Excluir solicitação de receita (Admin)
 // @route   DELETE /api/prescriptions/admin/:id
 // @access  Private/Admin-Secretary
@@ -601,7 +515,7 @@ exports.deletePrescriptionByAdmin = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Solicitação não encontrada." });
     }
 
-    await prescription.deleteOne(); // Usar deleteOne() em vez de remove()
+    await prescription.deleteOne();
 
     res.status(200).json({ success: true, message: "Solicitação excluída com sucesso." });
 
@@ -613,4 +527,3 @@ exports.deletePrescriptionByAdmin = async (req, res, next) => {
     next(error);
   }
 };
-
