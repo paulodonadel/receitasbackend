@@ -10,7 +10,6 @@ const {
   deletePrescription
 } = require("./prescription.controller");
 const { protect, authorize } = require("./middlewares/auth.middleware");
-const { validatePrescription } = require("./prescription.validator");
 const { rateLimit } = require("express-rate-limit");
 
 // Rate limiting para prevenir abuso
