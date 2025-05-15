@@ -1,17 +1,11 @@
 const winston = require('winston');
-const { Loggly } = require('winston-loggly-bulk');
 
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.json(),
   transports: [
-    new winston.transports.File({ filename: 'security.log' }),
-    new Loggly({
-      token: process.env.LOGGLY_TOKEN,
-      subdomain: process.env.LOGGLY_SUBDOMAIN,
-      tags: ["NodeJS"],
-      json: true
-    })
+    new winston.transports.File({ filename: 'logs/security.log' }),
+    new winston.transports.Console()
   ]
 });
 
