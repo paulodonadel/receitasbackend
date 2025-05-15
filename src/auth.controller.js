@@ -186,9 +186,9 @@ exports.createAdminUser = async (req, res, next) => {
     });
 
     try {
-      const subject = `Sua conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada`;
-      const textBody = `Olá ${name},\n\nUma conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha fornecida para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === \"admin\" ? \"Administrador\" : \"Secretária\"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha fornecida para acessar o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+      const subject = `Sua conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada`;
+      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha fornecida para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha fornecida para acessar o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
@@ -313,4 +313,3 @@ exports.resetPassword = async (req, res, next) => {
     next(error);
   }
 };
-
