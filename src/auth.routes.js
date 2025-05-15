@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 // Corrigido: Caminhos de importação ajustados para a estrutura atual dentro de src/
 const { register, login, getMe, createAdminUser } = require("./auth.controller");
-const { protect, authorize } = require('../middlewares/auth.middleware');
-
+const { protect, authorize } = require('./middlewares');
 // Rotas públicas
 router.post("/register", register);
 router.post("/login", login);
