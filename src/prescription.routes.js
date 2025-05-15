@@ -9,7 +9,7 @@ const {
   managePrescriptionByAdmin,
   deletePrescription
 } = require("./prescription.controller");
-const { protect, authorize } = require("./middlewares/auth.middleware");
+const { protect, authorize } = require("../middlewares/auth.middleware");
 const { validatePrescription } = require("./prescription.validator");
 const { rateLimit } = require("express-rate-limit");
 
