@@ -123,8 +123,7 @@ const schemas = {
       'string.base': 'O formato deve ser um texto',
       'any.only': 'Formato inválido. Valores permitidos: excel, csv, pdf'
     }).optional(),
-    // Outros filtros podem ser adicionados conforme necessário
-  }).concat(Joi.object().pattern(/./, Joi.any())) // Permite outros filtros não especificados
+  }).concat(Joi.object().pattern(/./, Joi.any()))
 };
 
 // Middleware de validação
@@ -138,10 +137,13 @@ const validatePrescription = (schemaName) => {
       });
     }
 
-    const { error, value } = schema.validate(req.body, {
+    const validationOptions = {
       abortEarly: false,
-      allowUnknown: false
-    });
+      allowUnknown: false,
+      stripUnknown: true
+    };
+
+    const { error, value } = schema.validate(req.body, validationOptions);
 
     if (error) {
       const errors = error.details.map(detail => ({
@@ -156,10 +158,11 @@ const validatePrescription = (schemaName) => {
       });
     }
 
-    // Atualiza o body com os valores validados (conversões, etc)
+    // Atualiza o body com os valores validados
     req.body = value;
     next();
   };
 };
 
-module.exports = validatePrescription;
+// Exportação corrigida para funcionar com a importação desestruturada
+module.exports = { validatePrescription };
