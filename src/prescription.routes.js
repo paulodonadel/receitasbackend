@@ -10,8 +10,10 @@ const {
 } = require("./prescription.controller"); 
 const { protect, authorize } = require("./auth.middleware");
 
+// Rota para criar prescrições: agora acessível por admin, secretary e patient
+router.post("/", protect, authorize("admin", "secretary", "patient"), createPrescription);
+
 // Rotas para pacientes (protegidas, requer login de paciente)
-router.post("/", protect, authorize("patient"), createPrescription);
 router.get("/", protect, authorize("patient"), getMyPrescriptions);
 
 // Rotas para admin/secretária (protegidas, requer login de admin ou secretária)
@@ -25,3 +27,4 @@ router.get("/:id", protect, getPrescription);
 router.put("/:id/status", protect, authorize("admin", "secretary"), updatePrescriptionStatus);
 
 module.exports = router;
+
