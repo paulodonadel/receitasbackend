@@ -22,6 +22,7 @@ exports.createPrescription = async (req, res, next) => {
 
     const patientId = req.user.id;
 
+    // Validações básicas
     if (!medicationName || !prescriptionType || !deliveryMethod) {
       return res.status(400).json({ 
         success: false, 
@@ -29,6 +30,7 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
       if (!patientCPF || !patientEmail || !patientCEP || !patientAddress) {
         return res.status(400).json({
@@ -46,6 +48,7 @@ exports.createPrescription = async (req, res, next) => {
       }
     }
 
+    // Validação para receituários brancos
     if (prescriptionType !== "branco" && deliveryMethod === "email") {
       return res.status(400).json({
         success: false,
@@ -53,6 +56,7 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    // Verificar se já existe prescrição recente para o mesmo medicamento
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
@@ -69,6 +73,7 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    // Criar a prescrição
     const prescriptionData = {
       patient: patientId,
       medicationName,
@@ -125,11 +130,13 @@ exports.getAllPrescriptions = async (req, res, next) => {
     const { status, type, patientName, patientCpf, startDate, endDate, medicationName, deliveryMethod } = req.query;
     let query = {};
 
+    // Filtros básicos
     if (status) query.status = status;
     if (type) query.prescriptionType = type;
     if (medicationName) query.medicationName = { $regex: medicationName, $options: "i" };
     if (deliveryMethod) query.deliveryMethod = deliveryMethod;
 
+    // Filtro por data
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) {
@@ -142,11 +149,14 @@ exports.getAllPrescriptions = async (req, res, next) => {
       }
     }
 
+    // Filtro por paciente
     if (patientName || patientCpf) {
       let patientQueryConditions = [];
+      
       if (patientName) {
         patientQueryConditions.push({ name: { $regex: patientName, $options: "i" } });
       }
+      
       if (patientCpf) {
         patientQueryConditions.push({ 
           cpf: { 
@@ -155,17 +165,18 @@ exports.getAllPrescriptions = async (req, res, next) => {
           } 
         });
       }
+
+      const patients = await User.find({ $or: patientQueryConditions }).select("_id");
+      const patientIds = patients.map(p => p._id);
       
-      if (patientQueryConditions.length > 0) {
-        const patients = await User.find({ $or: patientQueryConditions }).select("_id");
-        const patientIds = patients.map(patient => patient._id);
-        
-        if (patientIds.length === 0 && (patientName || patientCpf)) {
-            return res.status(200).json({ success: true, count: 0, data: [] });
-        }
-        if (patientIds.length > 0) {
-            query.patient = { $in: patientIds };
-        }
+      if (patientIds.length > 0) {
+        query.patient = { $in: patientIds };
+      } else if (patientName || patientCpf) {
+        return res.status(200).json({ 
+          success: true, 
+          count: 0, 
+          data: [] 
+        });
       }
     }
 
@@ -199,6 +210,7 @@ exports.getPrescription = async (req, res, next) => {
       });
     }
 
+    // Verificar permissões
     const isOwner = prescription.patient?._id.toString() === req.user.id;
     const isAdminOrSecretary = ["admin", "secretary"].includes(req.user.role);
 
@@ -216,13 +228,16 @@ exports.getPrescription = async (req, res, next) => {
   } catch (error) {
     console.error("Erro ao obter solicitação específica:", error);
     if (error.name === "CastError") {
-        return res.status(400).json({ success: false, message: "ID da solicitação inválido." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID da solicitação inválido." 
+      });
     }
     next(error);
   }
 };
 
-// @desc    Atualizar status da solicitação (Admin/Secretária)
+// @desc    Atualizar status da solicitação
 // @route   PUT /api/prescriptions/:id/status
 // @access  Private/Admin-Secretary
 exports.updatePrescriptionStatus = async (req, res, next) => {
@@ -230,6 +245,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     const { status, internalNotes, rejectionReason } = req.body;
     const prescriptionId = req.params.id;
 
+    // Valores de status permitidos
     const validStatus = ["em_analise", "aprovada", "rejeitada", "pronta", "enviada"];
     if (!status || !validStatus.includes(status)) {
       return res.status(400).json({
@@ -250,67 +266,34 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 
     const oldStatus = prescription.status;
     prescription.status = status;
+    
     if (internalNotes !== undefined) {
       prescription.internalNotes = internalNotes;
     }
-    prescription.rejectionReason = (status === "rejeitada" && rejectionReason) ? rejectionReason : undefined;
+    
+    if (status === "rejeitada" && rejectionReason) {
+      prescription.rejectionReason = rejectionReason;
+    } else {
+      prescription.rejectionReason = undefined;
+    }
 
-    const now = Date.now();
-    if (status === "aprovada" && !prescription.approvedAt) prescription.approvedAt = now;
-    if (status === "pronta" && !prescription.readyAt) prescription.readyAt = now;
-    if (status === "enviada" && !prescription.sentAt) prescription.sentAt = now;
+    // Registrar timestamps de mudança de status
+    const now = new Date();
+    if (status === "aprovada" && !prescription.approvedAt) {
+      prescription.approvedAt = now;
+    }
+    if (status === "pronta" && !prescription.readyAt) {
+      prescription.readyAt = now;
+    }
+    if (status === "enviada" && !prescription.sentAt) {
+      prescription.sentAt = now;
+    }
 
     const updatedPrescription = await prescription.save();
 
-    if (updatedPrescription.patient && updatedPrescription.patient.email && oldStatus !== status) {
-      let emailSubject = "Atualização sobre sua Solicitação de Receita";
-      let emailText = `Olá ${updatedPrescription.patient.name},\n\nO status da sua solicitação de receita para ${updatedPrescription.medicationName} foi atualizado para: ${status.replace("_", " ").toUpperCase()}.
-`;
-      let emailHtml = `<p>Olá ${updatedPrescription.patient.name},</p><p>O status da sua solicitação de receita para <strong>${updatedPrescription.medicationName}</strong> foi atualizado para: <strong>${status.replace("_", " ").toUpperCase()}</strong>.</p>`;
-
-      switch (status) {
-        case "aprovada":
-          emailSubject = "Sua solicitação de receita foi APROVADA";
-          const deliveryMsg = prescription.deliveryMethod === "email" && prescription.prescriptionType === "branco"
-            ? "Ela será enviada para o seu e-mail em breve."
-            : "Ela estará disponível para retirada na clínica em até 5 dias úteis.";
-          emailText += `\n${deliveryMsg}\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-          emailHtml += `<p>${deliveryMsg}</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          break;
-        case "rejeitada":
-          emailSubject = "Sua solicitação de receita foi REJEITADA";
-          const reason = updatedPrescription.rejectionReason || "Não especificado.";
-          emailText += `\nMotivo: ${reason}\n\nPor favor, entre em contato com a clínica para mais informações.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-          emailHtml += `<p>Motivo: ${reason}</p><p>Por favor, entre em contato com a clínica para mais informações.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          break;
-        case "pronta":
-          if (prescription.deliveryMethod === "retirar_clinica") {
-            emailSubject = "Sua receita está PRONTA para retirada";
-            emailText += `\nSua receita está pronta e disponível para retirada na clínica.\nLembre-se que o prazo para retirada é de 5 dias úteis.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-            emailHtml += `<p>Sua receita está pronta e disponível para retirada na clínica.<br/>Lembre-se que o prazo para retirada é de 5 dias úteis.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          }
-          break;
-        case "enviada":
-          if (prescription.deliveryMethod === "email" && prescription.prescriptionType === "branco") {
-            emailSubject = "Sua receita foi ENVIADA por e-mail";
-            emailText += `\nSua receita para ${prescription.medicationName} foi enviada para o seu e-mail (${updatedPrescription.patient.email}). Verifique sua caixa de entrada e spam.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-            emailHtml += `<p>Sua receita para <strong>${prescription.medicationName}</strong> foi enviada para o seu e-mail (${updatedPrescription.patient.email}). Verifique sua caixa de entrada e spam.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          }
-          break;
-        default:
-          emailText += `\n\nPara mais detalhes, acesse o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-          emailHtml += `<p>Para mais detalhes, acesse o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-          break;
-      }
-
-      if (emailSubject && emailText && emailHtml) {
-        try {
-          await emailService.sendEmail(updatedPrescription.patient.email, emailSubject, emailText, emailHtml);
-          console.log(`Email de notificação de status (${status}) enviado para ${updatedPrescription.patient.email}`);
-        } catch (emailError) {
-          console.error(`Erro ao enviar e-mail de notificação de status (${status}) para ${updatedPrescription.patient.email}:`, emailError);
-        }
-      }
+    // Enviar e-mail de notificação se o status mudou
+    if (updatedPrescription.patient?.email && oldStatus !== status) {
+      await sendStatusChangeEmail(updatedPrescription, oldStatus);
     }
 
     res.status(200).json({
@@ -320,11 +303,59 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
   } catch (error) {
     console.error("Erro ao atualizar status da solicitação:", error);
     if (error.name === "CastError") {
-        return res.status(400).json({ success: false, message: "ID da solicitação inválido." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID da solicitação inválido." 
+      });
     }
     next(error);
   }
 };
+
+// Função auxiliar para enviar e-mail de mudança de status
+async function sendStatusChangeEmail(prescription, oldStatus) {
+  try {
+    let emailSubject, emailText, emailHtml;
+
+    const statusDisplay = prescription.status.replace("_", " ").toUpperCase();
+    const patientName = prescription.patient.name;
+    const medicationName = prescription.medicationName;
+
+    switch (prescription.status) {
+      case "aprovada":
+        emailSubject = "Sua solicitação de receita foi APROVADA";
+        const deliveryMsg = prescription.deliveryMethod === "email" && prescription.prescriptionType === "branco"
+          ? "Ela será enviada para o seu e-mail em breve."
+          : "Ela estará disponível para retirada na clínica em até 5 dias úteis.";
+        
+        emailText = `Olá ${patientName},\n\nSua solicitação para ${medicationName} foi APROVADA.\n${deliveryMsg}\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+        emailHtml = `<p>Olá ${patientName},</p><p>Sua solicitação para <strong>${medicationName}</strong> foi <strong>APROVADA</strong>.</p><p>${deliveryMsg}</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+        break;
+
+      case "rejeitada":
+        emailSubject = "Sua solicitação de receita foi REJEITADA";
+        const reason = prescription.rejectionReason || "Motivo não especificado.";
+        
+        emailText = `Olá ${patientName},\n\nSua solicitação para ${medicationName} foi REJEITADA.\nMotivo: ${reason}\n\nPor favor, entre em contato para mais informações.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+        emailHtml = `<p>Olá ${patientName},</p><p>Sua solicitação para <strong>${medicationName}</strong> foi <strong>REJEITADA</strong>.</p><p>Motivo: ${reason}</p><p>Por favor, entre em contato para mais informações.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+        break;
+
+      default:
+        emailSubject = `Atualização no status da sua receita: ${statusDisplay}`;
+        emailText = `Olá ${patientName},\n\nO status da sua solicitação para ${medicationName} foi alterado para: ${statusDisplay}.\n\nPara mais detalhes, acesse o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+        emailHtml = `<p>Olá ${patientName},</p><p>O status da sua solicitação para <strong>${medicationName}</strong> foi alterado para: <strong>${statusDisplay}</strong>.</p><p>Para mais detalhes, acesse o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+    }
+
+    await emailService.sendEmail(
+      prescription.patient.email,
+      emailSubject,
+      emailText,
+      emailHtml
+    );
+  } catch (emailError) {
+    console.error("Erro ao enviar e-mail de notificação:", emailError);
+  }
+}
 
 // @desc    Criar nova solicitação de receita (Admin)
 // @route   POST /api/prescriptions/admin
@@ -349,21 +380,24 @@ exports.createPrescriptionByAdmin = async (req, res, next) => {
       internalNotes
     } = req.body;
 
+    // Validações básicas
     if (!patientName || !patientCPF || !medicationName || !dosage || !prescriptionType || !deliveryMethod) {
-      return res.status(400).json({ success: false, message: "Campos obrigatórios (Nome Paciente, CPF, Medicação, Dosagem, Tipo, Envio) não preenchidos." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "Nome do paciente, CPF, medicação, dosagem, tipo e método são obrigatórios." 
+      });
     }
 
-    let patient;
-    const existingPatientByCPF = await User.findOne({ cpf: patientCPF });
-    
-    if (existingPatientByCPF) {
-        patient = existingPatientByCPF;
-        if (patientEmail && patient.email !== patientEmail) patient.email = patientEmail;
-        await patient.save();
-    } else {
-        return res.status(400).json({ success: false, message: `Paciente com CPF ${patientCPF} não encontrado. Cadastre o paciente primeiro.` });
+    // Verificar se o paciente existe
+    const patient = await User.findOne({ cpf: patientCPF });
+    if (!patient) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Paciente não encontrado. Cadastre o paciente primeiro." 
+      });
     }
 
+    // Criar a prescrição
     const prescriptionData = {
       patient: patient._id,
       patientName,
@@ -386,40 +420,57 @@ exports.createPrescriptionByAdmin = async (req, res, next) => {
 
     const newPrescription = await Prescription.create(prescriptionData);
 
+    // Enviar notificação por e-mail se aplicável
     if (patient.email && (newPrescription.status === "aprovada" || newPrescription.status === "enviada")) {
-        let emailSubject = "Uma nova receita foi emitida para você";
-        let emailText = `Olá ${patient.name},\n\nUma nova receita para ${newPrescription.medicationName} foi emitida em seu nome pelo consultório.
-Status: ${newPrescription.status.replace("_", " ").toUpperCase()}.
-`;
-        let emailHtml = `<p>Olá ${patient.name},</p><p>Uma nova receita para <strong>${newPrescription.medicationName}</strong> foi emitida em seu nome pelo consultório.<br/>Status: <strong>${newPrescription.status.replace("_", " ").toUpperCase()}</strong>.</p>`;
-
-        if (newPrescription.status === "aprovada") {
-            const deliveryMsg = newPrescription.deliveryMethod === "email" && newPrescription.prescriptionType === "branco"
-              ? "Ela será enviada para o seu e-mail em breve."
-              : "Ela estará disponível para retirada na clínica em até 5 dias úteis.";
-            emailText += `\n${deliveryMsg}`;
-            emailHtml += `<p>${deliveryMsg}</p>`;
-        } else if (newPrescription.status === "enviada" && newPrescription.deliveryMethod === "email" && newPrescription.prescriptionType === "branco") {
-            emailText += `\nA receita foi enviada para o seu e-mail (${patient.email}). Verifique sua caixa de entrada e spam.`;
-            emailHtml += `<p>A receita foi enviada para o seu e-mail (${patient.email}). Verifique sua caixa de entrada e spam.</p>`;
-        }
-        emailText += `\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-        emailHtml += `<p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-        
-        try {
-            await emailService.sendEmail(patient.email, emailSubject, emailText, emailHtml);
-        } catch (emailError) {
-            console.error("Erro ao notificar paciente sobre receita criada por admin:", emailError);
-        }
+      await sendAdminCreatedEmail(newPrescription, patient);
     }
 
-    res.status(201).json({ success: true, data: newPrescription });
+    res.status(201).json({ 
+      success: true, 
+      data: newPrescription 
+    });
 
   } catch (error) {
     console.error("Erro ao criar solicitação pelo admin:", error);
     next(error);
   }
 };
+
+// Função auxiliar para enviar e-mail quando admin cria prescrição
+async function sendAdminCreatedEmail(prescription, patient) {
+  try {
+    let emailSubject, emailText, emailHtml;
+
+    const statusDisplay = prescription.status.replace("_", " ").toUpperCase();
+    const patientName = patient.name;
+    const medicationName = prescription.medicationName;
+
+    if (prescription.status === "aprovada") {
+      emailSubject = "Nova receita criada pelo consultório";
+      const deliveryMsg = prescription.deliveryMethod === "email" && prescription.prescriptionType === "branco"
+        ? "Ela será enviada para o seu e-mail em breve."
+        : "Ela estará disponível para retirada na clínica em até 5 dias úteis.";
+      
+      emailText = `Olá ${patientName},\n\nUma nova receita para ${medicationName} foi criada pelo consultório.\nStatus: ${statusDisplay}\n${deliveryMsg}\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      emailHtml = `<p>Olá ${patientName},</p><p>Uma nova receita para <strong>${medicationName}</strong> foi criada pelo consultório.</p><p>Status: <strong>${statusDisplay}</strong></p><p>${deliveryMsg}</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+    } else if (prescription.status === "enviada") {
+      emailSubject = "Receita enviada pelo consultório";
+      emailText = `Olá ${patientName},\n\nSua receita para ${medicationName} foi enviada para ${patient.email}.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      emailHtml = `<p>Olá ${patientName},</p><p>Sua receita para <strong>${medicationName}</strong> foi enviada para ${patient.email}.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+    }
+
+    if (emailSubject) {
+      await emailService.sendEmail(
+        patient.email,
+        emailSubject,
+        emailText,
+        emailHtml
+      );
+    }
+  } catch (emailError) {
+    console.error("Erro ao enviar e-mail de criação por admin:", emailError);
+  }
+}
 
 // @desc    Atualizar solicitação de receita (Admin)
 // @route   PUT /api/prescriptions/admin/:id
@@ -429,75 +480,59 @@ exports.updatePrescriptionByAdmin = async (req, res, next) => {
     const prescriptionId = req.params.id;
     const updateData = req.body;
 
-    const prescription = await Prescription.findById(prescriptionId).populate("patient", "email name");
+    const prescription = await Prescription.findById(prescriptionId)
+      .populate("patient", "name email");
 
     if (!prescription) {
-      return res.status(404).json({ success: false, message: "Solicitação não encontrada." });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Solicitação não encontrada." 
+      });
     }
-
-    const allowedUpdates = [
-        "patientName", "patientCPF", "medicationName", "dosage", "numberOfBoxes", 
-        "prescriptionType", "deliveryMethod", "observations", "status", 
-        "patientEmail", "patientCEP", "patientAddress", "patientPhone", 
-        "patientBirthDate", "internalNotes", "rejectionReason"
-    ];
 
     const oldStatus = prescription.status;
     let patientEmailForNotification = prescription.patient?.email;
 
+    // Campos permitidos para atualização
+    const allowedUpdates = [
+      "patientName", "patientCPF", "medicationName", "dosage", "numberOfBoxes",
+      "prescriptionType", "deliveryMethod", "observations", "status",
+      "patientEmail", "patientCEP", "patientAddress", "patientPhone",
+      "patientBirthDate", "internalNotes", "rejectionReason"
+    ];
+
+    // Aplicar atualizações
     for (const key in updateData) {
-        if (allowedUpdates.includes(key)) {
-            prescription[key] = updateData[key];
-            if (key === "patientEmail" && updateData[key]) {
-                patientEmailForNotification = updateData[key];
-            }
+      if (allowedUpdates.includes(key)) {
+        prescription[key] = updateData[key];
+        if (key === "patientEmail") {
+          patientEmailForNotification = updateData[key];
         }
+      }
     }
+
     prescription.updatedBy = req.user.id;
-    prescription.updatedAt = Date.now();
+    prescription.updatedAt = new Date();
 
     const updatedPrescription = await prescription.save();
 
-    if (patientEmailForNotification && prescription.status !== oldStatus) {
-        let emailSubject = "Atualização sobre sua Solicitação de Receita";
-        let emailText = `Olá ${updatedPrescription.patientName || prescription.patient?.name},\n\nO status da sua solicitação de receita para ${updatedPrescription.medicationName} foi atualizado para: ${updatedPrescription.status.replace("_", " ").toUpperCase()}.
-`;
-        let emailHtml = `<p>Olá ${updatedPrescription.patientName || prescription.patient?.name},</p><p>O status da sua solicitação de receita para <strong>${updatedPrescription.medicationName}</strong> foi atualizado para: <strong>${updatedPrescription.status.replace("_", " ").toUpperCase()}</strong>.</p>`;
-
-        switch (updatedPrescription.status) {
-            case "aprovada":
-              emailSubject = "Sua solicitação de receita foi APROVADA";
-              const deliveryMsg = updatedPrescription.deliveryMethod === "email" && updatedPrescription.prescriptionType === "branco"
-                ? "Ela será enviada para o seu e-mail em breve."
-                : "Ela estará disponível para retirada na clínica em até 5 dias úteis.";
-              emailText += `\n${deliveryMsg}`;
-              emailHtml += `<p>${deliveryMsg}</p>`;
-              break;
-            case "rejeitada":
-              emailSubject = "Sua solicitação de receita foi REJEITADA";
-              const reason = updatedPrescription.rejectionReason || "Não especificado.";
-              emailText += `\nMotivo: ${reason}`;
-              emailHtml += `<p>Motivo: ${reason}</p>`;
-              break;
-        }
-        emailText += `\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-        emailHtml += `<p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
-
-        if (emailSubject && emailText && emailHtml) {
-            try {
-                await emailService.sendEmail(patientEmailForNotification, emailSubject, emailText, emailHtml);
-            } catch (emailError) {
-                console.error("Erro ao notificar paciente sobre atualização por admin:", emailError);
-            }
-        }
+    // Enviar notificação por e-mail se o status mudou
+    if (patientEmailForNotification && updatedPrescription.status !== oldStatus) {
+      await sendStatusChangeEmail(updatedPrescription, oldStatus);
     }
 
-    res.status(200).json({ success: true, data: updatedPrescription });
+    res.status(200).json({ 
+      success: true, 
+      data: updatedPrescription 
+    });
 
   } catch (error) {
     console.error("Erro ao atualizar solicitação pelo admin:", error);
     if (error.name === "CastError") {
-        return res.status(400).json({ success: false, message: "ID da solicitação inválido." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID da solicitação inválido." 
+      });
     }
     next(error);
   }
@@ -512,17 +547,26 @@ exports.deletePrescriptionByAdmin = async (req, res, next) => {
     const prescription = await Prescription.findById(prescriptionId);
 
     if (!prescription) {
-      return res.status(404).json({ success: false, message: "Solicitação não encontrada." });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Solicitação não encontrada." 
+      });
     }
 
     await prescription.deleteOne();
 
-    res.status(200).json({ success: true, message: "Solicitação excluída com sucesso." });
+    res.status(200).json({ 
+      success: true, 
+      message: "Solicitação excluída com sucesso." 
+    });
 
   } catch (error) {
     console.error("Erro ao excluir solicitação pelo admin:", error);
     if (error.name === "CastError") {
-        return res.status(400).json({ success: false, message: "ID da solicitação inválido." });
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID da solicitação inválido." 
+      });
     }
     next(error);
   }
