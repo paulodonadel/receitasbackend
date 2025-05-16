@@ -1,18 +1,52 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-// Corrigido: Caminhos de importação ajustados para a estrutura atual dentro de src/
-const { register, login, getMe, createAdminUser } = require("./auth.controller");
-const { protect, authorize } = require('./middlewares');
+const {
+  register,
+  login,
+  getMe,
+  updateDetails,
+  updatePassword,
+  forgotPassword,
+  resetPassword,
+  createAdminUser,
+  logout,
+  confirmEmail,
+  resendConfirmationEmail
+} = require('./auth.controller');
+const { protect, authorize } = require('./middlewares/auth.middleware');
+const { validate } = require('./middlewares/validation.middleware');
+const {
+  registerSchema,
+  loginSchema,
+  updateDetailsSchema,
+  updatePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  emailConfirmationSchema
+} = require('./validations/auth.validation');
+
 // Rotas públicas
-router.post("/register", register);
-router.post("/login", login);
+router.post('/register', validate(registerSchema), register);
+router.post('/login', validate(loginSchema), login);
+router.get('/confirm-email/:token', validate(emailConfirmationSchema), confirmEmail);
+router.post('/resend-confirmation', validate(emailConfirmationSchema), resendConfirmationEmail);
+router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
+router.put('/reset-password/:resettoken', validate(resetPasswordSchema), resetPassword);
 
-// Rotas protegidas
-router.get("/me", protect, getMe);
+// Rotas protegidas (requerem autenticação)
+router.get('/me', protect, getMe);
+router.put('/updatedetails', protect, validate(updateDetailsSchema), updateDetails);
+router.put('/updatepassword', protect, validate(updatePasswordSchema), updatePassword);
+router.get('/logout', protect, logout);
 
-// Rota protegida e autorizada apenas para admin
-// A criação de admin pode ser uma rota especial ou um script separado, dependendo da necessidade.
-// Se for uma rota, garantir que esteja bem protegida.
-router.post("/admin/create", protect, authorize("admin"), createAdminUser);
+// Rotas administrativas (requerem role 'admin')
+router.post('/admin/create', protect, authorize('admin'), validate(registerSchema), createAdminUser);
+
+// Rotas para desenvolvimento (pode ser removido em produção)
+if (process.env.NODE_ENV === 'development') {
+  const devController = require('./auth.dev.controller');
+  router.post('/dev/create-test-users', devController.createTestUsers);
+  router.delete('/dev/clean-test-data', protect, authorize('admin'), devController.cleanTestData);
+}
 
 module.exports = router;
