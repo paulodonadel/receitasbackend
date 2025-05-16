@@ -1,35 +1,11 @@
-const Prescription = require("./prescription.model");
-const User = require("./user.model");
-const emailService = require("./emailService");
-const { logActivity } = require("./utils/activityLogger");
-
-// Helper para validação de CPF
-const validateCPF = (cpf) => {
-  cpf = cpf.replace(/[^\d]/g, '');
-  if (cpf.length !== 11) return false;
-  
-  // Validação dos dígitos verificadores
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(cpf.charAt(i)) * (10 - i);
-  }
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(9))) return false;
-
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(cpf.charAt(i)) * (11 - i);
-  }
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(cpf.charAt(10))) return false;
-
-  return true;
-};
+const Prescription = require("../models/prescription.model");
+const User = require("../models/user.model");
+const emailService = require("../services/emailService");
+const { logActivity } = require("../utils/activityLogger");
+const { validateCPF } = require("../utils/validationUtils");
 
 // @desc    Criar nova solicitação de receita
-// @route   POST /api/prescriptions
+// @route   POST /api/receitas
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
   try {
@@ -61,7 +37,8 @@ exports.createPrescription = async (req, res, next) => {
     if (missingFields.length > 0) {
       return res.status(400).json({ 
         success: false, 
-        message: missingFields.join(", ") 
+        message: missingFields.join(", "),
+        errorCode: "MISSING_REQUIRED_FIELDS"
       });
     }
 
@@ -81,14 +58,16 @@ exports.createPrescription = async (req, res, next) => {
       if (missingEmailFields.length > 0) {
         return res.status(400).json({
           success: false,
-          message: missingEmailFields.join(", ")
+          message: missingEmailFields.join(", "),
+          errorCode: "MISSING_EMAIL_FIELDS"
         });
       }
 
       if (!validateCPF(patientCPF)) {
         return res.status(400).json({
           success: false,
-          message: "CPF inválido"
+          message: "CPF inválido",
+          errorCode: "INVALID_CPF"
         });
       }
 
@@ -96,7 +75,8 @@ exports.createPrescription = async (req, res, next) => {
       if (!emailRegex.test(patientEmail)) {
         return res.status(400).json({
           success: false,
-          message: "E-mail inválido"
+          message: "E-mail inválido",
+          errorCode: "INVALID_EMAIL"
         });
       }
     }
@@ -106,7 +86,17 @@ exports.createPrescription = async (req, res, next) => {
     if (!patient) {
       return res.status(404).json({
         success: false,
-        message: "Paciente não encontrado"
+        message: "Paciente não encontrado",
+        errorCode: "PATIENT_NOT_FOUND"
+      });
+    }
+
+    // Verificar se o paciente tem permissão para criar receitas
+    if (patient.role !== "patient") {
+      return res.status(403).json({
+        success: false,
+        message: "Apenas pacientes podem criar solicitações de receita",
+        errorCode: "UNAUTHORIZED_ROLE"
       });
     }
 
@@ -139,8 +129,32 @@ exports.createPrescription = async (req, res, next) => {
       user: req.user.id,
       action: 'create_prescription',
       details: `Prescrição criada para ${medicationName}`,
-      prescription: prescription._id
+      prescription: prescription._id,
+      metadata: {
+        medication: medicationName,
+        type: prescriptionType
+      }
     });
+
+    // Tentar enviar e-mail de confirmação (não bloqueante)
+    try {
+      await emailService.sendPrescriptionConfirmation({
+        to: patient.email,
+        prescriptionId: prescription._id,
+        patientName: patient.name,
+        medicationName,
+        status: "solicitada"
+      });
+    } catch (emailError) {
+      console.error("Erro ao enviar e-mail de confirmação:", emailError);
+      await logActivity({
+        user: req.user.id,
+        action: 'email_failed',
+        details: `Falha ao enviar e-mail para ${patient.email}`,
+        prescription: prescription._id,
+        error: emailError.message
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -150,16 +164,26 @@ exports.createPrescription = async (req, res, next) => {
 
   } catch (error) {
     console.error("Erro ao criar solicitação:", error);
+    
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Erro de validação",
+        errors: Object.values(error.errors).map(err => err.message),
+        errorCode: "VALIDATION_ERROR"
+      });
+    }
+    
     next(error);
   }
 };
 
 // @desc    Obter minhas solicitações (para paciente)
-// @route   GET /api/prescriptions/me
+// @route   GET /api/receitas/me
 // @access  Private/Patient
 exports.getMyPrescriptions = async (req, res, next) => {
   try {
-    const { status, startDate, endDate } = req.query;
+    const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
     const query = { patient: req.user.id };
 
     if (status) query.status = status;
@@ -170,12 +194,21 @@ exports.getMyPrescriptions = async (req, res, next) => {
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
+    // Configuração de paginação
+    const skip = (page - 1) * limit;
+    const total = await Prescription.countDocuments(query);
+
     const prescriptions = await Prescription.find(query)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
 
     res.status(200).json({
       success: true,
       count: prescriptions.length,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
       data: prescriptions
     });
   } catch (error) {
@@ -185,7 +218,7 @@ exports.getMyPrescriptions = async (req, res, next) => {
 };
 
 // @desc    Obter todas as solicitações (para admin/secretária com filtros)
-// @route   GET /api/prescriptions
+// @route   GET /api/receitas
 // @access  Private/Admin-Secretary
 exports.getAllPrescriptions = async (req, res, next) => {
   try {
@@ -197,7 +230,9 @@ exports.getAllPrescriptions = async (req, res, next) => {
       startDate, 
       endDate, 
       medicationName, 
-      deliveryMethod 
+      deliveryMethod,
+      page = 1,
+      limit = 20
     } = req.query;
     
     let query = {};
@@ -243,26 +278,43 @@ exports.getAllPrescriptions = async (req, res, next) => {
         return res.status(200).json({ 
           success: true, 
           count: 0, 
+          total: 0,
           data: [] 
         });
       }
     }
 
+    // Configuração de paginação
+    const skip = (page - 1) * limit;
+    const total = await Prescription.countDocuments(query);
+
     const prescriptions = await Prescription.find(query)
       .populate("patient", "name email cpf")
       .populate("createdBy", "name role")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
 
     // Log de atividade
     await logActivity({
       user: req.user.id,
       action: 'view_prescriptions',
-      details: `Visualizou ${prescriptions.length} prescrições`
+      details: `Visualizou ${prescriptions.length} prescrições`,
+      filters: {
+        status,
+        type,
+        patientName,
+        startDate,
+        endDate
+      }
     });
 
     res.status(200).json({
       success: true,
       count: prescriptions.length,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
       data: prescriptions
     });
   } catch (error) {
@@ -272,7 +324,7 @@ exports.getAllPrescriptions = async (req, res, next) => {
 };
 
 // @desc    Obter uma solicitação específica por ID
-// @route   GET /api/prescriptions/:id
+// @route   GET /api/receitas/:id
 // @access  Private (Paciente dono, Admin, Secretária)
 exports.getPrescription = async (req, res, next) => {
   try {
@@ -284,7 +336,8 @@ exports.getPrescription = async (req, res, next) => {
     if (!prescription) {
       return res.status(404).json({
         success: false,
-        message: "Solicitação de receita não encontrada."
+        message: "Solicitação de receita não encontrada.",
+        errorCode: "PRESCRIPTION_NOT_FOUND"
       });
     }
 
@@ -295,7 +348,8 @@ exports.getPrescription = async (req, res, next) => {
     if (!isOwner && !isAdminOrSecretary) {
       return res.status(403).json({
         success: false,
-        message: "Não autorizado a acessar esta solicitação."
+        message: "Não autorizado a acessar esta solicitação.",
+        errorCode: "UNAUTHORIZED_ACCESS"
       });
     }
 
@@ -304,7 +358,8 @@ exports.getPrescription = async (req, res, next) => {
       user: req.user.id,
       action: 'view_prescription',
       details: `Visualizou prescrição ${prescription._id}`,
-      prescription: prescription._id
+      prescription: prescription._id,
+      accessedAs: isOwner ? "patient" : req.user.role
     });
 
     res.status(200).json({
@@ -316,7 +371,8 @@ exports.getPrescription = async (req, res, next) => {
     if (error.name === "CastError") {
       return res.status(400).json({ 
         success: false, 
-        message: "ID inválido." 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
       });
     }
     next(error);
@@ -324,7 +380,7 @@ exports.getPrescription = async (req, res, next) => {
 };
 
 // @desc    Atualizar status da solicitação
-// @route   PATCH /api/prescriptions/:id/status
+// @route   PATCH /api/receitas/:id/status
 // @access  Private/Admin-Secretary
 exports.updatePrescriptionStatus = async (req, res, next) => {
   try {
@@ -335,7 +391,8 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     if (!status || !validStatus.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status inválido. Valores permitidos: " + validStatus.join(", ")
+        message: "Status inválido. Valores permitidos: " + validStatus.join(", "),
+        errorCode: "INVALID_STATUS"
       });
     }
 
@@ -343,15 +400,19 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     if (status === "rejeitada" && (!rejectionReason || rejectionReason.trim().length < 5)) {
       return res.status(400).json({
         success: false,
-        message: "Motivo da rejeição é obrigatório e deve ter pelo menos 5 caracteres"
+        message: "Motivo da rejeição é obrigatório e deve ter pelo menos 5 caracteres",
+        errorCode: "MISSING_REJECTION_REASON"
       });
     }
 
-    const prescription = await Prescription.findById(prescriptionId);
+    const prescription = await Prescription.findById(prescriptionId)
+      .populate("patient", "name email");
+      
     if (!prescription) {
       return res.status(404).json({
         success: false,
-        message: "Solicitação não encontrada."
+        message: "Solicitação não encontrada.",
+        errorCode: "PRESCRIPTION_NOT_FOUND"
       });
     }
 
@@ -375,18 +436,30 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     const updatedPrescription = await prescription.save();
 
     // Notificar paciente por e-mail se o status mudou
-    if (oldStatus !== status && prescription.patientEmail) {
+    if (oldStatus !== status) {
       try {
-        await emailService.sendStatusUpdateEmail({
-          to: prescription.patientEmail,
-          prescriptionId: prescription._id,
-          medicationName: prescription.medicationName,
-          oldStatus,
-          newStatus: status,
-          rejectionReason
-        });
+        const emailTo = prescription.patient?.email || prescription.patientEmail;
+        if (emailTo) {
+          await emailService.sendStatusUpdateEmail({
+            to: emailTo,
+            prescriptionId: prescription._id,
+            patientName: prescription.patient?.name || prescription.patientName,
+            medicationName: prescription.medicationName,
+            oldStatus,
+            newStatus: status,
+            rejectionReason,
+            updatedBy: req.user.name
+          });
+        }
       } catch (emailError) {
         console.error("Erro ao enviar e-mail:", emailError);
+        await logActivity({
+          user: req.user.id,
+          action: 'email_failed',
+          details: `Falha ao enviar e-mail de atualização de status para prescrição ${prescription._id}`,
+          prescription: prescription._id,
+          error: emailError.message
+        });
       }
     }
 
@@ -395,7 +468,11 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
       user: req.user.id,
       action: 'update_prescription_status',
       details: `Status alterado de ${oldStatus} para ${status}`,
-      prescription: prescription._id
+      prescription: prescription._id,
+      statusChange: {
+        from: oldStatus,
+        to: status
+      }
     });
 
     res.status(200).json({
@@ -408,7 +485,8 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     if (error.name === "CastError") {
       return res.status(400).json({ 
         success: false, 
-        message: "ID inválido." 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
       });
     }
     next(error);
@@ -416,8 +494,8 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 };
 
 // @desc    Criar/atualizar solicitação (Admin)
-// @route   POST /api/prescriptions/admin
-// @route   PUT /api/prescriptions/admin/:id
+// @route   POST /api/receitas/admin
+// @route   PUT /api/receitas/admin/:id
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
   try {
@@ -440,7 +518,8 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (missingFields.length > 0) {
       return res.status(400).json({ 
         success: false, 
-        message: missingFields.join(", ") 
+        message: missingFields.join(", "),
+        errorCode: "MISSING_REQUIRED_FIELDS"
       });
     }
 
@@ -458,14 +537,16 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       if (missingEmailFields.length > 0) {
         return res.status(400).json({
           success: false,
-          message: missingEmailFields.join(", ")
+          message: missingEmailFields.join(", "),
+          errorCode: "MISSING_EMAIL_FIELDS"
         });
       }
 
       if (!validateCPF(data.patientCPF)) {
         return res.status(400).json({
           success: false,
-          message: "CPF inválido"
+          message: "CPF inválido",
+          errorCode: "INVALID_CPF"
         });
       }
     }
@@ -489,7 +570,8 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       if (!patient) {
         return res.status(404).json({
           success: false,
-          message: "Paciente não encontrado"
+          message: "Paciente não encontrado",
+          errorCode: "PATIENT_NOT_FOUND"
         });
       }
 
@@ -507,7 +589,8 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (!prescription) {
       return res.status(404).json({ 
         success: false, 
-        message: "Prescrição não encontrada." 
+        message: "Prescrição não encontrada.",
+        errorCode: "PRESCRIPTION_NOT_FOUND"
       });
     }
 
@@ -518,7 +601,8 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       details: id ? 
         `Atualizou prescrição ${prescription._id}` : 
         `Criou prescrição para ${prescription.patientName}`,
-      prescription: prescription._id
+      prescription: prescription._id,
+      isAdminAction: true
     });
 
     res.status(id ? 200 : 201).json({ 
@@ -534,22 +618,34 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (error.name === "CastError") {
       return res.status(400).json({ 
         success: false, 
-        message: "ID inválido." 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
       });
     }
+    
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Erro de validação",
+        errors: Object.values(error.errors).map(err => err.message),
+        errorCode: "VALIDATION_ERROR"
+      });
+    }
+    
     next(error);
   }
 };
 
 // @desc    Excluir solicitação
-// @route   DELETE /api/prescriptions/:id
+// @route   DELETE /api/receitas/:id
 // @access  Private/Admin
 exports.deletePrescription = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ 
         success: false, 
-        message: "Apenas administradores podem excluir prescrições." 
+        message: "Apenas administradores podem excluir prescrições.",
+        errorCode: "UNAUTHORIZED_ROLE"
       });
     }
 
@@ -558,7 +654,8 @@ exports.deletePrescription = async (req, res, next) => {
     if (!prescription) {
       return res.status(404).json({ 
         success: false, 
-        message: "Solicitação não encontrada." 
+        message: "Solicitação não encontrada.",
+        errorCode: "PRESCRIPTION_NOT_FOUND"
       });
     }
 
@@ -580,7 +677,8 @@ exports.deletePrescription = async (req, res, next) => {
     if (error.name === "CastError") {
       return res.status(400).json({ 
         success: false, 
-        message: "ID inválido." 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
       });
     }
     next(error);
@@ -588,11 +686,11 @@ exports.deletePrescription = async (req, res, next) => {
 };
 
 // @desc    Exportar prescrições
-// @route   GET /api/prescriptions/export
+// @route   GET /api/receitas/export
 // @access  Private/Admin-Secretary
 exports.exportPrescriptions = async (req, res, next) => {
   try {
-    const { format = 'excel', ...queryParams } = req.query;
+    const { format = 'json', ...queryParams } = req.query;
     
     // Reutiliza a lógica de filtro do getAllPrescriptions
     const query = {};
@@ -620,8 +718,7 @@ exports.exportPrescriptions = async (req, res, next) => {
       .populate("createdBy", "name")
       .sort({ createdAt: -1 });
 
-    // Aqui você implementaria a geração do arquivo de exportação
-    // Esta é uma simulação que retorna os dados em JSON
+    // Formatando os dados para exportação
     const exportData = prescriptions.map(prescription => ({
       ID: prescription._id,
       Paciente: prescription.patient?.name || prescription.patientName,
@@ -630,17 +727,22 @@ exports.exportPrescriptions = async (req, res, next) => {
       Dosagem: prescription.dosage,
       Tipo: prescription.prescriptionType,
       Status: prescription.status,
-      "Data Criação": prescription.createdAt.toISOString().split('T')[0],
-      "Criado Por": prescription.createdBy?.name || 'Sistema'
+      "Método Entrega": prescription.deliveryMethod,
+      "Data Criação": prescription.createdAt.toISOString(),
+      "Criado Por": prescription.createdBy?.name || 'Sistema',
+      "Observações": prescription.observations,
+      "Motivo Rejeição": prescription.rejectionReason
     }));
 
     // Log de atividade
     await logActivity({
       user: req.user.id,
       action: 'export_prescriptions',
-      details: `Exportou ${prescriptions.length} prescrições no formato ${format}`
+      details: `Exportou ${prescriptions.length} prescrições no formato ${format}`,
+      filters: queryParams
     });
 
+    // Retorna em formato JSON (poderia ser adaptado para CSV/Excel)
     res.status(200).json({
       success: true,
       format,
@@ -650,6 +752,66 @@ exports.exportPrescriptions = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao exportar prescrições:", error);
+    next(error);
+  }
+};
+
+// @desc    Obter estatísticas de prescrições
+// @route   GET /api/receitas/stats
+// @access  Private/Admin
+exports.getPrescriptionStats = async (req, res, next) => {
+  try {
+    // Estatísticas por status
+    const statusStats = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Estatísticas por tipo de receita
+    const typeStats = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$prescriptionType",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Estatísticas por método de entrega
+    const deliveryStats = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$deliveryMethod",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Total de prescrições
+    const total = await Prescription.countDocuments();
+
+    // Últimas 5 prescrições
+    const recentPrescriptions = await Prescription.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("patient", "name");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statusStats,
+        typeStats,
+        deliveryStats,
+        total,
+        recentPrescriptions
+      }
+    });
+  } catch (error) {
+    console.error("Erro ao obter estatísticas:", error);
     next(error);
   }
 };
