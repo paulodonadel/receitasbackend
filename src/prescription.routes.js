@@ -64,7 +64,7 @@ router.use(apiLimiter);
 
 // Rotas para pacientes
 router.post('/',
-  protect,
+  protect(true),
   authorize('patient'),
   sensitiveLimiter,
   validatePrescriptionInput,
@@ -72,7 +72,7 @@ router.post('/',
 );
 
 router.get('/me',
-  protect,
+  protect(),
   authorize('patient'),
   getMyPrescriptions
 );
