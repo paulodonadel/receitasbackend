@@ -1,51 +1,37 @@
-require("dotenv").config(); // Carrega variáveis de ambiente do .env primeiro
+require('dotenv').config();
 
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const swaggerJsdoc = require("swagger-jsdoc");
-const swaggerUi = require("swagger-ui-express");
-const path = require("path");
-const basicAuth = require("express-basic-auth");
-
-// Importar rotas
-const authRoutes = require("./routes/auth.routes");
-const prescriptionRoutes = require("./routes/prescription.routes");
-
-// Inicializar app Express
-const app = express();
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const path = require('path');
 
 // Configuração do Swagger
 const swaggerOptions = {
   definition: {
-    openapi: "3.0.0",
+    openapi: '3.0.0',
     info: {
-      title: "Sistema de Gerenciamento de Receitas Médicas",
-      version: "1.0.0",
-      description: "API para gerenciamento completo de receitas médicas",
+      title: 'Sistema de Gerenciamento de Receitas Médicas',
+      version: '1.0.0',
+      description: 'API para gerenciamento de receitas médicas',
       contact: {
-        name: "Suporte Técnico",
-        email: "suporte@receitasmedicas.com.br",
-        url: "https://receitasmedicas.com.br/suporte"
-      },
-      license: {
-        name: "MIT",
-        url: "https://opensource.org/licenses/MIT"
+        name: 'Suporte Técnico',
+        email: 'suporte@receitasmedicas.com'
       }
     },
     servers: [
       {
         url: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`,
-        description: process.env.NODE_ENV === "production" ? "Servidor de Produção" : "Servidor de Desenvolvimento"
+        description: process.env.NODE_ENV === 'production' ? 'Servidor de Produção' : 'Servidor Local'
       }
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-          description: "Insira o token JWT no formato: Bearer <token>"
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
         }
       }
     },
@@ -53,195 +39,170 @@ const swaggerOptions = {
       bearerAuth: []
     }]
   },
-  apis: ["./routes/*.js"] // Caminho para os arquivos de rotas com anotações Swagger
+  apis: ['./routes/*.js']
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// Inicializar app Express
+const app = express();
 
 // Configurar CORS
 const corsOptions = {
   origin: process.env.FRONTEND_URL || "https://sistema-receitas-frontend.onrender.com",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  credentials: true,
-  optionsSuccessStatus: 200
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
 };
 app.use(cors(corsOptions));
 
 // Middleware para parsear JSON
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Conectar ao MongoDB com tratamento melhorado de erros
+// Conectar ao MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  retryWrites: true,
-  w: "majority"
+  serverSelectionTimeoutMS: 5000
 })
-.then(() => console.log("✅ MongoDB conectado com sucesso"))
+.then(() => console.log('✅ MongoDB conectado com sucesso'))
 .catch(err => {
-  console.error("❌ Erro ao conectar ao MongoDB:", err.message);
+  console.error('❌ Erro ao conectar ao MongoDB:', err.message);
   process.exit(1);
 });
 
-// Middleware de logging para todas as requisições
+// Middleware de logging simplificado
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
-// Configuração do Swagger UI com autenticação básica em produção
-const swaggerUiOptions = {
-  customSiteTitle: "API Receitas Médicas",
-  customCss: `
-    .topbar { display: none }
-    .swagger-ui .info { margin: 20px 0 }
-    .swagger-ui .scheme-container { background: #fafafa }
-  `,
-  swaggerOptions: {
-    persistAuthorization: true,
-    docExpansion: "list"
-  }
-};
+// Configuração do Swagger UI (com fallback para produção sem autenticação)
+let swaggerAuthMiddleware = (req, res, next) => next();
 
-if (process.env.NODE_ENV === "production") {
-  app.use("/api-docs", 
-    basicAuth({
+if (process.env.NODE_ENV === 'production') {
+  try {
+    const basicAuth = require('express-basic-auth');
+    swaggerAuthMiddleware = basicAuth({
       users: { 
-        [process.env.SWAGGER_USER || "admin"]: process.env.SWAGGER_PASSWORD || "admin123" 
+        admin: process.env.SWAGGER_PASSWORD || 'admin123'
       },
-      challenge: true,
-      realm: "Swagger Documentation"
-    }),
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerSpec, swaggerUiOptions)
-  );
-} else {
-  app.use("/api-docs", 
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerSpec, swaggerUiOptions)
-  );
+      challenge: true
+    });
+    console.log('🔒 Swagger UI protegido com autenticação básica');
+  } catch (e) {
+    console.warn('⚠️ express-basic-auth não instalado. Swagger UI sem proteção!');
+  }
 }
 
-// Rota para obter a especificação Swagger em JSON
-app.get("/api-docs.json", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
+app.use('/api-docs', 
+  swaggerAuthMiddleware,
+  swaggerUi.serve, 
+  swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'API Receitas Médicas',
+    swaggerOptions: {
+      persistAuthorization: true
+    }
+  })
+);
+
+// Rota para obter especificação Swagger em JSON
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
 
-// Montar rotas da API
-app.use("/api/auth", authRoutes);
-app.use("/api/receitas", prescriptionRoutes);
+// Importar e usar rotas
+const authRoutes = require('./routes/auth.routes');
+const prescriptionRoutes = require('./routes/prescription.routes');
+app.use('/api/auth', authRoutes);
+app.use('/api/receitas', prescriptionRoutes);
 
-// Rota raiz para teste básico da API
-app.get("/", (req, res) => {
-  res.json({ 
+// Rota raiz
+app.get('/', (req, res) => {
+  res.json({
     success: true,
-    message: "API do Sistema de Gerenciamento de Receitas Médicas está operacional",
-    version: "1.0.0",
-    environment: process.env.NODE_ENV || "development",
-    documentation: "/api-docs",
-    routes: {
-      auth: "/api/auth",
-      prescriptions: "/api/receitas",
-      healthCheck: "/health"
-    }
+    message: 'API do Sistema de Gerenciamento de Receitas Médicas',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    docs: '/api-docs',
+    health: '/health'
   });
 });
 
-// Rota para verificar saúde da API
-app.get("/health", (req, res) => {
+// Health check endpoint
+app.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState;
-  const status = dbStatus === 1 ? "healthy" : "degraded";
-  
   res.status(dbStatus === 1 ? 200 : 503).json({
-    status,
-    timestamp: new Date().toISOString(),
-    database: {
-      status: dbStatus === 1 ? "connected" : "disconnected",
-      connectionState: dbStatus
-    },
-    memoryUsage: process.memoryUsage(),
-    uptime: process.uptime()
+    status: dbStatus === 1 ? 'healthy' : 'unhealthy',
+    database: dbStatus === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Servir arquivos estáticos se estiver em produção
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../client/build")));
-  
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../client/build", "index.html"));
+// Servir frontend em produção (se aplicável)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
   });
 }
 
-// Middleware para rotas não encontradas (404)
-app.use((req, res, next) => {
+// Tratamento de rotas não encontradas
+app.use((req, res) => {
   res.status(404).json({
     success: false,
-    errorCode: "ROUTE_NOT_FOUND",
-    message: "Rota não encontrada",
-    requestedUrl: req.originalUrl,
-    suggestedRoutes: {
-      auth: "/api/auth",
-      prescriptions: "/api/receitas",
-      docs: "/api-docs"
-    }
+    errorCode: 'NOT_FOUND',
+    message: 'Endpoint não encontrado'
   });
 });
 
-// Middleware de tratamento de erros (deve ser o último middleware)
+// Tratamento de erros
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] ERRO: ${err.stack}`);
   
   const statusCode = err.statusCode || 500;
   const response = {
     success: false,
-    errorCode: err.errorCode || "INTERNAL_SERVER_ERROR",
-    message: err.message || "Ocorreu um erro interno no servidor"
+    errorCode: err.errorCode || 'INTERNAL_ERROR',
+    message: err.message || 'Erro interno no servidor'
   };
 
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== 'production') {
     response.stack = err.stack;
-    response.details = err;
   }
 
   res.status(statusCode).json(response);
 });
 
-// Definir porta e iniciar servidor
+// Iniciar servidor
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
-  console.log(`🔗 Ambiente: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📚 Documentação disponível em http://localhost:${PORT}/api-docs`);
-  console.log(`⚕️  Health Check: http://localhost:${PORT}/health`);
 });
 
 // Tratamento para encerramento gracioso
 const shutdown = (signal) => {
   console.log(`🛑 Recebido ${signal}. Encerrando servidor...`);
   server.close(() => {
-    console.log("🔴 Servidor HTTP encerrado");
+    console.log('🔴 Servidor HTTP encerrado');
     mongoose.connection.close(false, () => {
-      console.log("🔴 Conexão com MongoDB encerrada");
+      console.log('🔴 Conexão com MongoDB encerrada');
       process.exit(0);
     });
   });
 };
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
-process.on("unhandledRejection", (err, promise) => {
-  console.error("💥 Erro não tratado na Promise:", err.message, err);
-  // Opcional: enviar alerta para serviço de monitoramento
+process.on('unhandledRejection', (err) => {
+  console.error('💥 Rejeição não tratada:', err);
 });
 
-process.on("uncaughtException", (err) => {
-  console.error("💥 Exceção não capturada:", err.message, err);
-  // Encerrar o processo como recomendado pelo Node.js para exceções não tratadas
+process.on('uncaughtException', (err) => {
+  console.error('💥 Exceção não capturada:', err);
   process.exit(1);
 });
