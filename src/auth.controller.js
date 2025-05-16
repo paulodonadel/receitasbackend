@@ -150,6 +150,75 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+// @desc    Atualizar detalhes do usuário
+// @route   PUT /api/auth/updatedetails
+// @access  Private
+exports.updateDetails = async (req, res, next) => {
+  try {
+    const fieldsToUpdate = {
+      name: req.body.name,
+      email: req.body.email,
+      address: req.body.address,
+      phone: req.body.phone,
+      birthDate: req.body.birthDate
+    };
+
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Atualizar senha
+// @route   PUT /api/auth/updatepassword
+// @access  Private
+exports.updatePassword = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('+password');
+
+    if (!(await user.matchPassword(req.body.currentPassword))) {
+      return res.status(401).json({
+        success: false,
+        message: "Senha atual incorreta"
+      });
+    }
+
+    user.password = req.body.newPassword;
+    await user.save();
+
+    const token = user.getSignedJwtToken();
+
+    res.status(200).json({
+      success: true,
+      token
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Logout do usuário
+// @route   POST /api/auth/logout
+// @access  Private
+exports.logout = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: "Logout realizado com sucesso"
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Criar usuário administrativo ou secretária (por um admin)
 // @route   POST /api/auth/admin/create
 // @access  Private/Admin
@@ -221,15 +290,12 @@ exports.forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      // Não revelar se o usuário existe ou não por segurança
       return res.status(200).json({ success: true, message: "Se um usuário com este e-mail existir, um link para redefinição de senha será enviado." });
     }
 
-    // Gerar e salvar o token de reset
     const resetToken = user.getResetPasswordToken();
-    await user.save({ validateBeforeSave: false }); // Salva sem validar outros campos
+    await user.save({ validateBeforeSave: false });
 
-    // ATENÇÃO: A URL que o usuário final receberá deve apontar para a página de reset de senha do seu frontend.
     const frontendResetUrl = `https://sistema-receitas-frontend.onrender.com/reset-password/${resetToken}`; 
 
     const message = `Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha: \n\n ${frontendResetUrl} \n\nSe você não solicitou esta redefinição, por favor, ignore este e-mail. Este link é válido por 10 minutos.`;
@@ -260,7 +326,6 @@ exports.forgotPassword = async (req, res, next) => {
 // @access  Public
 exports.resetPassword = async (req, res, next) => {
   try {
-    // Obter token hasheado da URL
     const resetPasswordToken = crypto
       .createHash("sha256")
       .update(req.params.resettoken)
@@ -268,20 +333,18 @@ exports.resetPassword = async (req, res, next) => {
 
     const user = await User.findOne({
       resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }, // Verificar se não expirou
+      resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!user) {
       return res.status(400).json({ success: false, message: "Token de redefinição inválido ou expirado." });
     }
 
-    // Definir nova senha
     user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    // Enviar e-mail de confirmação de alteração de senha
     try {
         const subject = "Sua senha foi alterada com sucesso";
         const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
@@ -289,10 +352,8 @@ exports.resetPassword = async (req, res, next) => {
         await emailService.sendEmail(user.email, subject, textBody, htmlBody);
     } catch (emailError) {
         console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
-        // Não bloquear a resposta principal por falha no e-mail
     }
 
-    // Gerar novo token JWT para login automático (opcional, mas boa UX)
     const token = user.getSignedJwtToken();
     const userResponse = {
         id: user._id,
@@ -305,8 +366,8 @@ exports.resetPassword = async (req, res, next) => {
     res.status(200).json({ 
         success: true, 
         message: "Senha redefinida com sucesso!",
-        token, // Opcional: enviar novo token para login
-        user: userResponse // Opcional: enviar dados do usuário
+        token,
+        user: userResponse
     });
 
   } catch (error) {

@@ -8,18 +8,19 @@ const {
   updatePassword,
   forgotPassword,
   resetPassword,
-  logout
+  logout,
+  createAdminUser
 } = require('./auth.controller');
-const { protect } = require('./middlewares/auth.middleware');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Middleware de validação básica
 const validateRegisterInput = (req, res, next) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) {
+  const { name, email, password, cpf } = req.body;
+  if (!name || !email || !password || !cpf) {
     return res.status(400).json({
       success: false,
       error: 'Campos obrigatórios faltando',
-      required: ['name', 'email', 'password']
+      required: ['name', 'email', 'password', 'cpf']
     });
   }
   next();
@@ -43,13 +44,14 @@ router.post('/login', validateLoginInput, login);
 // Rotas protegidas
 router.get('/me', protect, getMe);
 router.post('/logout', protect, logout);
-
-// Rotas de recuperação de senha
-router.post('/forgot-password', forgotPassword);
-router.put('/reset-password/:resettoken', resetPassword);
-
-// Rotas para atualização
 router.put('/updatedetails', protect, updateDetails);
 router.put('/updatepassword', protect, updatePassword);
+
+// Rotas de recuperação de senha
+router.post('/forgotpassword', forgotPassword);
+router.put('/resetpassword/:resettoken', resetPassword);
+
+// Rotas administrativas
+router.post('/admin/create', protect, authorize('admin'), createAdminUser);
 
 module.exports = router;
