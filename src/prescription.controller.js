@@ -1,5 +1,5 @@
 const Prescription = require("../models/prescription.model");
-const User = require("../models/user.model");
+const User = require("./models/user.model");
 const emailService = require("../services/emailService");
 const { logActivity } = require("../utils/activityLogger");
 const { validateCPF } = require("../utils/validationUtils");
