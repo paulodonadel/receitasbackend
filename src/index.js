@@ -39,7 +39,7 @@ const swaggerOptions = {
       bearerAuth: []
     }]
   },
-  apis: ['./routes/*.js']
+  apis: ['./src/routes/*.js'] // Caminho corrigido para os arquivos de rotas
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -113,9 +113,9 @@ app.get('/api-docs.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Importar e usar rotas
-const authRoutes = require('./routes/auth.routes');
-const prescriptionRoutes = require('./routes/prescription.routes');
+// Importar e usar rotas - CAMINHOS CORRIGIDOS
+const authRoutes = require('./src/routes/auth.routes');
+const prescriptionRoutes = require('./src/routes/prescription.routes');
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
 
