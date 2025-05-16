@@ -4,40 +4,14 @@ const fs = require('fs');
 
 console.log('Estrutura do diretório src:', {
   files: fs.readdirSync(__dirname),
-  controllers: fs.existsSync(path.join(__dirname, 'controllers')) 
-    ? fs.readdirSync(path.join(__dirname, 'controllers'))
-    : 'Diretório controllers não existe'
+  middlewares: fs.existsSync(path.join(__dirname, 'middlewares')) 
+    ? fs.readdirSync(path.join(__dirname, 'middlewares'))
+    : 'Diretório middlewares não existe'
 });
 
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
-
-// Configuração do Swagger
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Sistema de Gerenciamento de Receitas Médicas',
-      version: '1.0.0',
-      description: 'API para gerenciamento de receitas médicas'
-    },
-    servers: [
-      {
-        url: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`,
-        description: process.env.NODE_ENV === 'production' ? 'Servidor de Produção' : 'Servidor Local'
-      }
-    ]
-  },
-  apis: [
-    path.join(__dirname, 'auth.routes.js'),
-    path.join(__dirname, 'prescription.routes.js')
-  ]
-};
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 const app = express();
 
@@ -62,8 +36,8 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Carregar middlewares
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Carregar rotas com tratamento de erro detalhado
 try {
@@ -72,7 +46,7 @@ try {
   app.use('/api/auth', authRoutes);
   console.log('✅ auth.routes.js carregado com sucesso');
 } catch (err) {
-  console.error('❌ Falha ao carregar auth.routes.js:', err);
+  console.error('❌ Falha ao carregar auth.routes.js:', err.message);
   process.exit(1);
 }
 
@@ -82,7 +56,7 @@ try {
   app.use('/api/receitas', prescriptionRoutes);
   console.log('✅ prescription.routes.js carregado com sucesso');
 } catch (err) {
-  console.error('❌ Falha ao carregar prescription.routes.js:', err);
+  console.error('❌ Falha ao carregar prescription.routes.js:', err.message);
   process.exit(1);
 }
 
@@ -91,7 +65,11 @@ app.get('/', (req, res) => {
   res.json({
     status: 'online',
     message: 'API de Gerenciamento de Receitas Médicas',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    routes: {
+      auth: '/api/auth',
+      prescriptions: '/api/receitas'
+    }
   });
 });
 
@@ -105,8 +83,11 @@ app.get('/health', (req, res) => {
 
 // Tratamento de erros
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Erro interno no servidor' });
+  console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Erro interno no servidor'
+  });
 });
 
 const PORT = process.env.PORT || 5000;

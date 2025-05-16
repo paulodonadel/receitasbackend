@@ -8,45 +8,48 @@ const {
   updatePassword,
   forgotPassword,
   resetPassword,
-  createAdminUser,
-  logout,
-  confirmEmail,
-  resendConfirmationEmail
+  logout
 } = require('./auth.controller');
-const { protect, authorize } = require('./middlewares/auth.middleware');
-const { validate } = require('./middlewares/validation.middleware');
-const {
-  registerSchema,
-  loginSchema,
-  updateDetailsSchema,
-  updatePasswordSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  emailConfirmationSchema
-} = require('./validations/auth.validation');
+const { protect } = require('./middlewares/auth.middleware');
+
+// Middleware de validação básica
+const validateRegisterInput = (req, res, next) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Campos obrigatórios faltando',
+      required: ['name', 'email', 'password']
+    });
+  }
+  next();
+};
+
+const validateLoginInput = (req, res, next) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Email e senha são obrigatórios'
+    });
+  }
+  next();
+};
 
 // Rotas públicas
-router.post('/register', validate(registerSchema), register);
-router.post('/login', validate(loginSchema), login);
-router.get('/confirm-email/:token', validate(emailConfirmationSchema), confirmEmail);
-router.post('/resend-confirmation', validate(emailConfirmationSchema), resendConfirmationEmail);
-router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
-router.put('/reset-password/:resettoken', validate(resetPasswordSchema), resetPassword);
+router.post('/register', validateRegisterInput, register);
+router.post('/login', validateLoginInput, login);
 
-// Rotas protegidas (requerem autenticação)
+// Rotas protegidas
 router.get('/me', protect, getMe);
-router.put('/updatedetails', protect, validate(updateDetailsSchema), updateDetails);
-router.put('/updatepassword', protect, validate(updatePasswordSchema), updatePassword);
-router.get('/logout', protect, logout);
+router.post('/logout', protect, logout);
 
-// Rotas administrativas (requerem role 'admin')
-router.post('/admin/create', protect, authorize('admin'), validate(registerSchema), createAdminUser);
+// Rotas de recuperação de senha
+router.post('/forgot-password', forgotPassword);
+router.put('/reset-password/:resettoken', resetPassword);
 
-// Rotas para desenvolvimento (pode ser removido em produção)
-if (process.env.NODE_ENV === 'development') {
-  const devController = require('./auth.dev.controller');
-  router.post('/dev/create-test-users', devController.createTestUsers);
-  router.delete('/dev/clean-test-data', protect, authorize('admin'), devController.cleanTestData);
-}
+// Rotas para atualização
+router.put('/updatedetails', protect, updateDetails);
+router.put('/updatepassword', protect, updatePassword);
 
 module.exports = router;
