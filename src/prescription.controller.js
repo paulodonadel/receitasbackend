@@ -1,8 +1,8 @@
-const Prescription = require("../models/prescription.model");
+const Prescription = require("./models/prescription.model");
 const User = require("./models/user.model");
-const emailService = require("../services/emailService");
-const { logActivity } = require("../utils/activityLogger");
-const { validateCPF } = require("../utils/validationUtils");
+const emailService = require("./emailService");
+const { logActivity } = require("./utils/activityLogger");
+const { validateCPF } = require("./utils/validationUtils");
 
 // @desc    Criar nova solicitação de receita
 // @route   POST /api/receitas
