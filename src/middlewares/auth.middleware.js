@@ -10,7 +10,7 @@ const revokedTokens = new Set();
 const SECURITY_CONFIG = {
   maxAttempts: 5,
   windowMs: 15 * 60 * 1000, // 15 minutos
-  jwtExpiration: process.env.JWT_EXPIRATION || '24h'
+  jwtExpiration: process.env.JWT_EXPIRATION || process.env.JWT_EXPIRE || '24h'
 };
 
 // Rate limiter para endpoints de autenticação
@@ -81,10 +81,9 @@ exports.protect = (strict = false) => {
         maxAge: SECURITY_CONFIG.jwtExpiration
       });
 
-      // 4. Busca do usuário com cache básico
+      // 4. Busca do usuário
       const user = await User.findById(decoded.id)
-        .select("-password -resetToken -resetTokenExpire")
-        .cache(decoded.id, 60); // Cache por 60 segundos
+        .select("-password -resetToken -resetTokenExpire");
 
       if (!user) {
         logSecurityEvent('AUTH_FAILURE', {
