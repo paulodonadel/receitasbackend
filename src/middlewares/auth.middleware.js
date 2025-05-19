@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("./user.model");
+const User = require("../models/user.model");
 const { createRateLimiter } = require("../utils/rateLimiter");
 const { logSecurityEvent } = require("../utils/securityLogger");
 
