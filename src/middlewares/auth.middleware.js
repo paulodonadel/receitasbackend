@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
-const User = require("../src/models/user.model");
-const { createRateLimiter } = require("../src/utils/rateLimiter");
-const { logSecurityEvent } = require("../src/utils/securityLogger");
+const User = require("./models/user.model");
+const { createRateLimiter } = require("./utils/rateLimiter");
+const { logSecurityEvent } = require("./utils/securityLogger");
 
 // Cache para tokens revogados
 const revokedTokens = new Set();
