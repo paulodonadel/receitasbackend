@@ -1,4 +1,4 @@
-const User = require("./user.model");
+const User = require('../models/user.model');
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto"); // Para gerar o token de reset
