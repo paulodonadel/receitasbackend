@@ -315,13 +315,14 @@ exports.getAllPrescriptions = async (req, res, next) => {
       }
     });
 
+    // SEMPRE retorna JSON, mesmo se prescriptions for vazio
     res.status(200).json({
       success: true,
       count: prescriptions.length,
       total,
       page: Number(page),
       pages: Math.ceil(total / limit),
-      data: prescriptions
+      data: prescriptions || []
     });
   } catch (error) {
     console.error("Erro ao obter todas as solicitações:", error);
@@ -830,14 +831,15 @@ exports.getPrescriptionStats = async (req, res, next) => {
       .limit(5)
       .populate("patient", "name");
 
+    // SEMPRE retorna JSON, mesmo se stats forem vazios!
     res.status(200).json({
       success: true,
       data: {
-        statusStats,
-        typeStats,
-        deliveryStats,
-        total,
-        recentPrescriptions
+        statusStats: statusStats || [],
+        typeStats: typeStats || [],
+        deliveryStats: deliveryStats || [],
+        total: total || 0,
+        recentPrescriptions: recentPrescriptions || []
       }
     });
   } catch (error) {
