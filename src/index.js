@@ -1,3 +1,20 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+app.use(cors({
+  origin: [
+    'https://sistema-receitas-frontend.onrender.com',
+    'https://www.sistema-receitas-frontend.onrender.com'
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+  ]
+}));
+
+app.use(express.json());
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
@@ -12,8 +29,6 @@ console.log('Estrutura do diretório src:', {
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
-const app = express();
 
 // Linha recomendada para produção em cloud (Render, Vercel, Heroku, etc)
 app.set('trust proxy', 1);
