@@ -18,12 +18,19 @@ const app = express();
 // Linha recomendada para produção em cloud (Render, Vercel, Heroku, etc)
 app.set('trust proxy', 1);
 
-// Configurações básicas
+// Configuração de CORS ampla e correta
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "https://sistema-receitas-frontend.onrender.com",
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
+  origin: [
+    'https://sistema-receitas-frontend.onrender.com',
+    'https://www.sistema-receitas-frontend.onrender.com'
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+  ]
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -98,7 +105,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
