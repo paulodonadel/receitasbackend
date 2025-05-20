@@ -227,6 +227,7 @@ exports.getMyPrescriptions = async (req, res, next) => {
 // @route   GET /api/receitas
 // @access  Private/Admin-Secretary
 exports.getAllPrescriptions = async (req, res, next) => {
+  console.log(">>> Entrou no getAllPrescriptions <<<");
   try {
     const { 
       status, 
