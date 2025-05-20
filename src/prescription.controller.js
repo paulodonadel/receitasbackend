@@ -164,7 +164,6 @@ exports.createPrescription = async (req, res, next) => {
 
   } catch (error) {
     console.error("Erro ao criar solicitação:", error);
-    
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -173,8 +172,11 @@ exports.createPrescription = async (req, res, next) => {
         errorCode: "VALIDATION_ERROR"
       });
     }
-    
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao criar solicitação.",
+      errorCode: "PRESCRIPTION_CREATE_ERROR"
+    });
   }
 };
 
@@ -213,7 +215,11 @@ exports.getMyPrescriptions = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter minhas solicitações:", error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao obter solicitações.",
+      errorCode: "GET_MY_PRESCRIPTIONS_ERROR"
+    });
   }
 };
 
@@ -319,7 +325,11 @@ exports.getAllPrescriptions = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter todas as solicitações:", error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao obter todas as prescrições.",
+      errorCode: "GET_ALL_PRESCRIPTIONS_ERROR"
+    });
   }
 };
 
@@ -375,7 +385,11 @@ exports.getPrescription = async (req, res, next) => {
         errorCode: "INVALID_ID"
       });
     }
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao obter solicitação.",
+      errorCode: "GET_PRESCRIPTION_ERROR"
+    });
   }
 };
 
@@ -489,7 +503,11 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
         errorCode: "INVALID_ID"
       });
     }
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao atualizar status da solicitação.",
+      errorCode: "UPDATE_STATUS_ERROR"
+    });
   }
 };
 
@@ -632,7 +650,11 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       });
     }
     
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao gerenciar prescrição.",
+      errorCode: "MANAGE_PRESCRIPTION_ERROR"
+    });
   }
 };
 
@@ -681,7 +703,11 @@ exports.deletePrescription = async (req, res, next) => {
         errorCode: "INVALID_ID"
       });
     }
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao excluir solicitação.",
+      errorCode: "DELETE_PRESCRIPTION_ERROR"
+    });
   }
 };
 
@@ -752,7 +778,11 @@ exports.exportPrescriptions = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao exportar prescrições:", error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao exportar prescrições.",
+      errorCode: "EXPORT_PRESCRIPTIONS_ERROR"
+    });
   }
 };
 
@@ -812,6 +842,10 @@ exports.getPrescriptionStats = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter estatísticas:", error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao obter estatísticas de prescrições.",
+      errorCode: "GET_STATS_ERROR"
+    });
   }
 };

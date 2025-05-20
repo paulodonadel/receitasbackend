@@ -142,8 +142,9 @@ router.get('/stats',
 
 // Tratamento de erros
 router.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
   console.error(`[${new Date().toISOString()}] Prescription Route Error:`, err);
-  
+
   const status = err.statusCode || 500;
   res.status(status).json({
     success: false,

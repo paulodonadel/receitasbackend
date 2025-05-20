@@ -47,8 +47,8 @@ exports.register = async (req, res, next) => {
 
     try {
       const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
-      const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+      const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nDr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
@@ -61,7 +61,7 @@ exports.register = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro no registro:", error);
-    next(error); 
+    res.status(500).json({ success: false, message: "Erro interno no registro." });
   }
 };
 
@@ -114,7 +114,7 @@ exports.login = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro no login:", error);
-    next(error);
+    res.status(500).json({ success: false, message: "Erro interno no login." });
   }
 };
 
@@ -146,7 +146,7 @@ exports.getMe = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter dados do usuário:", error);
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao obter dados do usuário." });
   }
 };
 
@@ -173,7 +173,7 @@ exports.updateDetails = async (req, res, next) => {
       data: user
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao atualizar dados do usuário." });
   }
 };
 
@@ -201,7 +201,7 @@ exports.updatePassword = async (req, res, next) => {
       token
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao atualizar senha." });
   }
 };
 
@@ -215,7 +215,7 @@ exports.logout = async (req, res, next) => {
       message: "Logout realizado com sucesso"
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao fazer logout." });
   }
 };
 
@@ -256,8 +256,8 @@ exports.createAdminUser = async (req, res, next) => {
 
     try {
       const subject = `Sua conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada`;
-      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha fornecida para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha fornecida para acessar o sistema.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nDr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
@@ -277,7 +277,7 @@ exports.createAdminUser = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao criar usuário administrativo:", error);
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao criar usuário administrativo." });
   }
 };
 
@@ -298,8 +298,8 @@ exports.forgotPassword = async (req, res, next) => {
 
     const frontendResetUrl = `https://sistema-receitas-frontend.onrender.com/reset-password/${resetToken}`; 
 
-    const message = `Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha: \n\n ${frontendResetUrl} \n\nSe você não solicitou esta redefinição, por favor, ignore este e-mail. Este link é válido por 10 minutos.`;
-    const htmlMessage = `<p>Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha:</p><p><a href="${frontendResetUrl}">${frontendResetUrl}</a></p><p>Se você não solicitou esta redefinição, por favor, ignore este e-mail. Este link é válido por 10 minutos.</p>`;
+    const message = `Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha: \n\n ${frontendResetUrl} \n\nSe você não solicitou esta redefinição, por favor ignore este e-mail.`;
+    const htmlMessage = `<p>Você solicitou a redefinição de senha. Por favor, clique no link a seguir para redefinir sua senha:</p><p><a href="${frontendResetUrl}">${frontendResetUrl}</a></p><p>Se você não solicitou esta redefinição, por favor ignore este e-mail.</p>`;
 
     try {
       await emailService.sendEmail(
@@ -314,10 +314,10 @@ exports.forgotPassword = async (req, res, next) => {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      return next(new Error("Não foi possível enviar o e-mail de redefinição. Tente novamente."));
+      res.status(500).json({ success: false, message: "Não foi possível enviar o e-mail de redefinição. Tente novamente." });
     }
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao solicitar redefinição de senha." });
   }
 };
 
@@ -347,8 +347,8 @@ exports.resetPassword = async (req, res, next) => {
 
     try {
         const subject = "Sua senha foi alterada com sucesso";
-        const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-        const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p><p>Atenciosamente,<br/>Equipe Dr. Paulo Donadel</p>`;
+        const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.`;
+        const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p>`;
         await emailService.sendEmail(user.email, subject, textBody, htmlBody);
     } catch (emailError) {
         console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
@@ -371,6 +371,6 @@ exports.resetPassword = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: "Erro ao redefinir senha." });
   }
 };
