@@ -1,3 +1,9 @@
+router.get('/',
+  protect,
+  authorize('admin', 'secretary'),
+  (req, res, next) => { console.log(">>> GET /api/receitas FOI CHAMADO <<<"); next(); },
+  getAllPrescriptions
+);
 const express = require('express');
 const router = express.Router();
 const cors = require('cors');
