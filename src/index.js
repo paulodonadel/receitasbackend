@@ -15,6 +15,9 @@ const mongoose = require('mongoose');
 
 const app = express();
 
+// Linha recomendada para produção em cloud (Render, Vercel, Heroku, etc)
+app.set('trust proxy', 1);
+
 // Configurações básicas
 app.use(cors({
   origin: process.env.FRONTEND_URL || "https://sistema-receitas-frontend.onrender.com",
@@ -71,6 +74,11 @@ app.get('/', (req, res) => {
       prescriptions: '/api/receitas'
     }
   });
+});
+
+// Rota para o frontend testar se a API está online (ESSA É A NOVA ROTA!)
+app.get('/api', (req, res) => {
+  res.json({ status: 'API online' });
 });
 
 app.get('/health', (req, res) => {
