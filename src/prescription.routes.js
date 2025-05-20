@@ -97,19 +97,20 @@ router.get('/me',
   getMyPrescriptions
 );
 
-// Rotas compartilhadas
+// --- ATENÇÃO: Ordem das rotas ---
+// A rota GET '/' deve vir ANTES de GET '/:id' para evitar conflitos!
+router.get('/',
+  protect,
+  authorize('admin', 'secretary'),
+  getAllPrescriptions
+);
+
+// Rotas compartilhadas (após GET '/')
 router.get('/:id',
   protect,
   authorize('patient', 'admin', 'secretary'),
   validateId,
   getPrescription
-);
-
-// Rotas para administradores e secretárias
-router.get('/',
-  protect,
-  authorize('admin', 'secretary'),
-  getAllPrescriptions
 );
 
 router.patch('/:id/status',
