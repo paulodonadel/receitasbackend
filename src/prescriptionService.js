@@ -66,6 +66,8 @@ const prescriptionService = {
   getAllPrescriptions: async (filters = {}) => {
     try {
       const params = new URLSearchParams();
+      
+      // Adiciona filtros válidos aos parâmetros
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           params.append(key, value);
@@ -196,23 +198,6 @@ const prescriptionService = {
       return response.data;
     } catch (error) {
       console.error('Erro ao exportar prescrições:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtém as estatísticas das prescrições para o dashboard
-   * @returns {Promise<Object>} Dados de estatísticas
-   */
-  getStats: async () => {
-    try {
-      const response = await api.get('/receitas/stats');
-      return {
-        success: true,
-        data: response.data.data
-      };
-    } catch (error) {
-      console.error('Erro ao obter estatísticas:', error);
       throw error;
     }
   }
