@@ -9,7 +9,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // CORS CORRETO PARA O FRONTEND NO RENDER
-app.use(cors({
+const corsOptions = {
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
     'https://www.sistema-receitas-frontend.onrender.com'
@@ -20,10 +20,12 @@ app.use(cors({
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ],
   exposedHeaders: ['Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Middleware para lidar com preflight OPTIONS para todas as rotas
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 
 // Outras configs
 app.use(express.json());

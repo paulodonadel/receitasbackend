@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const cors = require('cors');
 const {
   createPrescription,
   getMyPrescriptions,
@@ -14,6 +15,24 @@ const {
 const { protect, authorize } = require('./middlewares/auth.middleware');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
+
+// Configuração do CORS para garantir headers em todas as rotas deste arquivo
+const corsOptions = {
+  origin: [
+    'https://sistema-receitas-frontend.onrender.com',
+    'https://www.sistema-receitas-frontend.onrender.com'
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+  ],
+  exposedHeaders: ['Authorization']
+};
+
+// Aplica CORS em todas as rotas deste router
+router.use(cors(corsOptions));
+router.options('*', cors(corsOptions));
 
 // Configuração de Rate Limiting
 const apiLimiter = rateLimit({
