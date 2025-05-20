@@ -2,16 +2,20 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+
 const app = express();
 
-// --- CORS CORRETO PARA RENDER ---
+// ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
+app.set('trust proxy', 1);
+
+// CORS CORRETO PARA O FRONTEND NO RENDER
 app.use(cors({
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
     'https://www.sistema-receitas-frontend.onrender.com'
   ],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ],
@@ -21,7 +25,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- Conexão ao MongoDB ---
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -33,14 +36,14 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// --- Rotas ---
+// Rotas
 const authRoutes = require('./auth.routes');
-app.use('/api/auth', authRoutes);
-
 const prescriptionRoutes = require('./prescription.routes');
+
+app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
 
-// --- Rotas básicas ---
+// Rotas básicas de status
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
@@ -65,7 +68,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// --- Tratamento global de erros ---
+// Tratamento global de erros
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
   res.status(err.status || 500).json({
@@ -74,7 +77,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });

@@ -13,6 +13,7 @@ const {
 } = require('./prescription.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 
 // Configuração de Rate Limiting
 const apiLimiter = rateLimit({
