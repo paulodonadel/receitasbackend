@@ -1,9 +1,3 @@
-router.get('/',
-  protect,
-  authorize('admin', 'secretary'),
-  (req, res, next) => { console.log(">>> GET /api/receitas FOI CHAMADO <<<"); next(); },
-  getAllPrescriptions
-);
 const express = require('express');
 const router = express.Router();
 const cors = require('cors');
@@ -105,9 +99,14 @@ router.get('/me',
 
 // --- ATENÇÃO: Ordem das rotas ---
 // A rota GET '/' deve vir ANTES de GET '/:id' para evitar conflitos!
+// Adicionando log para debug:
 router.get('/',
   protect,
   authorize('admin', 'secretary'),
+  (req, res, next) => { 
+    console.log(">>> GET /api/receitas FOI CHAMADO <<<"); 
+    next(); 
+  },
   getAllPrescriptions
 );
 
