@@ -1,24 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const app = express();
-
-app.use(cors({
-  origin: [
-    'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com'
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  credentials: true,
-  allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
-  ]
-}));
-
-app.use(express.json());
-require('dotenv').config();
+const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 
+const app = express();
+
+// Log da estrutura de arquivos
 console.log('Estrutura do diretório src:', {
   files: fs.readdirSync(__dirname),
   middlewares: fs.existsSync(path.join(__dirname, 'middlewares')) 
@@ -26,14 +15,7 @@ console.log('Estrutura do diretório src:', {
     : 'Diretório middlewares não existe'
 });
 
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-
-// Linha recomendada para produção em cloud (Render, Vercel, Heroku, etc)
-app.set('trust proxy', 1);
-
-// Configuração de CORS ampla e correta
+// CORS - PERMISSIVO PARA O FRONTEND NO RENDER
 app.use(cors({
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
@@ -45,6 +27,14 @@ app.use(cors({
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ]
 }));
+
+// (Para DEBUG temporário, pode forçar os headers CORS manualmente, mas remova depois!)
+// app.use((req, res, next) => {
+//   res.setHeader('Access-Control-Allow-Origin', 'https://sistema-receitas-frontend.onrender.com');
+//   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+//   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+//   next();
+// });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -61,10 +51,10 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// Carregar middlewares
+// Carregar middlewares de autenticação
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
-// Carregar rotas com tratamento de erro detalhado
+// Carregar rotas
 try {
   console.log('Tentando carregar auth.routes.js...');
   const authRoutes = require('./auth.routes');
@@ -85,7 +75,7 @@ try {
   process.exit(1);
 }
 
-// Rotas básicas
+// Rota básica para status
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
@@ -98,11 +88,12 @@ app.get('/', (req, res) => {
   });
 });
 
-// Rota para o frontend testar se a API está online (ESSA É A NOVA ROTA!)
+// Rota de status para o frontend testar a API
 app.get('/api', (req, res) => {
   res.json({ status: 'API online' });
 });
 
+// Healthcheck simples
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -111,7 +102,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Tratamento de erros
+// Tratamento global de erros
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
   res.status(err.status || 500).json({
