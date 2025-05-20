@@ -66,8 +66,6 @@ const prescriptionService = {
   getAllPrescriptions: async (filters = {}) => {
     try {
       const params = new URLSearchParams();
-      
-      // Adiciona filtros válidos aos parâmetros
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           params.append(key, value);
