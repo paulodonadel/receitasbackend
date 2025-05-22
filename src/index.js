@@ -12,34 +12,20 @@ app.set('trust proxy', 1);
 const corsOptions = {
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com',
-    'http://localhost:3000' // Adicionado para desenvolvimento local
+    'https://www.sistema-receitas-frontend.onrender.com'
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ],
-  exposedHeaders: ['Authorization'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  exposedHeaders: ['Authorization']
 };
 
-// Aplicar CORS como primeiro middleware para garantir que seja aplicado antes de qualquer outro
 app.use(cors(corsOptions));
 
 // Middleware para lidar com preflight OPTIONS para todas as rotas
 app.options('*', cors(corsOptions));
-
-// Middleware para garantir que os cabeçalhos CORS sejam sempre enviados
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || corsOptions.origin[0]);
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(','));
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(','));
-  res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(','));
-  next();
-});
 
 // Outras configs
 app.use(express.json());
@@ -60,12 +46,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 const authRoutes = require('./auth.routes');
 const prescriptionRoutes = require('./prescription.routes');
 
-// Aplicar CORS específico para cada rota para garantir que não seja sobrescrito
-app.use('/api/auth', cors(corsOptions), authRoutes);
-app.use('/api/receitas', cors(corsOptions), prescriptionRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/receitas', prescriptionRoutes);
 
 // Rotas básicas de status
-app.get('/', cors(corsOptions), (req, res) => {
+app.get('/', (req, res) => {
   res.json({
     status: 'online',
     message: 'API de Gerenciamento de Receitas Médicas',
@@ -77,11 +62,11 @@ app.get('/', cors(corsOptions), (req, res) => {
   });
 });
 
-app.get('/api', cors(corsOptions), (req, res) => {
+app.get('/api', (req, res) => {
   res.json({ status: 'API online' });
 });
 
-app.get('/health', cors(corsOptions), (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
@@ -92,12 +77,10 @@ app.get('/health', cors(corsOptions), (req, res) => {
 // Tratamento global de erros
 app.use((err, req, res, next) => {
   // Garante que o erro também devolve CORS!
-  res.header('Access-Control-Allow-Origin', req.headers.origin || corsOptions.origin[0]);
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(','));
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(','));
-  res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(','));
-  
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
   console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
   res.status(err.status || 500).json({
     success: false,
