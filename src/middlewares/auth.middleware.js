@@ -60,6 +60,15 @@ exports.protect = (strict = false) => {
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET não configurado nas variáveis de ambiente!");
+      return res.status(500).json({
+        success: false,
+        code: 'JWT_SECRET_MISSING',
+        message: "Erro interno de configuração (JWT_SECRET)."
+      });
+    }
+
     // 2. Verificação se o token foi revogado
     if (revokedTokens.has(token)) {
       logSecurityEvent('AUTH_FAILURE', {

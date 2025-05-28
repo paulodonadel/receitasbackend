@@ -12,11 +12,10 @@ exports.register = async (req, res, next) => {
     const { name, email, cpf, password, address, phone, birthDate } = req.body;
 
     if (!name || !email || !cpf || !password) {
-        return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF e senha." });
+      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF e senha." });
     }
 
     const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
-
     if (userExists) {
       return res.status(400).json({
         success: false,
@@ -35,23 +34,29 @@ exports.register = async (req, res, next) => {
       role: "patient"
     });
 
+    // JWT_SECRET checagem
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET não configurado nas variáveis de ambiente!");
+      return res.status(500).json({ success: false, message: "Erro interno de configuração (JWT_SECRET)." });
+    }
     const token = user.getSignedJwtToken();
 
     const userResponse = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        cpf: user.cpf,
-        role: user.role
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
+      role: user.role
     };
 
     try {
       const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
-      const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nDr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
+      const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
+      // Não impede o registro
     }
 
     res.status(201).json({
@@ -97,14 +102,18 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET não configurado nas variáveis de ambiente!");
+      return res.status(500).json({ success: false, message: "Erro interno de configuração (JWT_SECRET)." });
+    }
     const token = user.getSignedJwtToken();
 
     const userResponse = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        cpf: user.cpf,
-        role: user.role
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
+      role: user.role
     };
 
     res.status(200).json({
@@ -126,18 +135,18 @@ exports.getMe = async (req, res, next) => {
     const user = await User.findById(req.user.id);
 
     if (!user) {
-        return res.status(404).json({ success: false, message: "Usuário não encontrado." });
+      return res.status(404).json({ success: false, message: "Usuário não encontrado." });
     }
 
     const userResponse = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        cpf: user.cpf,
-        role: user.role,
-        address: user.address,
-        phone: user.phone,
-        birthDate: user.birthDate
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
+      role: user.role,
+      address: user.address,
+      phone: user.phone,
+      birthDate: user.birthDate
     };
 
     res.status(200).json({
@@ -227,7 +236,7 @@ exports.createAdminUser = async (req, res, next) => {
     const { name, email, cpf, password, role } = req.body;
 
     if (!name || !email || !cpf || !password || !role) {
-        return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF, senha e role." });
+      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF, senha e role." });
     }
 
     const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
@@ -256,19 +265,19 @@ exports.createAdminUser = async (req, res, next) => {
 
     try {
       const subject = `Sua conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada`;
-      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nDr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
+      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
     }
 
     const userResponse = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        cpf: user.cpf,
-        role: user.role
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
+      role: user.role
     };
 
     res.status(201).json({
@@ -346,28 +355,28 @@ exports.resetPassword = async (req, res, next) => {
     await user.save();
 
     try {
-        const subject = "Sua senha foi alterada com sucesso";
-        const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.`;
-        const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p>`;
-        await emailService.sendEmail(user.email, subject, textBody, htmlBody);
+      const subject = "Sua senha foi alterada com sucesso";
+      const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.`;
+      const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p>`;
+      await emailService.sendEmail(user.email, subject, textBody, htmlBody);
     } catch (emailError) {
-        console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
+      console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
     }
 
     const token = user.getSignedJwtToken();
     const userResponse = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        cpf: user.cpf,
-        role: user.role
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
+      role: user.role
     };
 
     res.status(200).json({ 
-        success: true, 
-        message: "Senha redefinida com sucesso!",
-        token,
-        user: userResponse
+      success: true, 
+      message: "Senha redefinida com sucesso!",
+      token,
+      user: userResponse
     });
 
   } catch (error) {
