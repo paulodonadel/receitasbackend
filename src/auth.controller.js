@@ -49,12 +49,9 @@ exports.register = async (req, res, next) => {
       const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
       const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nDr. Paulo Donadel`;
       const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
-      emailService.sendEmail(email, subject, textBody, htmlBody)
-        .catch(emailError => {
-          console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
-        });
+      await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
-      console.error("Erro ao preparar e-mail de boas-vindas:", emailError);
+      console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
     }
 
     res.status(201).json({
@@ -261,12 +258,9 @@ exports.createAdminUser = async (req, res, next) => {
       const subject = `Sua conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada`;
       const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nDr. Paulo Donadel`;
       const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br/>Dr. Paulo Donadel</p>`;
-      emailService.sendEmail(email, subject, textBody, htmlBody)
-        .catch(emailError => {
-          console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
-        });
+      await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
-      console.error("Erro ao preparar e-mail de boas-vindas:", emailError);
+      console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
     }
 
     const userResponse = {
@@ -355,12 +349,9 @@ exports.resetPassword = async (req, res, next) => {
         const subject = "Sua senha foi alterada com sucesso";
         const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.`;
         const htmlBody = `<p>Olá ${user.name},</p><p>Sua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.</p><p>Se você não realizou esta alteração, entre em contato conosco imediatamente.</p>`;
-        emailService.sendEmail(user.email, subject, textBody, htmlBody)
-          .catch(emailError => {
-            console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
-          });
+        await emailService.sendEmail(user.email, subject, textBody, htmlBody);
     } catch (emailError) {
-        console.error("Erro ao preparar e-mail de confirmação de alteração de senha:", emailError);
+        console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
     }
 
     const token = user.getSignedJwtToken();
