@@ -262,17 +262,20 @@ exports.getAllPrescriptions = async (req, res, next) => {
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
-    // Filtro por paciente
-    if (patientName || patientCpf) {
+    // Filtro por paciente (só se os campos NÃO são string vazia)
+    if (
+      (typeof patientName === "string" && patientName.trim() !== "") ||
+      (typeof patientCpf === "string" && patientCpf.trim() !== "")
+    ) {
       console.log("Filtrando por paciente:", { patientName, patientCpf });
       const patientQuery = {};
-      if (patientName) {
+      if (typeof patientName === "string" && patientName.trim() !== "") {
         patientQuery.name = { 
           $regex: patientName, 
           $options: "i" 
         };
       }
-      if (patientCpf) {
+      if (typeof patientCpf === "string" && patientCpf.trim() !== "") {
         patientQuery.cpf = patientCpf.replace(/[^\d]/g, '');
       }
       // LIMITA para evitar travamentos se o banco estiver grande
@@ -282,7 +285,6 @@ exports.getAllPrescriptions = async (req, res, next) => {
       if (patientIds.length > 0) {
         query.patient = { $in: patientIds };
       } else {
-        // Retorna vazio se não encontrar pacientes com os critérios
         return res.status(200).json({ 
           success: true, 
           count: 0, 
