@@ -598,6 +598,4 @@ exports.getPrescriptionStats = async (req, res, next) => {
       errorCode: "GET_PRESCRIPTION_STATS_ERROR"
     });
   }
-};
-
-a
+}
