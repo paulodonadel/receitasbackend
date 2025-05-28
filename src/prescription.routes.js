@@ -1,3 +1,27 @@
+// src/prescription.routes.js
+
+/**
+ * Rotas de prescrições (receitas)
+ * 
+ * - Para PACIENTES:
+ *   - POST   /api/receitas             : Criar nova solicitação de receita
+ *   - GET    /api/receitas/me          : Listar prescrições do próprio paciente
+ * 
+ * - Para ADMIN/SECRETÁRIA:
+ *   - GET    /api/receitas             : Listar TODAS as prescrições (painel administrativo)
+ *   - POST   /api/receitas/admin       : Criar receita (admin/secretária)
+ *   - PUT    /api/receitas/admin/:id   : Atualizar receita existente (admin/secretária)
+ *   - DELETE /api/receitas/admin/:id   : Deletar receita (admin)
+ * 
+ * - Rotas compartilhadas:
+ *   - GET    /api/receitas/:id         : Buscar uma receita específica
+ *   - PATCH  /api/receitas/:id/status  : Atualizar status da receita (admin/secretária)
+ * 
+ * - Exportação e estatísticas:
+ *   - GET    /api/receitas/export      : Exportar dados (admin/secretária)
+ *   - GET    /api/receitas/stats       : Estatísticas (admin)
+ */
+
 const express = require('express');
 const router = express.Router();
 const cors = require('cors');
@@ -29,8 +53,6 @@ const corsOptions = {
   ],
   exposedHeaders: ['Authorization']
 };
-
-// Aplica CORS em todas as rotas deste router
 router.use(cors(corsOptions));
 router.options('*', cors(corsOptions));
 
@@ -44,7 +66,6 @@ const apiLimiter = rateLimit({
     message: "Muitas requisições deste IP. Tente novamente em 15 minutos."
   }
 });
-
 const sensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 20,
@@ -55,7 +76,7 @@ const sensitiveLimiter = rateLimit({
   }
 });
 
-// Middleware de validação básica (substitui o validation.middleware)
+// Middleware de validação básica para criação de prescrição
 const validatePrescriptionInput = (req, res, next) => {
   if (!req.body.medicationName || !req.body.dosage) {
     return res.status(400).json({
@@ -82,7 +103,10 @@ const validateId = (req, res, next) => {
 // Aplica rate limiting global
 router.use(apiLimiter);
 
-// Rotas para pacientes
+/**
+ * ROTAS PARA PACIENTES
+ */
+// Criar nova solicitação de receita
 router.post('/',
   protect(true),
   authorize('patient'),
@@ -91,15 +115,17 @@ router.post('/',
   createPrescription
 );
 
+// Listar prescrições do próprio paciente
 router.get('/me',
   protect(),
   authorize('patient'),
   getMyPrescriptions
 );
 
-// --- ATENÇÃO: Ordem das rotas ---
-// A rota GET '/' deve vir ANTES de GET '/:id' para evitar conflitos!
-// Adicionando log para debug:
+/**
+ * ROTAS PARA ADMIN/SECRETÁRIA (PAINEL ADMINISTRATIVO)
+ */
+// Listar TODAS as prescrições (esta é a rota usada pelo dashboard admin)
 router.get('/',
   protect,
   authorize('admin', 'secretary'),
@@ -110,7 +136,10 @@ router.get('/',
   getAllPrescriptions
 );
 
-// Rotas compartilhadas (após GET '/')
+/**
+ * ROTAS COMPARTILHADAS
+ */
+// Buscar uma receita específica
 router.get('/:id',
   protect,
   authorize('patient', 'admin', 'secretary'),
@@ -118,6 +147,7 @@ router.get('/:id',
   getPrescription
 );
 
+// Atualizar status da receita (admin/secretária)
 router.patch('/:id/status',
   protect,
   authorize('admin', 'secretary'),
@@ -126,7 +156,10 @@ router.patch('/:id/status',
   updatePrescriptionStatus
 );
 
-// Rotas administrativas
+/**
+ * ROTAS ADMINISTRATIVAS (criação/edição/remoção por admin/secretária)
+ */
+// Criar receita manualmente (admin/secretária)
 router.post('/admin',
   protect,
   authorize('admin', 'secretary'),
@@ -135,6 +168,7 @@ router.post('/admin',
   managePrescriptionByAdmin
 );
 
+// Atualizar receita manualmente (admin/secretária)
 router.put('/admin/:id',
   protect,
   authorize('admin', 'secretary'),
@@ -144,6 +178,7 @@ router.put('/admin/:id',
   managePrescriptionByAdmin
 );
 
+// Deletar receita (apenas admin)
 router.delete('/admin/:id',
   protect,
   authorize('admin'),
@@ -152,20 +187,26 @@ router.delete('/admin/:id',
   deletePrescription
 );
 
-// Rotas de exportação e relatórios
+/**
+ * EXPORTAÇÃO E RELATÓRIOS
+ */
+// Exportar prescrições (admin/secretária)
 router.get('/export',
   protect,
   authorize('admin', 'secretary'),
   exportPrescriptions
 );
 
+// Estatísticas (apenas admin)
 router.get('/stats',
   protect,
   authorize('admin'),
   getPrescriptionStats
 );
 
-// Tratamento de erros
+/**
+ * TRATAMENTO DE ERROS ESPECÍFICOS DAS ROTAS DE PRESCRIÇÃO
+ */
 router.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   console.error(`[${new Date().toISOString()}] Prescription Route Error:`, err);
