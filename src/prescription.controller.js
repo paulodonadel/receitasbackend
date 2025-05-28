@@ -35,18 +35,26 @@ exports.createPrescription = async (req, res, next) => {
       .map(([_, message]) => message);
 
     if (missingFields.length > 0) {
-      return res.status(400).json({
-        success: false,
+      return res.status(400).json({ 
+        success: false, 
         message: missingFields.join(", "),
         errorCode: "MISSING_REQUIRED_FIELDS"
       });
     }
 
-    // Validação de e-mail e CPF se informados
-    if (patientEmail || patientCPF) {
-      const missingEmailFields = [];
-      if (!patientEmail) missingEmailFields.push("E-mail do paciente é obrigatório");
-      if (!patientCPF) missingEmailFields.push("CPF do paciente é obrigatório");
+    // Validações específicas para envio por e-mail
+    if (deliveryMethod === "email") {
+      const emailRequiredFields = {
+        patientCPF: "CPF é obrigatório para envio por e-mail",
+        patientEmail: "E-mail é obrigatório para envio por e-mail",
+        patientCEP: "CEP é obrigatório para envio por e-mail",
+        patientAddress: "Endereço é obrigatório para envio por e-mail"
+      };
+
+      const missingEmailFields = Object.entries(emailRequiredFields)
+        .filter(([field]) => !req.body[field])
+        .map(([_, message]) => message);
+
       if (missingEmailFields.length > 0) {
         return res.status(400).json({
           success: false,
@@ -87,41 +95,75 @@ exports.createPrescription = async (req, res, next) => {
     if (patient.role !== "patient") {
       return res.status(403).json({
         success: false,
-        message: "Apenas pacientes podem criar prescrições.",
+        message: "Apenas pacientes podem criar solicitações de receita",
         errorCode: "UNAUTHORIZED_ROLE"
       });
     }
 
     // Criar a prescrição
-    const prescription = await Prescription.create({
+    const prescriptionData = {
+      patient: req.user.id,
       medicationName,
       dosage,
       prescriptionType,
       deliveryMethod,
       observations,
-      patient: req.user.id,
-      patientCPF,
-      patientEmail,
-      patientCEP,
-      patientAddress,
+      status: "solicitada",
       numberOfBoxes,
+      patientName: patient.name,
+      ...(deliveryMethod === "email" ? {
+        patientCPF: patientCPF.replace(/[^\d]/g, ''),
+        patientEmail,
+        patientCEP: patientCEP.replace(/[^\d]/g, ''),
+        patientAddress
+      } : {
+        patientPhone: patient.phone
+      }),
       createdBy: req.user.id
-    });
+    };
+
+    const prescription = await Prescription.create(prescriptionData);
 
     // Log de atividade
     await logActivity({
       user: req.user.id,
       action: 'create_prescription',
-      details: `Criou prescrição ${prescription._id}`
+      details: `Prescrição criada para ${medicationName}`,
+      prescription: prescription._id,
+      metadata: {
+        medication: medicationName,
+        type: prescriptionType
+      }
     });
+
+    // Tentar enviar e-mail de confirmação (não bloqueante)
+    try {
+      await emailService.sendPrescriptionConfirmation({
+        to: patient.email,
+        prescriptionId: prescription._id,
+        patientName: patient.name,
+        medicationName,
+        status: "solicitada"
+      });
+    } catch (emailError) {
+      console.error("Erro ao enviar e-mail de confirmação:", emailError);
+      await logActivity({
+        user: req.user.id,
+        action: 'email_failed',
+        details: `Falha ao enviar e-mail para ${patient.email}`,
+        prescription: prescription._id,
+        error: emailError.message
+      });
+    }
 
     res.status(201).json({
       success: true,
-      message: "Solicitação criada com sucesso.",
-      data: prescription
+      data: prescription,
+      message: "Solicitação de receita criada com sucesso"
     });
 
   } catch (error) {
+    console.error("Erro ao criar solicitação:", error);
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -220,31 +262,49 @@ exports.getAllPrescriptions = async (req, res, next) => {
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
-    // Filtro por paciente (por nome ou CPF)
+    // Filtro por paciente
     if (patientName || patientCpf) {
-      const patientMatch = {};
-      if (patientName) patientMatch.name = { $regex: patientName, $options: "i" };
-      if (patientCpf) patientMatch.cpf = patientCpf;
-      console.log("Antes do User.find", patientMatch);
-      const patients = await User.find(patientMatch, "_id");
-      console.log("Depois do User.find", patients.length);
-      query.patient = { $in: patients.map(p => p._id) };
+      console.log("Filtrando por paciente:", { patientName, patientCpf });
+      const patientQuery = {};
+      if (patientName) {
+        patientQuery.name = { 
+          $regex: patientName, 
+          $options: "i" 
+        };
+      }
+      if (patientCpf) {
+        patientQuery.cpf = patientCpf.replace(/[^\d]/g, '');
+      }
+      // LIMITA para evitar travamentos se o banco estiver grande
+      const patients = await User.find(patientQuery).select("_id").limit(1000);
+      const patientIds = patients.map(p => p._id);
+      console.log("Ids dos pacientes encontrados:", patientIds.length);
+      if (patientIds.length > 0) {
+        query.patient = { $in: patientIds };
+      } else {
+        // Retorna vazio se não encontrar pacientes com os critérios
+        return res.status(200).json({ 
+          success: true, 
+          count: 0, 
+          total: 0,
+          data: [] 
+        });
+      }
     }
 
     // Configuração de paginação
     const skip = (page - 1) * limit;
-    console.log("Antes do Prescription.countDocuments", query);
     const total = await Prescription.countDocuments(query);
-    console.log("Depois do Prescription.countDocuments", total);
+    console.log("Consulta Prescription.countDocuments total:", total);
 
-    console.log("Antes do Prescription.find");
     const prescriptions = await Prescription.find(query)
       .populate("patient", "name email cpf")
       .populate("createdBy", "name role")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
-    console.log("Depois do Prescription.find", prescriptions.length);
+
+    console.log("Número de prescrições retornadas:", prescriptions.length);
 
     // Log de atividade
     await logActivity({
@@ -304,10 +364,19 @@ exports.getPrescription = async (req, res, next) => {
     if (!isOwner && !isAdminOrSecretary) {
       return res.status(403).json({
         success: false,
-        message: "Você não tem permissão para acessar esta solicitação.",
-        errorCode: "UNAUTHORIZED"
+        message: "Não autorizado a acessar esta solicitação.",
+        errorCode: "UNAUTHORIZED_ACCESS"
       });
     }
+
+    // Log de atividade
+    await logActivity({
+      user: req.user.id,
+      action: 'view_prescription',
+      details: `Visualizou prescrição ${prescription._id}`,
+      prescription: prescription._id,
+      accessedAs: isOwner ? "patient" : req.user.role
+    });
 
     res.status(200).json({
       success: true,
@@ -315,6 +384,13 @@ exports.getPrescription = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro ao obter solicitação:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
+      });
+    }
     res.status(500).json({
       success: false,
       message: "Erro ao obter solicitação.",
@@ -328,19 +404,30 @@ exports.getPrescription = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.updatePrescriptionStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
-    if (!status) {
+    const { status, internalNotes, rejectionReason } = req.body;
+    const prescriptionId = req.params.id;
+
+    const validStatus = ["em_analise", "aprovada", "rejeitada", "pronta", "enviada"];
+    if (!status || !validStatus.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status é obrigatório.",
-        errorCode: "MISSING_STATUS"
+        message: "Status inválido. Valores permitidos: " + validStatus.join(", "),
+        errorCode: "INVALID_STATUS"
       });
     }
-    const prescription = await Prescription.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+
+    // Validação para status 'rejeitada'
+    if (status === "rejeitada" && (!rejectionReason || rejectionReason.trim().length < 5)) {
+      return res.status(400).json({
+        success: false,
+        message: "Motivo da rejeição é obrigatório e deve ter pelo menos 5 caracteres",
+        errorCode: "MISSING_REJECTION_REASON"
+      });
+    }
+
+    const prescription = await Prescription.findById(prescriptionId)
+      .populate("patient", "name email");
+      
     if (!prescription) {
       return res.status(404).json({
         success: false,
@@ -349,30 +436,88 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
       });
     }
 
+    const oldStatus = prescription.status;
+    prescription.status = status;
+    prescription.internalNotes = internalNotes || undefined;
+    prescription.updatedBy = req.user.id;
+    
+    if (status === "rejeitada") {
+      prescription.rejectionReason = rejectionReason;
+    } else {
+      prescription.rejectionReason = undefined;
+    }
+
+    // Atualizar datas específicas de status
+    const now = new Date();
+    if (status === "aprovada") prescription.approvedAt = now;
+    if (status === "pronta") prescription.readyAt = now;
+    if (status === "enviada") prescription.sentAt = now;
+
+    const updatedPrescription = await prescription.save();
+
+    // Notificar paciente por e-mail se o status mudou
+    if (oldStatus !== status) {
+      try {
+        const emailTo = prescription.patient?.email || prescription.patientEmail;
+        if (emailTo) {
+          await emailService.sendStatusUpdateEmail({
+            to: emailTo,
+            prescriptionId: prescription._id,
+            patientName: prescription.patient?.name || prescription.patientName,
+            medicationName: prescription.medicationName,
+            oldStatus,
+            newStatus: status,
+            rejectionReason,
+            updatedBy: req.user.name
+          });
+        }
+      } catch (emailError) {
+        console.error("Erro ao enviar e-mail:", emailError);
+        await logActivity({
+          user: req.user.id,
+          action: 'email_failed',
+          details: `Falha ao enviar e-mail de atualização de status para prescrição ${prescription._id}`,
+          prescription: prescription._id,
+          error: emailError.message
+        });
+      }
+    }
+
     // Log de atividade
     await logActivity({
       user: req.user.id,
       action: 'update_prescription_status',
-      details: `Atualizou status da prescrição ${prescription._id} para ${status}`,
-      prescription: prescription._id
+      details: `Status alterado de ${oldStatus} para ${status}`,
+      prescription: prescription._id,
+      statusChange: {
+        from: oldStatus,
+        to: status
+      }
     });
 
     res.status(200).json({
       success: true,
-      message: "Status atualizado com sucesso.",
-      data: prescription
+      data: updatedPrescription,
+      message: "Status da solicitação atualizado com sucesso"
     });
   } catch (error) {
-    console.error("Erro ao atualizar status da solicitação:", error);
+    console.error("Erro ao atualizar status:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
+      });
+    }
     res.status(500).json({
       success: false,
-      message: "Erro ao atualizar status.",
-      errorCode: "UPDATE_PRESCRIPTION_STATUS_ERROR"
+      message: "Erro ao atualizar status da solicitação.",
+      errorCode: "UPDATE_STATUS_ERROR"
     });
   }
 };
 
-// @desc    Gerenciar prescrições por admin
+// @desc    Criar/atualizar solicitação (Admin)
 // @route   POST /api/receitas/admin
 // @route   PUT /api/receitas/admin/:id
 // @access  Private/Admin-Secretary
@@ -402,41 +547,106 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       });
     }
 
-    let prescription;
+    // Validações específicas para envio por e-mail
+    if (data.deliveryMethod === "email") {
+      const emailRequiredFields = {
+        patientEmail: "E-mail é obrigatório para envio por e-mail",
+        patientCPF: "CPF é obrigatório para envio por e-mail"
+      };
 
-    if (id) {
-      prescription = await Prescription.findByIdAndUpdate(id, data, { new: true });
-      if (!prescription) {
-        return res.status(404).json({ 
-          success: false, 
-          message: "Solicitação não encontrada.",
-          errorCode: "PRESCRIPTION_NOT_FOUND"
+      const missingEmailFields = Object.entries(emailRequiredFields)
+        .filter(([field]) => !data[field])
+        .map(([_, message]) => message);
+
+      if (missingEmailFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: missingEmailFields.join(", "),
+          errorCode: "MISSING_EMAIL_FIELDS"
         });
       }
+
+      if (!validateCPF(data.patientCPF)) {
+        return res.status(400).json({
+          success: false,
+          message: "CPF inválido",
+          errorCode: "INVALID_CPF"
+        });
+      }
+    }
+
+    let prescription;
+    if (id) {
+      // Atualização
+      prescription = await Prescription.findByIdAndUpdate(
+        id,
+        { 
+          ...data, 
+          updatedBy: req.user.id, 
+          updatedAt: new Date() 
+        },
+        { new: true, runValidators: true }
+      );
     } else {
-      prescription = await Prescription.create({
+      // Criação
+      // Obter informações do paciente
+      const patient = await User.findById(data.patient);
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: "Paciente não encontrado",
+          errorCode: "PATIENT_NOT_FOUND"
+        });
+      }
+
+      const prescriptionData = {
         ...data,
-        createdBy: req.user.id
+        patientName: patient.name,
+        patientPhone: patient.phone,
+        createdBy: req.user.id,
+        status: "aprovada" // Admin cria já aprovada
+      };
+
+      prescription = await Prescription.create(prescriptionData);
+    }
+
+    if (!prescription) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Prescrição não encontrada.",
+        errorCode: "PRESCRIPTION_NOT_FOUND"
       });
     }
 
     // Log de atividade
     await logActivity({
       user: req.user.id,
-      action: id ? 'update_prescription_by_admin' : 'create_prescription_by_admin',
-      details: id 
-        ? `Atualizou prescrição ${prescription._id}`
-        : `Criou prescrição ${prescription._id} como admin`,
-      prescription: prescription._id
+      action: id ? 'update_prescription' : 'create_prescription_admin',
+      details: id ? 
+        `Atualizou prescrição ${prescription._id}` : 
+        `Criou prescrição para ${prescription.patientName}`,
+      prescription: prescription._id,
+      isAdminAction: true
     });
 
-    res.status(200).json({
-      success: true,
-      message: id ? "Prescrição atualizada com sucesso." : "Prescrição criada com sucesso.",
-      data: prescription
+    res.status(id ? 200 : 201).json({ 
+      success: true, 
+      data: prescription,
+      message: id ? 
+        "Prescrição atualizada com sucesso" : 
+        "Prescrição criada com sucesso"
     });
+
   } catch (error) {
     console.error("Erro ao gerenciar prescrição:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID inválido.",
+        errorCode: "INVALID_ID"
+      });
+    }
+    
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -512,12 +722,59 @@ exports.deletePrescription = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.exportPrescriptions = async (req, res, next) => {
   try {
-    const { format = "json" } = req.query;
+    const { format = 'json', ...queryParams } = req.query;
+    
+    // Reutiliza a lógica de filtro do getAllPrescriptions
+    const query = {};
+    
+    // Filtros básicos
+    if (queryParams.status) query.status = queryParams.status;
+    if (queryParams.type) query.prescriptionType = queryParams.type;
+    if (queryParams.medicationName) {
+      query.medicationName = { 
+        $regex: queryParams.medicationName, 
+        $options: "i" 
+      };
+    }
+    if (queryParams.deliveryMethod) query.deliveryMethod = queryParams.deliveryMethod;
 
-    let exportData = await Prescription.find().lean();
+    // Filtro por data
+    if (queryParams.startDate || queryParams.endDate) {
+      query.createdAt = {};
+      if (queryParams.startDate) query.createdAt.$gte = new Date(queryParams.startDate);
+      if (queryParams.endDate) query.createdAt.$lte = new Date(queryParams.endDate);
+    }
 
-    // Aqui você pode adaptar para CSV/XLSX conforme necessidade
-    // Este exemplo retorna apenas JSON
+    const prescriptions = await Prescription.find(query)
+      .populate("patient", "name cpf")
+      .populate("createdBy", "name")
+      .sort({ createdAt: -1 });
+
+    // Formatando os dados para exportação
+    const exportData = prescriptions.map(prescription => ({
+      ID: prescription._id,
+      Paciente: prescription.patient?.name || prescription.patientName,
+      CPF: prescription.patient?.cpf || prescription.patientCPF,
+      Medicamento: prescription.medicationName,
+      Dosagem: prescription.dosage,
+      Tipo: prescription.prescriptionType,
+      Status: prescription.status,
+      "Método Entrega": prescription.deliveryMethod,
+      "Data Criação": prescription.createdAt.toISOString(),
+      "Criado Por": prescription.createdBy?.name || 'Sistema',
+      "Observações": prescription.observations,
+      "Motivo Rejeição": prescription.rejectionReason
+    }));
+
+    // Log de atividade
+    await logActivity({
+      user: req.user.id,
+      action: 'export_prescriptions',
+      details: `Exportou ${prescriptions.length} prescrições no formato ${format}`,
+      filters: queryParams
+    });
+
+    // Retorna em formato JSON (poderia ser adaptado para CSV/Excel)
     res.status(200).json({
       success: true,
       format,
@@ -591,11 +848,11 @@ exports.getPrescriptionStats = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error("Erro ao obter estatísticas de prescrições:", error);
+    console.error("Erro ao obter estatísticas:", error);
     res.status(500).json({
       success: false,
-      message: "Erro ao obter estatísticas.",
-      errorCode: "GET_PRESCRIPTION_STATS_ERROR"
+      message: "Erro ao obter estatísticas de prescrições.",
+      errorCode: "GET_STATS_ERROR"
     });
   }
-}
+};
