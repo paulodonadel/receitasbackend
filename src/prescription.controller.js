@@ -8,6 +8,7 @@ const { validateCPF } = require("./utils/validationUtils");
 // @route   POST /api/receitas
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const { 
       medicationName, 
@@ -184,6 +185,7 @@ exports.createPrescription = async (req, res, next) => {
 // @route   GET /api/receitas/me
 // @access  Private/Patient
 exports.getMyPrescriptions = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
     const query = { patient: req.user.id };
@@ -227,124 +229,43 @@ exports.getMyPrescriptions = async (req, res, next) => {
 // @route   GET /api/receitas
 // @access  Private/Admin-Secretary
 exports.getAllPrescriptions = async (req, res, next) => {
-  console.log(">>> Entrou no getAllPrescriptions <<<");
+  // ==== DUMMY RESPONSE PARA TESTE ====
   try {
-    const { 
-      status, 
-      type, 
-      patientName, 
-      patientCpf, 
-      startDate, 
-      endDate, 
-      medicationName, 
-      deliveryMethod,
-      page = 1,
-      limit = 20
-    } = req.query;
-    
-    let query = {};
-
-    // Filtros básicos
-    if (status) query.status = status;
-    if (type) query.prescriptionType = type;
-    if (medicationName) {
-      query.medicationName = { 
-        $regex: medicationName, 
-        $options: "i" 
-      };
-    }
-    if (deliveryMethod) query.deliveryMethod = deliveryMethod;
-
-    // Filtro por data
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-
-    // Filtro por paciente (só se os campos NÃO são string vazia)
-    if (
-      (typeof patientName === "string" && patientName.trim() !== "") ||
-      (typeof patientCpf === "string" && patientCpf.trim() !== "")
-    ) {
-      console.log("Filtrando por paciente:", { patientName, patientCpf });
-      const patientQuery = {};
-      if (typeof patientName === "string" && patientName.trim() !== "") {
-        patientQuery.name = { 
-          $regex: patientName, 
-          $options: "i" 
-        };
-      }
-      if (typeof patientCpf === "string" && patientCpf.trim() !== "") {
-        patientQuery.cpf = patientCpf.replace(/[^\d]/g, '');
-      }
-      // LIMITA para evitar travamentos se o banco estiver grande
-      const patients = await User.find(patientQuery).select("_id").limit(1000);
-      const patientIds = patients.map(p => p._id);
-      console.log("Ids dos pacientes encontrados:", patientIds.length);
-      if (patientIds.length > 0) {
-        query.patient = { $in: patientIds };
-      } else {
-        return res.status(200).json({ 
-          success: true, 
-          count: 0, 
-          total: 0,
-          data: [] 
-        });
-      }
-    }
-
-    // Configuração de paginação
-    const skip = (page - 1) * limit;
-    const total = await Prescription.countDocuments(query);
-    console.log("Consulta Prescription.countDocuments total:", total);
-
-    const prescriptions = await Prescription.find(query)
-      .populate("patient", "name email cpf")
-      .populate("createdBy", "name role")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
-
-    console.log("Número de prescrições retornadas:", prescriptions.length);
-
-    // Log de atividade
-    await logActivity({
-      user: req.user.id,
-      action: 'view_prescriptions',
-      details: `Visualizou ${prescriptions.length} prescrições`,
-      filters: {
-        status,
-        type,
-        patientName,
-        startDate,
-        endDate
-      }
-    });
-
-    // SEMPRE retorna JSON, mesmo se prescriptions for vazio
-    res.status(200).json({
+    console.log("DEBUG: Controller dummy chamado - getAllPrescriptions!");
+    return res.status(200).json({
       success: true,
-      count: prescriptions.length,
-      total,
-      page: Number(page),
-      pages: Math.ceil(total / limit),
-      data: prescriptions || []
+      count: 1,
+      total: 1,
+      page: 1,
+      pages: 1,
+      data: [
+        {
+          id: "dummyid123",
+          patientName: "Paciente Teste",
+          patientCPF: "123.456.789-00",
+          patientEmail: "paciente@teste.com",
+          medicationName: "Dipirona",
+          prescriptionType: "branco",
+          dosage: "500mg",
+          quantity: "1",
+          status: "pendente",
+          deliveryMethod: "clinic",
+          rejectionReason: "",
+          createdAt: "2024-01-01T00:00:00.000Z"
+        }
+      ]
     });
   } catch (error) {
-    console.error("Erro ao obter todas as solicitações:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erro ao obter todas as prescrições.",
-      errorCode: "GET_ALL_PRESCRIPTIONS_ERROR"
-    });
+    return res.status(500).json({ success: false, message: 'Erro interno de teste.' });
   }
+  // ==== FIM DUMMY ====
 };
 
 // @desc    Obter uma solicitação específica por ID
 // @route   GET /api/receitas/:id
 // @access  Private (Paciente dono, Admin, Secretária)
 exports.getPrescription = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const prescription = await Prescription.findById(req.params.id)
       .populate("patient", "name email cpf address phone birthDate")
@@ -405,6 +326,7 @@ exports.getPrescription = async (req, res, next) => {
 // @route   PATCH /api/receitas/:id/status
 // @access  Private/Admin-Secretary
 exports.updatePrescriptionStatus = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const { status, internalNotes, rejectionReason } = req.body;
     const prescriptionId = req.params.id;
@@ -524,6 +446,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @route   PUT /api/receitas/admin/:id
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const { id } = req.params;
     const data = req.body;
@@ -670,6 +593,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
 // @route   DELETE /api/receitas/:id
 // @access  Private/Admin
 exports.deletePrescription = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ 
@@ -723,6 +647,7 @@ exports.deletePrescription = async (req, res, next) => {
 // @route   GET /api/receitas/export
 // @access  Private/Admin-Secretary
 exports.exportPrescriptions = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     const { format = 'json', ...queryParams } = req.query;
     
@@ -798,6 +723,7 @@ exports.exportPrescriptions = async (req, res, next) => {
 // @route   GET /api/receitas/stats
 // @access  Private/Admin
 exports.getPrescriptionStats = async (req, res, next) => {
+  // ... (sem alteração, igual ao original)
   try {
     // Estatísticas por status
     const statusStats = await Prescription.aggregate([
