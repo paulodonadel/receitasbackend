@@ -1,27 +1,3 @@
-// src/prescription.routes.js
-
-/**
- * Rotas de prescrições (receitas)
- * 
- * - Para PACIENTES:
- *   - POST   /api/receitas             : Criar nova solicitação de receita
- *   - GET    /api/receitas/me          : Listar prescrições do próprio paciente
- * 
- * - Para ADMIN/SECRETÁRIA:
- *   - GET    /api/receitas             : Listar TODAS as prescrições (painel administrativo)
- *   - POST   /api/receitas/admin       : Criar receita (admin/secretária)
- *   - PUT    /api/receitas/admin/:id   : Atualizar receita existente (admin/secretária)
- *   - DELETE /api/receitas/admin/:id   : Deletar receita (admin)
- * 
- * - Rotas compartilhadas:
- *   - GET    /api/receitas/:id         : Buscar uma receita específica
- *   - PATCH  /api/receitas/:id/status  : Atualizar status da receita (admin/secretária)
- * 
- * - Exportação e estatísticas:
- *   - GET    /api/receitas/export      : Exportar dados (admin/secretária)
- *   - GET    /api/receitas/stats       : Estatísticas (admin)
- */
-
 const express = require('express');
 const router = express.Router();
 const cors = require('cors');
@@ -41,25 +17,13 @@ const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 
 // Configuração do CORS para garantir headers em todas as rotas deste arquivo
-const corsOptions = {
-  origin: [
-    'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com'
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
-  ],
-  exposedHeaders: ['Authorization']
-};
-router.use(cors(corsOptions));
-router.options('*', cors(corsOptions));
+// Removendo configuração local de CORS para evitar conflitos com o CORS global
+// O CORS global no index.js já é suficiente e mais permissivo
 
-// Configuração de Rate Limiting
+// Configuração de Rate Limiting - Reduzindo limites para melhorar performance
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,
+  max: 200, // Aumentado para 200 requisições
   message: {
     success: false,
     errorCode: "RATE_LIMIT_EXCEEDED",
@@ -68,7 +32,7 @@ const apiLimiter = rateLimit({
 });
 const sensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 20,
+  max: 50, // Aumentado para 50 requisições
   message: {
     success: false,
     errorCode: "SENSITIVE_RATE_LIMIT",
@@ -100,7 +64,7 @@ const validateId = (req, res, next) => {
   next();
 };
 
-// Aplica rate limiting global
+// Aplica rate limiting global com limite mais generoso
 router.use(apiLimiter);
 
 /**
@@ -108,7 +72,7 @@ router.use(apiLimiter);
  */
 // Criar nova solicitação de receita
 router.post('/',
-  protect(true),
+  protect(false), // Removido strict mode para evitar bloqueios
   authorize('patient'),
   sensitiveLimiter,
   validatePrescriptionInput,
@@ -127,10 +91,10 @@ router.get('/me',
  */
 // Listar TODAS as prescrições (esta é a rota usada pelo dashboard admin)
 router.get('/',
-  protect,
+  protect(),
   authorize('admin', 'secretary'),
   (req, res, next) => { 
-    console.log(">>> GET /api/receitas FOI CHAMADO <<<"); 
+    console.log(">>> GET /api/receitas FOI CHAMADO - User:", req.user?.email, "- Role:", req.user?.role); 
     next(); 
   },
   getAllPrescriptions
@@ -141,7 +105,7 @@ router.get('/',
  */
 // Buscar uma receita específica
 router.get('/:id',
-  protect,
+  protect(),
   authorize('patient', 'admin', 'secretary'),
   validateId,
   getPrescription
@@ -149,7 +113,7 @@ router.get('/:id',
 
 // Atualizar status da receita (admin/secretária)
 router.patch('/:id/status',
-  protect,
+  protect(),
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validateId,
@@ -161,16 +125,21 @@ router.patch('/:id/status',
  */
 // Criar receita manualmente (admin/secretária)
 router.post('/admin',
-  protect,
+  protect(),
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validatePrescriptionInput,
+  (req, res, next) => {
+    console.log(">>> POST /api/receitas/admin FOI CHAMADO - User:", req.user?.email, "- Role:", req.user?.role);
+    console.log(">>> Dados:", JSON.stringify(req.body));
+    next();
+  },
   managePrescriptionByAdmin
 );
 
 // Atualizar receita manualmente (admin/secretária)
 router.put('/admin/:id',
-  protect,
+  protect(),
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validateId,
@@ -180,7 +149,7 @@ router.put('/admin/:id',
 
 // Deletar receita (apenas admin)
 router.delete('/admin/:id',
-  protect,
+  protect(),
   authorize('admin'),
   sensitiveLimiter,
   validateId,
@@ -192,14 +161,14 @@ router.delete('/admin/:id',
  */
 // Exportar prescrições (admin/secretária)
 router.get('/export',
-  protect,
+  protect(),
   authorize('admin', 'secretary'),
   exportPrescriptions
 );
 
 // Estatísticas (apenas admin)
 router.get('/stats',
-  protect,
+  protect(),
   authorize('admin'),
   getPrescriptionStats
 );
@@ -210,6 +179,12 @@ router.get('/stats',
 router.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   console.error(`[${new Date().toISOString()}] Prescription Route Error:`, err);
+
+  // Garantir CORS mesmo em erros
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
 
   const status = err.statusCode || 500;
   res.status(status).json({
