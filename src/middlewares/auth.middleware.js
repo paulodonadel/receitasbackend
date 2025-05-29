@@ -108,6 +108,9 @@ exports.protect = (strict = false) => {
       }
 
       // 5. Verificação de segurança adicional (opcional)
+      // DESATIVADO: A verificação de IP foi desativada para evitar bloqueios em ambientes cloud
+      // onde o IP pode mudar frequentemente (como no Render)
+      /*
       if (strict && req.ip !== user.lastKnownIp) {
         logSecurityEvent('AUTH_WARNING', {
           ip: req.ip,
@@ -115,6 +118,17 @@ exports.protect = (strict = false) => {
           lastKnownIp: user.lastKnownIp,
           reason: 'Mudança de IP detectada'
         });
+      }
+      */
+      
+      // Atualiza o IP do usuário sem verificação
+      if (user.lastKnownIp !== req.ip) {
+        // Apenas registra a mudança sem bloquear
+        console.log(`IP atualizado para usuário ${user._id}: ${user.lastKnownIp} -> ${req.ip}`);
+        
+        // Atualiza o IP no banco de dados de forma assíncrona (não bloqueia a requisição)
+        User.updateOne({ _id: user._id }, { lastKnownIp: req.ip })
+          .catch(err => console.error('Erro ao atualizar IP do usuário:', err));
       }
 
       // 6. Anexa o usuário à requisição
