@@ -12,29 +12,61 @@ app.set('trust proxy', 1);
 const corsOptions = {
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com'
+    'https://www.sistema-receitas-frontend.onrender.com',
+    // Adicionando localhost para desenvolvimento
+    'http://localhost:3000',
+    'http://localhost:5173',
+    // Permitir qualquer origem em desenvolvimento
+    '*'
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Allow-Origin'
   ],
-  exposedHeaders: ['Authorization']
+  exposedHeaders: ['Authorization', 'Access-Control-Allow-Origin']
 };
 
+// Aplicar CORS como primeiro middleware para garantir que seja aplicado a todas as rotas
 app.use(cors(corsOptions));
 
 // Middleware para lidar com preflight OPTIONS para todas as rotas
 app.options('*', cors(corsOptions));
 
+// Middleware para garantir headers CORS em todas as respostas
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Verificar se é uma requisição OPTIONS (preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Aumentando o timeout para lidar com o "spin up" lento do Render
+const TIMEOUT_MS = 120000; // 2 minutos
+
 // Outras configs
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Middleware para logging de requisições
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - IP: ${req.ip} - Origin: ${req.headers.origin}`);
+  next();
+});
 
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000
+  serverSelectionTimeoutMS: 10000, // Aumentado para 10 segundos
+  socketTimeoutMS: 45000, // Aumentado para 45 segundos
+  connectTimeoutMS: 30000 // Aumentado para 30 segundos
 })
 .then(() => console.log('✅ MongoDB conectado com sucesso'))
 .catch(err => {
@@ -89,6 +121,20 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+});
+
+// Configurando timeout do servidor
+server.timeout = TIMEOUT_MS;
+
+// Tratamento de erros não capturados
+process.on('uncaughtException', (err) => {
+  console.error('Erro não capturado:', err);
+  // Não encerra o processo para manter o servidor rodando
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Promessa rejeitada não tratada:', reason);
+  // Não encerra o processo para manter o servidor rodando
 });

@@ -1,206 +1,245 @@
-import axios from 'axios';
-import { getErrorMessage } from '../utils/errorUtils';
+import api from "./api";
+import { 
+  Prescription, 
+  PrescriptionCreateData, 
+  PrescriptionUpdateData,
+  PrescriptionStatusUpdateData,
+  PrescriptionFilters,
+  PrescriptionStats,
+  ApiResponse,
+  PaginatedResponse,
+  PrescriptionType,
+  DeliveryMethod,
+  PrescriptionStatus
+} from "../types";
 
-// Configurações globais do axios
-const API_URL = process.env.REACT_APP_API_URL || 'https://receitasbackend.onrender.com/api';
-const API_TIMEOUT = 10000; // 10 segundos
-
-// Cria uma instância customizada do axios
-const api = axios.create({
-  baseURL: API_URL,
-  timeout: API_TIMEOUT,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Interceptor para adicionar token de autenticação
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
-// Interceptor para tratamento centralizado de erros
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const formattedError = {
-      message: getErrorMessage(error),
-      status: error.response?.status,
-      data: error.response?.data,
-      originalError: error
-    };
-    return Promise.reject(formattedError);
-  }
-);
-
-const prescriptionService = {
+class PrescriptionService {
   /**
-   * Obtém todas as prescrições do usuário logado
-   * @returns {Promise<Array>} Lista de prescrições
+   * Verifica se o usuário tem permissões administrativas
    */
-  getMyPrescriptions: async () => {
+  private isAdmin(): boolean {
     try {
-      const response = await api.get('/prescriptions/me');
-      return {
-        success: true,
-        data: response.data.data,
-        count: response.data.count
-      };
-    } catch (error) {
-      console.error('Erro ao obter prescrições:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Obtém todas as prescrições (para admin/secretária)
-   * @param {Object} filters - Filtros de busca
-   * @returns {Promise<Array>} Lista de prescrições
-   */
-  getAllPrescriptions: async (filters = {}) => {
-    try {
-      const params = new URLSearchParams();
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return false;
       
-      // Adiciona filtros válidos aos parâmetros
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, value);
-        }
-      });
-
-      const response = await api.get('/prescriptions', { params });
-      return {
-        success: true,
-        data: response.data.data,
-        count: response.data.count
-      };
+      const user = JSON.parse(userStr);
+      return ['admin', 'secretaria'].includes(user?.role);
     } catch (error) {
-      console.error('Erro ao obter todas as prescrições:', error);
-      throw error;
+      console.error('Error checking admin permissions:', error);
+      return false;
     }
-  },
+  }
 
   /**
-   * Obtém uma prescrição específica por ID
-   * @param {string} id - ID da prescrição
-   * @returns {Promise<Object>} Dados da prescrição
+   * Normaliza o tipo de prescrição para garantir compatibilidade
    */
-  getPrescriptionById: async (id) => {
-    try {
-      const response = await api.get(`/prescriptions/${id}`);
-      return {
-        success: true,
-        data: response.data.data
-      };
-    } catch (error) {
-      console.error(`Erro ao obter prescrição ${id}:`, error);
-      throw error;
+  private normalizePrescriptionType(type: string): PrescriptionType {
+    const lowerType = type.toLowerCase();
+    switch (lowerType) {
+      case 'branco': return 'branco';
+      case 'azul': return 'azul';
+      case 'amarelo': return 'amarelo';
+      default:
+        throw new Error(`Invalid prescription type: ${type}`);
     }
-  },
+  }
+
+  /**
+   * Normaliza os dados da prescrição antes do envio
+   */
+  private normalizePrescriptionData(data: any): PrescriptionCreateData {
+    return {
+      ...data,
+      prescriptionType: this.normalizePrescriptionType(data.prescriptionType),
+      numberOfBoxes: data.quantity || data.numberOfBoxes,
+      // Garante que campos opcionais estejam definidos
+      patientEmail: data.patientEmail || undefined,
+      patientCEP: data.patientCEP || undefined,
+      patientAddress: data.patientAddress || undefined,
+      observations: data.observations || undefined,
+      rejectionReason: data.rejectionReason || undefined
+    };
+  }
+
+  /**
+   * Obtém prescrições do usuário logado (paciente)
+   */
+  async getMyPrescriptions(): Promise<ApiResponse<Prescription[]>> {
+    try {
+      if (this.isAdmin()) {
+        const paginated = await this.getAllPrescriptions();
+        return {
+          data: paginated.data,
+          success: true,
+          message: '',
+        } as ApiResponse<Prescription[]>;
+      }
+      
+      const response = await api.get<ApiResponse<Prescription[]>>("/api/receitas/me");
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to fetch user prescriptions:", error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Obtém todas as prescrições (admin)
+   * CORRIGIDO: endpoint agora é /api/receitas
+   */
+  async getAllPrescriptions(filters?: PrescriptionFilters): Promise<PaginatedResponse<Prescription>> {
+    if (!this.isAdmin()) {
+      throw new Error("Acesso restrito a administradores");
+    }
+
+    try {
+      const response = await api.get<PaginatedResponse<Prescription>>(
+        "/api/receitas", // <--- CORRIGIDO AQUI
+        { params: filters }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to fetch all prescriptions:", error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Obtém uma prescrição específica
+   */
+  async getPrescription(id: string): Promise<ApiResponse<Prescription>> {
+    try {
+      const endpoint = this.isAdmin() 
+        ? `/api/receitas/admin/${id}`
+        : `/api/receitas/${id}`;
+      
+      const response = await api.get<ApiResponse<Prescription>>(endpoint);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Failed to fetch prescription ${id}:`, error);
+      throw this.handleError(error);
+    }
+  }
 
   /**
    * Cria uma nova prescrição
-   * @param {Object} prescriptionData - Dados da prescrição
-   * @returns {Promise<Object>} Prescrição criada
    */
-  createPrescription: async (prescriptionData) => {
+  async createPrescription(data: any): Promise<ApiResponse<Prescription>> {
     try {
-      const response = await api.post('/prescriptions', prescriptionData);
-      return {
-        success: true,
-        data: response.data.data,
-        message: 'Prescrição criada com sucesso!'
-      };
-    } catch (error) {
-      console.error('Erro ao criar prescrição:', error);
-      throw error;
+      const normalizedData = this.normalizePrescriptionData(data);
+      const endpoint = this.isAdmin()
+        ? "/api/receitas/admin"
+        : "/api/receitas";
+      
+      const response = await api.post<ApiResponse<Prescription>>(endpoint, normalizedData);
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to create prescription:", error);
+      throw this.handleError(error);
     }
-  },
+  }
 
   /**
    * Atualiza o status de uma prescrição
-   * @param {string} id - ID da prescrição
-   * @param {Object} statusData - Dados do status (status, internalNotes, rejectionReason)
-   * @returns {Promise<Object>} Prescrição atualizada
    */
-  updatePrescriptionStatus: async (id, statusData) => {
-    try {
-      const response = await api.patch(`/prescriptions/${id}/status`, statusData);
-      return {
-        success: true,
-        data: response.data.data,
-        message: 'Status atualizado com sucesso!'
-      };
-    } catch (error) {
-      console.error(`Erro ao atualizar status da prescrição ${id}:`, error);
-      throw error;
+  async updatePrescriptionStatus(
+    id: string, 
+    statusData: PrescriptionStatusUpdateData
+  ): Promise<ApiResponse<Prescription>> {
+    if (!this.isAdmin()) {
+      throw new Error("Acesso restrito a administradores");
     }
-  },
+
+    try {
+      const response = await api.patch<ApiResponse<Prescription>>(
+        `/api/receitas/admin/${id}/status`,
+        statusData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error(`Failed to update status for ${id}:`, error);
+      throw this.handleError(error);
+    }
+  }
 
   /**
-   * Cria ou atualiza uma prescrição (admin)
-   * @param {Object} prescriptionData - Dados da prescrição
-   * @param {string|null} id - ID para atualização (null para criação)
-   * @returns {Promise<Object>} Prescrição criada/atualizada
+   * Atualiza uma prescrição
    */
-  managePrescription: async (prescriptionData, id = null) => {
-    try {
-      const response = id 
-        ? await api.put(`/prescriptions/admin/${id}`, prescriptionData)
-        : await api.post('/prescriptions/admin', prescriptionData);
-      
-      return {
-        success: true,
-        data: response.data.data,
-        message: id ? 'Prescrição atualizada!' : 'Prescrição criada!'
-      };
-    } catch (error) {
-      console.error(`Erro ao ${id ? 'atualizar' : 'criar'} prescrição:`, error);
-      throw error;
+  async updatePrescription(
+    id: string, 
+    data: PrescriptionUpdateData
+  ): Promise<ApiResponse<Prescription>> {
+    if (!this.isAdmin()) {
+      throw new Error("Acesso restrito a administradores");
     }
-  },
+
+    try {
+      const normalizedData = this.normalizePrescriptionData(data);
+      const response = await api.put<ApiResponse<Prescription>>(
+        `/api/receitas/admin/${id}`,
+        normalizedData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error(`Failed to update prescription ${id}:`, error);
+      throw this.handleError(error);
+    }
+  }
 
   /**
    * Remove uma prescrição
-   * @param {string} id - ID da prescrição
-   * @returns {Promise<Object>} Resultado da operação
    */
-  deletePrescription: async (id) => {
-    try {
-      await api.delete(`/prescriptions/${id}`);
-      return {
-        success: true,
-        message: 'Prescrição removida com sucesso!'
-      };
-    } catch (error) {
-      console.error(`Erro ao remover prescrição ${id}:`, error);
-      throw error;
+  async deletePrescription(id: string): Promise<ApiResponse<void>> {
+    if (!this.isAdmin()) {
+      throw new Error("Acesso restrito a administradores");
     }
-  },
 
-  /**
-   * Exporta prescrições para Excel
-   * @param {Object} filters - Filtros de busca
-   * @returns {Promise<Blob>} Arquivo Excel
-   */
-  exportToExcel: async (filters = {}) => {
     try {
-      const response = await api.get('/prescriptions/export', {
-        params: filters,
-        responseType: 'blob'
-      });
+      const response = await api.delete<ApiResponse<void>>(
+        `/api/receitas/admin/${id}`
+      );
       return response.data;
-    } catch (error) {
-      console.error('Erro ao exportar prescrições:', error);
-      throw error;
+    } catch (error: any) {
+      console.error(`Failed to delete prescription ${id}:`, error);
+      throw this.handleError(error);
     }
   }
-};
 
-export default prescriptionService;
+  /**
+   * Obtém estatísticas
+   */
+  async getStats(): Promise<ApiResponse<PrescriptionStats>> {
+    if (!this.isAdmin()) {
+      throw new Error("Acesso restrito a administradores");
+    }
+
+    try {
+      const response = await api.get<ApiResponse<PrescriptionStats>>(
+        "/api/receitas/admin/stats"
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to fetch stats:", error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Tratamento padronizado de erros
+   */
+  private handleError(error: any): Error {
+    if (error.response) {
+      // Erro da API
+      const apiError = error.response.data?.error || 
+                      error.response.data?.message || 
+                      error.response.statusText;
+      return new Error(apiError);
+    }
+    
+    // Erro de rede ou outro erro
+    return error instanceof Error ? error : new Error("Erro desconhecido");
+  }
+}
+
+// Exporta uma instância singleton do serviço
+export default new PrescriptionService();
