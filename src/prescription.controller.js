@@ -110,7 +110,7 @@ exports.createPrescription = async (req, res, next) => {
       deliveryMethod,
       observations,
       status: "solicitada",
-      numberOfBoxes,
+      numberOfBoxes: numberOfBoxes ? String(numberOfBoxes) : "1",
       patientName: patient.name,
       ...(deliveryMethod === "email" ? {
         patientCpf: patientCpf.replace(/[^\d]/g, ''),
@@ -566,6 +566,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         id,
         { 
           ...data, 
+          numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1", // <-- aqui
           updatedBy: req.user.id, 
           updatedAt: new Date() 
         },
@@ -585,6 +586,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
 
       const prescriptionData = {
         ...data,
+        numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1", // <-- aqui
         patientName: patient.name,
         patientPhone: patient.phone,
         createdBy: req.user.id,
