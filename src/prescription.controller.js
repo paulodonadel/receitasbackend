@@ -28,12 +28,18 @@ exports.createPrescription = async (req, res, next) => {
       medicationName: "Nome do medicamento é obrigatório",
       dosage: "Dosagem é obrigatória",
       prescriptionType: "Tipo de receita é obrigatório",
-      deliveryMethod: "Método de entrega é obrigatório"
+      deliveryMethod: "Método de entrega é obrigatório",
+      patientName: "Nome do paciente é obrigatório" // <-- adicione isso
     };
 
     const missingFields = Object.entries(requiredFields)
       .filter(([field]) => !req.body[field])
       .map(([_, message]) => message);
+
+    // Exigir pelo menos patient OU patientName
+    if (!req.body.patient && !req.body.patientName) {
+      missingFields.push("Paciente (ID ou Nome) é obrigatório");
+    }
 
     if (missingFields.length > 0) {
       return res.status(400).json({ 
@@ -512,7 +518,6 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
 
     // Validações básicas
     const requiredFields = {
-      patient: "Paciente é obrigatório",
       medicationName: "Nome do medicamento é obrigatório",
       dosage: "Dosagem é obrigatória",
       prescriptionType: "Tipo de receita é obrigatório",
@@ -522,6 +527,11 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     const missingFields = Object.entries(requiredFields)
       .filter(([field]) => !data[field])
       .map(([_, message]) => message);
+
+    // Exigir pelo menos patient OU patientName
+    if (!data.patient && !data.patientName) {
+      missingFields.push("Paciente (ID ou Nome) é obrigatório");
+    }
 
     if (missingFields.length > 0) {
       return res.status(400).json({ 
@@ -566,7 +576,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         id,
         { 
           ...data, 
-          numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1", // <-- aqui
+          numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1",
           updatedBy: req.user.id, 
           updatedAt: new Date() 
         },
@@ -574,25 +584,12 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       );
     } else {
       // Criação
-      // Obter informações do paciente
-      const patient = await User.findById(data.patient);
-      if (!patient) {
-        return res.status(404).json({
-          success: false,
-          message: "Paciente não encontrado",
-          errorCode: "PATIENT_NOT_FOUND"
-        });
-      }
-
       const prescriptionData = {
         ...data,
-        numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1", // <-- aqui
-        patientName: patient.name,
-        patientPhone: patient.phone,
+        numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1",
         createdBy: req.user.id,
         status: "aprovada"
       };
-
       prescription = await Prescription.create(prescriptionData);
     }
 

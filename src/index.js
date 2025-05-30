@@ -13,11 +13,9 @@ const corsOptions = {
   origin: [
     'https://sistema-receitas-frontend.onrender.com',
     'https://www.sistema-receitas-frontend.onrender.com',
-    // Adicionando localhost para desenvolvimento
     'http://localhost:3000',
-    'http://localhost:5173',
-    // Permitir qualquer origem em desenvolvimento
-    '*'
+    'http://localhost:5173'
+    // '*',  // Remova esta linha!
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
