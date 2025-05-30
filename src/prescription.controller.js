@@ -229,36 +229,95 @@ exports.getMyPrescriptions = async (req, res, next) => {
 // @route   GET /api/receitas
 // @access  Private/Admin-Secretary
 exports.getAllPrescriptions = async (req, res, next) => {
-  // ==== DUMMY RESPONSE PARA TESTE ====
   try {
-    console.log("DEBUG: Controller dummy chamado - getAllPrescriptions!");
-    return res.status(200).json({
+    // Filtros opcionais via query string
+    const {
+      status,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 20,
+      prescriptionType,
+      deliveryMethod,
+      medicationName,
+      patientName,
+      patientCpf
+    } = req.query;
+
+    const query = {};
+
+    if (status) query.status = status;
+    if (prescriptionType) query.prescriptionType = prescriptionType;
+    if (deliveryMethod) query.deliveryMethod = deliveryMethod;
+    if (medicationName) query.medicationName = { $regex: medicationName, $options: "i" };
+
+    // Filtro por datas
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    // Filtro por nome ou CPF do paciente (via populate depois)
+    const patientMatch = {};
+    if (patientName) patientMatch.name = { $regex: patientName, $options: "i" };
+    if (patientCpf) patientMatch.Cpf = { $regex: patientCpf, $options: "i" };
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Busca prescrições com populate de paciente e criador
+    let prescriptionsQuery = Prescription.find(query)
+      .populate({
+        path: "patient",
+        select: "name email Cpf",
+        match: Object.keys(patientMatch).length ? patientMatch : undefined
+      })
+      .populate({
+        path: "createdBy",
+        select: "name role"
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    let prescriptions = await prescriptionsQuery.exec();
+
+    // Remove prescrições sem paciente (caso o filtro de nome/CPF não bata)
+    if (Object.keys(patientMatch).length) {
+      prescriptions = prescriptions.filter(p => p.patient);
+    }
+
+    // Conta total para paginação
+    let totalQuery = Prescription.countDocuments(query);
+    if (Object.keys(patientMatch).length) {
+      // Precisa contar manualmente se filtrar por paciente
+      const allPrescriptions = await Prescription.find(query)
+        .populate({
+          path: "patient",
+          select: "name email Cpf",
+          match: patientMatch
+        });
+      total = allPrescriptions.filter(p => p.patient).length;
+    } else {
+      total = await totalQuery;
+    }
+
+    res.status(200).json({
       success: true,
-      count: 1,
-      total: 1,
-      page: 1,
-      pages: 1,
-      data: [
-        {
-          id: "dummyid123",
-          patientName: "Paciente Teste",
-          patientCpf: "123.456.789-00",
-          patientEmail: "paciente@teste.com",
-          medicationName: "Dipirona",
-          prescriptionType: "branco",
-          dosage: "500mg",
-          quantity: "1",
-          status: "pendente",
-          deliveryMethod: "clinic",
-          rejectionReason: "",
-          createdAt: "2024-01-01T00:00:00.000Z"
-        }
-      ]
+      count: prescriptions.length,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
+      data: prescriptions
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro interno de teste.' });
+    console.error("Erro ao obter prescrições:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao obter prescrições.",
+      errorCode: "GET_ALL_PRESCRIPTIONS_ERROR"
+    });
   }
-  // ==== FIM DUMMY ====
 };
 
 // @desc    Obter uma solicitação específica por ID
