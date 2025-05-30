@@ -49,14 +49,14 @@ const PrescriptionSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, "O nome do paciente não pode exceder 100 caracteres"]
   },
-  patientCPF: {
+  patientCpf: {
     type: String,
     trim: true,
     validate: {
       validator: function(v) {
         return /^\d{11}$/.test(v);
       },
-      message: "CPF deve conter 11 dígitos numéricos"
+      message: "Cpf deve conter 11 dígitos numéricos"
     }
   },
   patientEmail: {
@@ -176,8 +176,8 @@ PrescriptionSchema.pre("validate", function(next) {
     if (!this.patientEmail) {
       this.invalidate("patientEmail", "E-mail é obrigatório para envio por e-mail");
     }
-    if (!this.patientCPF) {
-      this.invalidate("patientCPF", "CPF é obrigatório para envio por e-mail");
+    if (!this.patientCpf) {
+      this.invalidate("patientCpf", "Cpf é obrigatório para envio por e-mail");
     }
   }
   next();
@@ -187,7 +187,7 @@ PrescriptionSchema.pre("validate", function(next) {
 PrescriptionSchema.index({ patient: 1, status: 1, createdAt: -1 });
 PrescriptionSchema.index({ status: 1, prescriptionType: 1, createdAt: -1 });
 PrescriptionSchema.index({ patientEmail: 1, createdAt: -1 });
-PrescriptionSchema.index({ patientCPF: 1, createdAt: -1 });
+PrescriptionSchema.index({ patientCpf: 1, createdAt: -1 });
 PrescriptionSchema.index({ createdBy: 1, createdAt: -1 });
 
 // Virtuals para status legíveis

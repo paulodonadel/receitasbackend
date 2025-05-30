@@ -15,12 +15,12 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Middleware de validação básica
 const validateRegisterInput = (req, res, next) => {
-  const { name, email, password, cpf } = req.body;
-  if (!name || !email || !password || !cpf) {
+  const { name, email, password, Cpf } = req.body;
+  if (!name || !email || !password || !Cpf) {
     return res.status(400).json({
       success: false,
       error: 'Campos obrigatórios faltando',
-      required: ['name', 'email', 'password', 'cpf']
+      required: ['name', 'email', 'password', 'Cpf']
     });
   }
   next();

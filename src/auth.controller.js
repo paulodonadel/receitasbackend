@@ -9,24 +9,24 @@ const emailService = require("./emailService");
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, cpf, password, address, phone, birthDate } = req.body;
+    const { name, email, Cpf, password, address, phone, birthDate } = req.body;
 
-    if (!name || !email || !cpf || !password) {
-      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF e senha." });
+    if (!name || !email || !Cpf || !password) {
+      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, Cpf e senha." });
     }
 
-    const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
+    const userExists = await User.findOne({ $or: [{ email }, { Cpf }] });
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: "Usuário já cadastrado com este e-mail ou CPF"
+        message: "Usuário já cadastrado com este e-mail ou Cpf"
       });
     }
 
     const user = await User.create({
       name,
       email,
-      cpf,
+      Cpf,
       password,
       address,
       phone,
@@ -45,7 +45,7 @@ exports.register = async (req, res, next) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      cpf: user.cpf,
+      Cpf: user.Cpf,
       role: user.role
     };
 
@@ -112,7 +112,7 @@ exports.login = async (req, res, next) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      cpf: user.cpf,
+      Cpf: user.Cpf,
       role: user.role
     };
 
@@ -142,7 +142,7 @@ exports.getMe = async (req, res, next) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      cpf: user.cpf,
+      Cpf: user.Cpf,
       role: user.role,
       address: user.address,
       phone: user.phone,
@@ -233,18 +233,18 @@ exports.logout = async (req, res, next) => {
 // @access  Private/Admin
 exports.createAdminUser = async (req, res, next) => {
   try {
-    const { name, email, cpf, password, role } = req.body;
+    const { name, email, Cpf, password, role } = req.body;
 
-    if (!name || !email || !cpf || !password || !role) {
-      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, CPF, senha e role." });
+    if (!name || !email || !Cpf || !password || !role) {
+      return res.status(400).json({ success: false, message: "Por favor, forneça nome, email, Cpf, senha e role." });
     }
 
-    const userExists = await User.findOne({ $or: [{ email }, { cpf }] });
+    const userExists = await User.findOne({ $or: [{ email }, { Cpf }] });
 
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: "Usuário já cadastrado com este e-mail ou CPF"
+        message: "Usuário já cadastrado com este e-mail ou Cpf"
       });
     }
 
@@ -258,7 +258,7 @@ exports.createAdminUser = async (req, res, next) => {
     const user = await User.create({
       name,
       email,
-      cpf,
+      Cpf,
       password,
       role
     });
@@ -276,7 +276,7 @@ exports.createAdminUser = async (req, res, next) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      cpf: user.cpf,
+      Cpf: user.Cpf,
       role: user.role
     };
 
@@ -368,7 +368,7 @@ exports.resetPassword = async (req, res, next) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      cpf: user.cpf,
+      Cpf: user.Cpf,
       role: user.role
     };
 

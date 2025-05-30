@@ -17,9 +17,9 @@ const UserSchema = new mongoose.Schema({
       'Por favor, informe um e-mail válido'
     ]
   },
-  cpf: {
+  Cpf: {
     type: String,
-    required: [true, 'Por favor, informe seu CPF'],
+    required: [true, 'Por favor, informe seu Cpf'],
     unique: true,
     trim: true
   },

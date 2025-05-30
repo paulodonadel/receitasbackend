@@ -2,7 +2,7 @@ const Prescription = require("./models/prescription.model");
 const User = require("./models/user.model");
 const emailService = require("./emailService");
 const { logActivity } = require("./utils/activityLogger");
-const { validateCPF } = require("./utils/validationUtils");
+const { validateCpf } = require("./utils/validationUtils");
 
 // @desc    Criar nova solicitação de receita
 // @route   POST /api/receitas
@@ -16,7 +16,7 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionType, 
       deliveryMethod, 
       observations,
-      patientCPF,
+      patientCpf,
       patientEmail,
       patientCEP,
       patientAddress,
@@ -46,7 +46,7 @@ exports.createPrescription = async (req, res, next) => {
     // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
       const emailRequiredFields = {
-        patientCPF: "CPF é obrigatório para envio por e-mail",
+        patientCpf: "Cpf é obrigatório para envio por e-mail",
         patientEmail: "E-mail é obrigatório para envio por e-mail",
         patientCEP: "CEP é obrigatório para envio por e-mail",
         patientAddress: "Endereço é obrigatório para envio por e-mail"
@@ -64,11 +64,11 @@ exports.createPrescription = async (req, res, next) => {
         });
       }
 
-      if (!validateCPF(patientCPF)) {
+      if (!validateCpf(patientCpf)) {
         return res.status(400).json({
           success: false,
-          message: "CPF inválido",
-          errorCode: "INVALID_CPF"
+          message: "Cpf inválido",
+          errorCode: "INVALID_Cpf"
         });
       }
 
@@ -113,7 +113,7 @@ exports.createPrescription = async (req, res, next) => {
       numberOfBoxes,
       patientName: patient.name,
       ...(deliveryMethod === "email" ? {
-        patientCPF: patientCPF.replace(/[^\d]/g, ''),
+        patientCpf: patientCpf.replace(/[^\d]/g, ''),
         patientEmail,
         patientCEP: patientCEP.replace(/[^\d]/g, ''),
         patientAddress
@@ -242,7 +242,7 @@ exports.getAllPrescriptions = async (req, res, next) => {
         {
           id: "dummyid123",
           patientName: "Paciente Teste",
-          patientCPF: "123.456.789-00",
+          patientCpf: "123.456.789-00",
           patientEmail: "paciente@teste.com",
           medicationName: "Dipirona",
           prescriptionType: "branco",
@@ -268,7 +268,7 @@ exports.getPrescription = async (req, res, next) => {
   // ... (sem alteração, igual ao original)
   try {
     const prescription = await Prescription.findById(req.params.id)
-      .populate("patient", "name email cpf address phone birthDate")
+      .populate("patient", "name email Cpf address phone birthDate")
       .populate("createdBy", "name role")
       .populate("updatedBy", "name role");
 
@@ -476,7 +476,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (data.deliveryMethod === "email") {
       const emailRequiredFields = {
         patientEmail: "E-mail é obrigatório para envio por e-mail",
-        patientCPF: "CPF é obrigatório para envio por e-mail"
+        patientCpf: "Cpf é obrigatório para envio por e-mail"
       };
 
       const missingEmailFields = Object.entries(emailRequiredFields)
@@ -491,11 +491,11 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         });
       }
 
-      if (!validateCPF(data.patientCPF)) {
+      if (!validateCpf(data.patientCpf)) {
         return res.status(400).json({
           success: false,
-          message: "CPF inválido",
-          errorCode: "INVALID_CPF"
+          message: "Cpf inválido",
+          errorCode: "INVALID_Cpf"
         });
       }
     }
@@ -673,7 +673,7 @@ exports.exportPrescriptions = async (req, res, next) => {
     }
 
     const prescriptions = await Prescription.find(query)
-      .populate("patient", "name cpf")
+      .populate("patient", "name Cpf")
       .populate("createdBy", "name")
       .sort({ createdAt: -1 });
 
@@ -681,7 +681,7 @@ exports.exportPrescriptions = async (req, res, next) => {
     const exportData = prescriptions.map(prescription => ({
       ID: prescription._id,
       Paciente: prescription.patient?.name || prescription.patientName,
-      CPF: prescription.patient?.cpf || prescription.patientCPF,
+      Cpf: prescription.patient?.Cpf || prescription.patientCpf,
       Medicamento: prescription.medicationName,
       Dosagem: prescription.dosage,
       Tipo: prescription.prescriptionType,
