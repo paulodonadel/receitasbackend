@@ -1,3 +1,27 @@
+// src/prescription.routes.js
+
+/**
+ * Rotas de prescrições (receitas)
+ * 
+ * - Para PACIENTES:
+ *   - POST   /api/receitas             : Criar nova solicitação de receita
+ *   - GET    /api/receitas/me          : Listar prescrições do próprio paciente
+ * 
+ * - Para ADMIN/SECRETÁRIA:
+ *   - GET    /api/receitas             : Listar TODAS as prescrições (painel administrativo)
+ *   - POST   /api/receitas/admin       : Criar receita (admin/secretária)
+ *   - PUT    /api/receitas/admin/:id   : Atualizar receita existente (admin/secretária)
+ *   - DELETE /api/receitas/admin/:id   : Deletar receita (admin)
+ * 
+ * - Rotas compartilhadas:
+ *   - GET    /api/receitas/:id         : Buscar uma receita específica
+ *   - PATCH  /api/receitas/:id/status  : Atualizar status da receita (admin/secretária)
+ * 
+ * - Exportação e estatísticas:
+ *   - GET    /api/receitas/export      : Exportar dados (admin/secretária)
+ *   - GET    /api/receitas/stats       : Estatísticas (admin)
+ */
+
 const express = require('express');
 const router = express.Router();
 const cors = require('cors');
@@ -11,13 +35,12 @@ const {
   deletePrescription,
   exportPrescriptions,
   getPrescriptionStats
-} = require('./prescription.controller');
-const { protect, authorize } = require('./middlewares/auth.middleware');
+} = require('./prescription.controller.js'); // Adicionando a extensão .js explicitamente
+const { protect, authorize } = require('./middlewares/auth.middleware.js'); // Adicionando a extensão .js explicitamente
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 
-// Configuração do CORS para garantir headers em todas as rotas deste arquivo
-// Removendo configuração local de CORS para evitar conflitos com o CORS global
+// Removendo configuração CORS local para evitar conflitos com o CORS global
 // O CORS global no index.js já é suficiente e mais permissivo
 
 // Configuração de Rate Limiting - Reduzindo limites para melhorar performance
