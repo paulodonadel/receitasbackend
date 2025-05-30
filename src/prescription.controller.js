@@ -308,13 +308,16 @@ exports.getAllPrescriptions = async (req, res, next) => {
       total = await totalQuery;
     }
 
+    // Formata todas as prescrições para garantir numberofboxes como string
+    const formattedPrescriptions = prescriptions.map(formatPrescription);
+
     res.status(200).json({
       success: true,
-      count: prescriptions.length,
+      count: formattedPrescriptions.length,
       total,
       page: Number(page),
       pages: Math.ceil(total / limit),
-      data: prescriptions
+      data: formattedPrescriptions
     });
   } catch (error) {
     console.error("Erro ao obter prescrições:", error);
@@ -368,7 +371,7 @@ exports.getPrescription = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: prescription
+      data: formatPrescription(prescription)
     });
   } catch (error) {
     console.error("Erro ao obter solicitação:", error);
@@ -486,7 +489,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: updatedPrescription,
+      data: formatPrescription(updatedPrescription),
       message: "Status da solicitação atualizado com sucesso"
     });
   } catch (error) {
@@ -512,11 +515,11 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
   try {
-    let { userId, userName, ...data } = req.body;
+    let { userId, userName, name, ...data } = req.body;
 
     // Permitir buscar por nome se não vier o id
-    if (!userId && userName) {
-      const user = await User.findOne({ name: userName });
+    if (!userId && (userName || name)) {
+      const user = await User.findOne({ name: userName || name });
       if (!user) {
         return res.status(404).json({ success: false, message: "Usuário não encontrado pelo nome." });
       }
@@ -531,6 +534,9 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (data.numberofboxes !== undefined) {
       data.numberofboxes = String(data.numberofboxes);
     }
+    if (data.numberOfBoxes !== undefined) {
+      data.numberOfBoxes = String(data.numberOfBoxes);
+    }
 
     // Criação ou atualização
     let prescription;
@@ -544,7 +550,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       );
     }
 
-    res.status(200).json({ success: true, data: prescription });
+    res.status(200).json({ success: true, data: formatPrescription(prescription) });
   } catch (error) {
     next(error);
   }
@@ -745,3 +751,18 @@ exports.getPrescriptionStats = async (req, res, next) => {
     });
   }
 };
+
+// Função utilitária para garantir que numberofboxes seja string
+function formatPrescription(prescription) {
+  if (!prescription) return prescription;
+  // Se for um documento Mongoose, converte para objeto simples
+  const obj = typeof prescription.toObject === "function" ? prescription.toObject() : { ...prescription };
+  if (obj.numberofboxes !== undefined) {
+    obj.numberofboxes = String(obj.numberofboxes);
+  }
+  // Também cobre variação numberOfBoxes (caso exista)
+  if (obj.numberOfBoxes !== undefined) {
+    obj.numberOfBoxes = String(obj.numberOfBoxes);
+  }
+  return obj;
+}
