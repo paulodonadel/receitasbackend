@@ -511,139 +511,42 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @route   PUT /api/receitas/admin/:id
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
-  // ... (sem alteração, igual ao original)
   try {
-    const { id } = req.params;
-    const data = req.body;
+    let { userId, userName, ...data } = req.body;
 
-    // Validações básicas
-    const requiredFields = {
-      medicationName: "Nome do medicamento é obrigatório",
-      dosage: "Dosagem é obrigatória",
-      prescriptionType: "Tipo de receita é obrigatório",
-      deliveryMethod: "Método de entrega é obrigatório"
-    };
-
-    const missingFields = Object.entries(requiredFields)
-      .filter(([field]) => !data[field])
-      .map(([_, message]) => message);
-
-    // Exigir pelo menos patient OU patientName
-    if (!data.patient && !data.patientName) {
-      missingFields.push("Paciente (ID ou Nome) é obrigatório");
-    }
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: missingFields.join(", "),
-        errorCode: "MISSING_REQUIRED_FIELDS"
-      });
-    }
-
-    // Validações específicas para envio por e-mail
-    if (data.deliveryMethod === "email") {
-      const emailRequiredFields = {
-        patientEmail: "E-mail é obrigatório para envio por e-mail",
-        patientCpf: "Cpf é obrigatório para envio por e-mail"
-      };
-
-      const missingEmailFields = Object.entries(emailRequiredFields)
-        .filter(([field]) => !data[field])
-        .map(([_, message]) => message);
-
-      if (missingEmailFields.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: missingEmailFields.join(", "),
-          errorCode: "MISSING_EMAIL_FIELDS"
-        });
+    // Permitir buscar por nome se não vier o id
+    if (!userId && userName) {
+      const user = await User.findOne({ name: userName });
+      if (!user) {
+        return res.status(404).json({ success: false, message: "Usuário não encontrado pelo nome." });
       }
-
-      if (!validateCpf(data.patientCpf)) {
-        return res.status(400).json({
-          success: false,
-          message: "Cpf inválido",
-          errorCode: "INVALID_Cpf"
-        });
-      }
+      userId = user._id;
     }
 
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "ID do usuário é obrigatório." });
+    }
+
+    // Garante que numberofboxes seja string
+    if (data.numberofboxes !== undefined) {
+      data.numberofboxes = String(data.numberofboxes);
+    }
+
+    // Criação ou atualização
     let prescription;
-    if (id) {
-      // Atualização
+    if (req.method === "POST") {
+      prescription = await Prescription.create({ ...data, user: userId });
+    } else if (req.method === "PUT") {
       prescription = await Prescription.findByIdAndUpdate(
-        id,
-        { 
-          ...data, 
-          numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1",
-          updatedBy: req.user.id, 
-          updatedAt: new Date() 
-        },
-        { new: true, runValidators: true }
+        req.params.id,
+        { ...data, user: userId },
+        { new: true }
       );
-    } else {
-      // Criação
-      const prescriptionData = {
-        ...data,
-        numberOfBoxes: data.numberOfBoxes ? String(data.numberOfBoxes) : "1",
-        createdBy: req.user.id,
-        status: "aprovada"
-      };
-      prescription = await Prescription.create(prescriptionData);
     }
 
-    if (!prescription) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Prescrição não encontrada.",
-        errorCode: "PRESCRIPTION_NOT_FOUND"
-      });
-    }
-
-    // Log de atividade
-    await logActivity({
-      user: req.user.id,
-      action: id ? 'update_prescription' : 'create_prescription_admin',
-      details: id ? 
-        `Atualizou prescrição ${prescription._id}` : 
-        `Criou prescrição para ${prescription.patientName}`,
-      prescription: prescription._id,
-      isAdminAction: true
-    });
-
-    res.status(id ? 200 : 201).json({ 
-      success: true, 
-      data: prescription,
-      message: id ? 
-        "Prescrição atualizada com sucesso" : 
-        "Prescrição criada com sucesso"
-    });
-
+    res.status(200).json({ success: true, data: prescription });
   } catch (error) {
-    console.error("Erro ao gerenciar prescrição:", error);
-    if (error.name === "CastError") {
-      return res.status(400).json({ 
-        success: false, 
-        message: "ID inválido.",
-        errorCode: "INVALID_ID"
-      });
-    }
-    
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        success: false,
-        message: "Erro de validação",
-        errors: Object.values(error.errors).map(err => err.message),
-        errorCode: "VALIDATION_ERROR"
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: "Erro ao gerenciar prescrição.",
-      errorCode: "MANAGE_PRESCRIPTION_ERROR"
-    });
+    next(error);
   }
 };
 
