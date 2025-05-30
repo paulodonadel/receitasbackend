@@ -590,7 +590,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         patientName: patient.name,
         patientPhone: patient.phone,
         createdBy: req.user.id,
-        status: "aprovada" // Admin cria já aprovada
+        status: "aprovada"
       };
 
       prescription = await Prescription.create(prescriptionData);
