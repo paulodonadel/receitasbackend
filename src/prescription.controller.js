@@ -28,18 +28,12 @@ exports.createPrescription = async (req, res, next) => {
       medicationName: "Nome do medicamento é obrigatório",
       dosage: "Dosagem é obrigatória",
       prescriptionType: "Tipo de receita é obrigatório",
-      deliveryMethod: "Método de entrega é obrigatório",
-      patientName: "Nome do paciente é obrigatório" // <-- adicione isso
+      deliveryMethod: "Método de entrega é obrigatório"
     };
 
     const missingFields = Object.entries(requiredFields)
       .filter(([field]) => !req.body[field])
       .map(([_, message]) => message);
-
-    // Exigir pelo menos patient OU patientName
-    if (!req.body.patient && !req.body.patientName) {
-      missingFields.push("Paciente (ID ou Nome) é obrigatório");
-    }
 
     if (missingFields.length > 0) {
       return res.status(400).json({ 
@@ -530,10 +524,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "ID do usuário é obrigatório." });
     }
 
-    // Garante que numberofboxes seja string
-    if (data.numberofboxes !== undefined) {
-      data.numberofboxes = String(data.numberofboxes);
-    }
+    // Garante que numberOfBoxes seja string
     if (data.numberOfBoxes !== undefined) {
       data.numberOfBoxes = String(data.numberOfBoxes);
     }
@@ -541,11 +532,20 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     // Criação ou atualização
     let prescription;
     if (req.method === "POST") {
-      prescription = await Prescription.create({ ...data, user: userId });
+      prescription = await Prescription.create({ 
+        ...data, 
+        patient: userId,  // CORRIGIDO: era 'user', agora é 'patient'
+        createdBy: req.user.id,
+        patientName: data.patientName || (await User.findById(userId))?.name
+      });
     } else if (req.method === "PUT") {
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
-        { ...data, user: userId },
+        { 
+          ...data, 
+          patient: userId,  // CORRIGIDO: era 'user', agora é 'patient'
+          updatedBy: req.user.id
+        },
         { new: true }
       );
     }

@@ -38,9 +38,15 @@ const PrescriptionSchema = new mongoose.Schema({
     required: [true, "O método de entrega é obrigatório"]
   },
   numberOfBoxes: {
-    type: Number,
-    min: [1, "O número de caixas deve ser pelo menos 1"],
-    default: 1
+    type: String,
+    default: "1",
+    validate: {
+      validator: function(v) {
+        const num = parseInt(v);
+        return !isNaN(num) && num >= 1;
+      },
+      message: "O número de caixas deve ser um número válido maior que 0"
+    }
   },
 
   // Informações do paciente (cópia para histórico)
