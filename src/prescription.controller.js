@@ -46,7 +46,6 @@ exports.createPrescription = async (req, res, next) => {
     // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
       const emailRequiredFields = {
-        patientCpf: "Cpf é obrigatório para envio por e-mail",
         patientEmail: "E-mail é obrigatório para envio por e-mail",
         patientCEP: "CEP é obrigatório para envio por e-mail",
         patientAddress: "Endereço é obrigatório para envio por e-mail"
@@ -64,11 +63,12 @@ exports.createPrescription = async (req, res, next) => {
         });
       }
 
-      if (!validateCpf(patientCpf)) {
+      // Validar CPF apenas se fornecido
+      if (patientCpf && !validateCpf(patientCpf)) {
         return res.status(400).json({
           success: false,
-          message: "Cpf inválido",
-          errorCode: "INVALID_Cpf"
+          message: "CPF inválido",
+          errorCode: "INVALID_CPF"
         });
       }
 
@@ -509,19 +509,58 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
   try {
-    let { userId, userName, name, ...data } = req.body;
+    let { userId, userName, name, patientName, patientCpf, ...data } = req.body;
 
-    // Permitir buscar por nome se não vier o id
-    if (!userId && (userName || name)) {
-      const user = await User.findOne({ name: userName || name });
-      if (!user) {
-        return res.status(404).json({ success: false, message: "Usuário não encontrado pelo nome." });
+    // Prioridade: userId > userName > name > patientName
+    let patientId = userId;
+    
+    if (!patientId && (userName || name || patientName)) {
+      const searchName = userName || name || patientName;
+      console.log(`>>> Buscando usuário por nome: ${searchName}`);
+      
+      // Buscar por nome ou CPF
+      let user;
+      if (patientCpf) {
+        user = await User.findOne({ 
+          $or: [
+            { name: { $regex: searchName, $options: "i" } },
+            { Cpf: patientCpf.replace(/\D/g, '') }
+          ]
+        });
+      } else {
+        user = await User.findOne({ name: { $regex: searchName, $options: "i" } });
       }
-      userId = user._id;
+      
+      if (!user) {
+        // Se não encontrar usuário, criar um registro básico (para casos onde admin cria receita para paciente não cadastrado)
+        console.log(`>>> Usuário não encontrado, criando registro básico para: ${searchName}`);
+        try {
+          user = await User.create({
+            name: patientName || searchName,
+            email: data.patientEmail || `temp_${Date.now()}@temp.com`,
+            Cpf: patientCpf || `temp_${Date.now()}`,
+            password: `temp_${Date.now()}`,
+            role: 'patient'
+          });
+          console.log(`>>> Usuário criado com ID: ${user._id}`);
+        } catch (createError) {
+          console.error("Erro ao criar usuário:", createError);
+          return res.status(400).json({ 
+            success: false, 
+            message: "Erro ao processar dados do paciente. Verifique se o CPF não está duplicado." 
+          });
+        }
+      }
+      
+      patientId = user._id;
+      console.log(`>>> Usando patientId: ${patientId}`);
     }
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "ID do usuário é obrigatório." });
+    if (!patientId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID do paciente ou nome do paciente é obrigatório." 
+      });
     }
 
     // Garante que numberOfBoxes seja string
@@ -529,30 +568,59 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       data.numberOfBoxes = String(data.numberOfBoxes);
     }
 
+    // Preparar dados da prescrição
+    const prescriptionData = {
+      ...data,
+      patient: patientId,
+      patientName: patientName || data.patientName,
+      patientCpf: patientCpf ? patientCpf.replace(/\D/g, '') : undefined,
+      createdBy: req.user.id,
+      updatedBy: req.user.id
+    };
+
+    console.log(`>>> Dados da prescrição:`, JSON.stringify(prescriptionData, null, 2));
+
     // Criação ou atualização
     let prescription;
     if (req.method === "POST") {
-      prescription = await Prescription.create({ 
-        ...data, 
-        patient: userId,  // CORRIGIDO: era 'user', agora é 'patient'
-        createdBy: req.user.id,
-        patientName: data.patientName || (await User.findById(userId))?.name
-      });
+      prescription = await Prescription.create(prescriptionData);
+      console.log(`>>> Prescrição criada com ID: ${prescription._id}`);
     } else if (req.method === "PUT") {
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
-        { 
-          ...data, 
-          patient: userId,  // CORRIGIDO: era 'user', agora é 'patient'
-          updatedBy: req.user.id
-        },
-        { new: true }
+        prescriptionData,
+        { new: true, runValidators: true }
       );
+      console.log(`>>> Prescrição atualizada: ${req.params.id}`);
     }
 
-    res.status(200).json({ success: true, data: formatPrescription(prescription) });
+    if (!prescription) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Prescrição não encontrada para atualização." 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      data: formatPrescription(prescription),
+      message: req.method === "POST" ? "Prescrição criada com sucesso" : "Prescrição atualizada com sucesso"
+    });
   } catch (error) {
-    next(error);
+    console.error("Erro em managePrescriptionByAdmin:", error);
+    
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Erro de validação",
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: "Erro interno do servidor ao processar prescrição."
+    });
   }
 };
 

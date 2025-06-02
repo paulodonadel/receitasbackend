@@ -60,9 +60,10 @@ const PrescriptionSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: function(v) {
-        return /^\d{11}$/.test(v);
+        // Se CPF for fornecido, deve ter 11 dígitos, mas não é obrigatório
+        return !v || /^\d{11}$/.test(v);
       },
-      message: "Cpf deve conter 11 dígitos numéricos"
+      message: "CPF deve conter 11 dígitos numéricos (quando fornecido)"
     }
   },
   patientEmail: {
@@ -182,9 +183,7 @@ PrescriptionSchema.pre("validate", function(next) {
     if (!this.patientEmail) {
       this.invalidate("patientEmail", "E-mail é obrigatório para envio por e-mail");
     }
-    if (!this.patientCpf) {
-      this.invalidate("patientCpf", "Cpf é obrigatório para envio por e-mail");
-    }
+    // CPF não é mais obrigatório para envio por e-mail
   }
   next();
 });
