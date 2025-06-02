@@ -19,9 +19,10 @@ const UserSchema = new mongoose.Schema({
   },
   Cpf: {
     type: String,
-    required: [true, 'Por favor, informe seu Cpf'],
+    required: false, // CPF agora é opcional
     unique: true,
-    trim: true
+    trim: true,
+    sparse: true // Permite múltiplos documentos com CPF null/undefined
   },
   password: {
     type: String,
