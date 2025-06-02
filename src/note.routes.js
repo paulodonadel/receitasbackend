@@ -9,7 +9,7 @@ const {
   toggleNoteCompletion
 } = require('./note.controller');
 
-const { protect, authorize } = require('./middleware/auth');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Aplicar middleware de autenticação e autorização para todas as rotas
 router.use(protect);
