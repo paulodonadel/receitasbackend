@@ -75,9 +75,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Rotas
 const authRoutes = require('./auth.routes');
 const prescriptionRoutes = require('./prescription.routes');
+const noteRoutes = require('./note.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
+app.use('/api/notes', noteRoutes);
 
 // Rotas básicas de status
 app.get('/', (req, res) => {

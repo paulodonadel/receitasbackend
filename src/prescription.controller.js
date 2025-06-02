@@ -535,10 +535,31 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         // Se não encontrar usuário, criar um registro básico (para casos onde admin cria receita para paciente não cadastrado)
         console.log(`>>> Usuário não encontrado, criando registro básico para: ${searchName}`);
         try {
+          // Gerar e-mail único se o fornecido já existir
+          let uniqueEmail = data.patientEmail || `${searchName.toLowerCase().replace(/\s+/g, '')}@temp.com`;
+          
+          // Verificar se e-mail já existe e gerar um único
+          const existingUser = await User.findOne({ email: uniqueEmail });
+          if (existingUser) {
+            const timestamp = Date.now();
+            uniqueEmail = `temp_${searchName.toLowerCase().replace(/\s+/g, '')}_${timestamp}@temp.com`;
+          }
+          
+          // Gerar CPF único se o fornecido já existir ou não for fornecido
+          let uniqueCpf = patientCpf ? patientCpf.replace(/\D/g, '') : `temp${Date.now()}`;
+          
+          // Verificar se CPF já existe e gerar um único
+          if (patientCpf) {
+            const existingCpfUser = await User.findOne({ Cpf: uniqueCpf });
+            if (existingCpfUser) {
+              uniqueCpf = `temp${Date.now()}`;
+            }
+          }
+          
           user = await User.create({
             name: patientName || searchName,
-            email: data.patientEmail || `temp_${Date.now()}@temp.com`,
-            Cpf: patientCpf || `temp_${Date.now()}`,
+            email: uniqueEmail,
+            Cpf: uniqueCpf,
             password: `temp_${Date.now()}`,
             role: 'patient'
           });
@@ -547,7 +568,7 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
           console.error("Erro ao criar usuário:", createError);
           return res.status(400).json({ 
             success: false, 
-            message: "Erro ao processar dados do paciente. Verifique se o CPF não está duplicado." 
+            message: "Erro ao processar dados do paciente. Verifique se os dados não estão duplicados." 
           });
         }
       }
@@ -566,6 +587,32 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     // Garante que numberOfBoxes seja string
     if (data.numberOfBoxes !== undefined) {
       data.numberOfBoxes = String(data.numberOfBoxes);
+    }
+
+    // Mapear valores do frontend para valores do modelo
+    const deliveryMethodMap = {
+      "clinic": "retirar_clinica",
+      "email": "email",
+      "retirar_clinica": "retirar_clinica"
+    };
+    
+    const statusMap = {
+      "pendente": "solicitada",
+      "solicitada": "solicitada",
+      "em_analise": "em_analise",
+      "aprovada": "aprovada",
+      "rejeitada": "rejeitada",
+      "pronta": "pronta",
+      "enviada": "enviada"
+    };
+
+    // Aplicar mapeamentos
+    if (data.deliveryMethod && deliveryMethodMap[data.deliveryMethod]) {
+      data.deliveryMethod = deliveryMethodMap[data.deliveryMethod];
+    }
+    
+    if (data.status && statusMap[data.status]) {
+      data.status = statusMap[data.status];
     }
 
     // Preparar dados da prescrição
