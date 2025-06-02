@@ -118,3 +118,189 @@ exports.verifyEmailConnection = async () => {
     return false;
   }
 };
+
+
+/**
+ * Envia e-mail de confirmação de prescrição criada
+ * @param {object} options - Opções do e-mail
+ * @param {string} options.to - E-mail do destinatário
+ * @param {string} options.prescriptionId - ID da prescrição
+ * @param {string} options.patientName - Nome do paciente
+ * @param {string} options.medicationName - Nome do medicamento
+ * @param {string} options.status - Status da prescrição
+ */
+exports.sendPrescriptionConfirmation = async (options) => {
+  const { to, prescriptionId, patientName, medicationName, status } = options;
+  
+  const subject = "Confirmação de Solicitação de Receita - Dr. Paulo Donadel";
+  
+  const textBody = `
+Olá ${patientName},
+
+Sua solicitação de receita foi recebida com sucesso!
+
+Detalhes da solicitação:
+- Medicamento: ${medicationName}
+- Status: ${status}
+- Protocolo: ${prescriptionId}
+
+Você receberá atualizações por e-mail conforme o status da sua solicitação for alterado.
+
+Atenciosamente,
+Equipe Dr. Paulo Donadel
+  `.trim();
+
+  const htmlBody = `
+    <h2>Confirmação de Solicitação de Receita</h2>
+    <p>Olá <strong>${patientName}</strong>,</p>
+    <p>Sua solicitação de receita foi recebida com sucesso!</p>
+    
+    <h3>Detalhes da solicitação:</h3>
+    <ul>
+      <li><strong>Medicamento:</strong> ${medicationName}</li>
+      <li><strong>Status:</strong> ${status}</li>
+      <li><strong>Protocolo:</strong> ${prescriptionId}</li>
+    </ul>
+    
+    <p>Você receberá atualizações por e-mail conforme o status da sua solicitação for alterado.</p>
+    
+    <p>Atenciosamente,<br>
+    <strong>Equipe Dr. Paulo Donadel</strong></p>
+  `;
+
+  return this.sendEmail(to, subject, textBody, htmlBody);
+};
+
+/**
+ * Envia e-mail de atualização de status da prescrição
+ * @param {object} options - Opções do e-mail
+ * @param {string} options.to - E-mail do destinatário
+ * @param {string} options.prescriptionId - ID da prescrição
+ * @param {string} options.patientName - Nome do paciente
+ * @param {string} options.medicationName - Nome do medicamento
+ * @param {string} options.oldStatus - Status anterior
+ * @param {string} options.newStatus - Novo status
+ * @param {string} [options.rejectionReason] - Motivo da rejeição (se aplicável)
+ * @param {string} [options.updatedBy] - Nome de quem atualizou
+ */
+exports.sendStatusUpdateEmail = async (options) => {
+  const { 
+    to, 
+    prescriptionId, 
+    patientName, 
+    medicationName, 
+    oldStatus, 
+    newStatus, 
+    rejectionReason,
+    updatedBy 
+  } = options;
+  
+  // Mapear status para mensagens amigáveis
+  const statusMessages = {
+    'solicitada': 'Solicitada',
+    'em_analise': 'Em Análise',
+    'aprovada': 'Aprovada',
+    'rejeitada': 'Rejeitada',
+    'pronta': 'Pronta para Retirada',
+    'enviada': 'Enviada'
+  };
+
+  const statusMessage = statusMessages[newStatus] || newStatus;
+  const subject = `Atualização de Receita: ${statusMessage} - Dr. Paulo Donadel`;
+  
+  let textBody = `
+Olá ${patientName},
+
+O status da sua solicitação de receita foi atualizado!
+
+Detalhes da solicitação:
+- Medicamento: ${medicationName}
+- Status anterior: ${statusMessages[oldStatus] || oldStatus}
+- Novo status: ${statusMessage}
+- Protocolo: ${prescriptionId}
+  `;
+
+  let htmlBody = `
+    <h2>Atualização de Status da Receita</h2>
+    <p>Olá <strong>${patientName}</strong>,</p>
+    <p>O status da sua solicitação de receita foi atualizado!</p>
+    
+    <h3>Detalhes da solicitação:</h3>
+    <ul>
+      <li><strong>Medicamento:</strong> ${medicationName}</li>
+      <li><strong>Status anterior:</strong> ${statusMessages[oldStatus] || oldStatus}</li>
+      <li><strong>Novo status:</strong> <span style="color: #2196F3; font-weight: bold;">${statusMessage}</span></li>
+      <li><strong>Protocolo:</strong> ${prescriptionId}</li>
+    </ul>
+  `;
+
+  // Adicionar informações específicas baseadas no status
+  if (newStatus === 'aprovada') {
+    textBody += `
+    
+Sua receita foi aprovada! Em breve ela estará pronta para retirada.
+    `;
+    htmlBody += `
+    <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>✅ Sua receita foi aprovada!</strong></p>
+      <p>Em breve ela estará pronta para retirada.</p>
+    </div>
+    `;
+  } else if (newStatus === 'pronta') {
+    textBody += `
+    
+🚚 Sua receita está PRONTA para retirada!
+
+Você pode retirar sua receita na clínica no prazo de 5 dias úteis.
+    `;
+    htmlBody += `
+    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>🚚 Sua receita está PRONTA para retirada!</strong></p>
+      <p>Você pode retirar sua receita na clínica no prazo de <strong>5 dias úteis</strong>.</p>
+    </div>
+    `;
+  } else if (newStatus === 'enviada') {
+    textBody += `
+    
+📧 Sua receita foi ENVIADA por e-mail!
+
+Verifique sua caixa de entrada e spam.
+    `;
+    htmlBody += `
+    <div style="background-color: #f3e5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>📧 Sua receita foi ENVIADA por e-mail!</strong></p>
+      <p>Verifique sua caixa de entrada e spam.</p>
+    </div>
+    `;
+  } else if (newStatus === 'rejeitada' && rejectionReason) {
+    textBody += `
+    
+❌ Sua solicitação foi rejeitada.
+
+Motivo: ${rejectionReason}
+
+Você pode fazer uma nova solicitação corrigindo as informações necessárias.
+    `;
+    htmlBody += `
+    <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>❌ Sua solicitação foi rejeitada.</strong></p>
+      <p><strong>Motivo:</strong> ${rejectionReason}</p>
+      <p>Você pode fazer uma nova solicitação corrigindo as informações necessárias.</p>
+    </div>
+    `;
+  }
+
+  textBody += `
+
+Atenciosamente,
+Equipe Dr. Paulo Donadel
+  `;
+
+  htmlBody += `
+    <p>Atenciosamente,<br>
+    <strong>Equipe Dr. Paulo Donadel</strong></p>
+  `;
+
+  return this.sendEmail(to, subject, textBody.trim(), htmlBody);
+};
+
