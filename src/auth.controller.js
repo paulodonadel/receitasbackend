@@ -20,14 +20,29 @@ exports.register = async (req, res, next) => {
     }
 
     // Verificar se usuário já existe por email ou CPF (se fornecido)
-    const existingUserQuery = { email };
+    let existingUserQuery;
+    
     if (Cpf && Cpf.trim()) {
-      existingUserQuery.$or = [{ email }, { Cpf: Cpf.trim() }];
+      // Se CPF foi fornecido, verificar tanto email quanto CPF
+      existingUserQuery = {
+        $or: [
+          { email: email },
+          { Cpf: Cpf.trim() }
+        ]
+      };
+    } else {
+      // Se CPF não foi fornecido, verificar apenas email
+      existingUserQuery = { email: email };
     }
 
     const userExists = await User.findOne(existingUserQuery);
     if (userExists) {
-      const conflictField = userExists.email === email ? "e-mail" : "CPF";
+      // Determinar qual campo está em conflito
+      let conflictField = "e-mail";
+      if (userExists.email !== email && userExists.Cpf === (Cpf && Cpf.trim())) {
+        conflictField = "CPF";
+      }
+      
       return res.status(400).json({
         success: false,
         message: `Usuário já cadastrado com este ${conflictField}`
