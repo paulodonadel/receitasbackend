@@ -15,14 +15,22 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Middleware de validação básica
 const validateRegisterInput = (req, res, next) => {
-  const { name, email, password, Cpf } = req.body;
-  if (!name || !email || !password || !Cpf) {
+  const { name, email, password, Cpf, role } = req.body;
+  // CPF obrigatório apenas para pacientes
+  if (
+    !name ||
+    !email ||
+    !password ||
+    (role === undefined || role === "patient") && (typeof Cpf !== "string" || !Cpf.trim())
+  ) {
     return res.status(400).json({
       success: false,
-      error: 'Campos obrigatórios faltando',
+      error: 'Campos obrigatórios faltando ou CPF inválido',
       required: ['name', 'email', 'password', 'Cpf']
     });
   }
+  // Normaliza o CPF para só números, se fornecido
+  if (Cpf) req.body.Cpf = Cpf.replace(/\D/g, '');
   next();
 };
 

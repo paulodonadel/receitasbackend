@@ -9,13 +9,13 @@ const emailService = require("./emailService");
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, Cpf, password, address, phone, birthDate } = req.body;
+    const { name, email, Cpf, password, address, phone, birthDate, role } = req.body;
 
-    // CPF agora é opcional - apenas nome, email e senha são obrigatórios
-    if (!name || !email || !password) {
+    // CPF obrigatório apenas para paciente
+    if (!name || !email || !password || ((role === undefined || role === "patient") && (!Cpf || !Cpf.trim()))) {
       return res.status(400).json({ 
         success: false, 
-        message: "Por favor, forneça nome, email e senha." 
+        message: "Por favor, forneça nome, email, senha e CPF (para pacientes)." 
       });
     }
 
@@ -66,6 +66,10 @@ exports.register = async (req, res, next) => {
     if (address) userData.address = address;
     if (phone) userData.phone = phone;
     if (birthDate) userData.birthDate = birthDate;
+
+    if (userData.Cpf) {
+      userData.Cpf = userData.Cpf.replace(/\D/g, ''); // remove tudo que não for número
+    }
 
     const user = await User.create(userData);
 
