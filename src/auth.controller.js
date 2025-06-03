@@ -54,20 +54,17 @@ exports.register = async (req, res, next) => {
       name,
       email,
       password,
-      role: role || "patient"
+      role: 'patient' // Sempre força o papel para 'patient'
     };
 
-    if (role === undefined || role === "patient") {
-      // Paciente: CPF obrigatório
-      if (!Cpf || !Cpf.trim()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Por favor, forneça nome, email, senha e CPF (para pacientes)." 
-        });
-      }
-      userData.Cpf = Cpf.replace(/\D/g, '');
+    // Paciente: CPF obrigatório
+    if (!Cpf || !Cpf.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Por favor, forneça nome, email, senha e CPF (para pacientes)." 
+      });
     }
-    // Para admin/secretária, NÃO adiciona o campo Cpf se não foi enviado
+    userData.Cpf = Cpf.replace(/\D/g, '');
 
     // Adicionar outros campos opcionais se fornecidos
     if (address) userData.address = address;
