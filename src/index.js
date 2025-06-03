@@ -15,36 +15,20 @@ const corsOptions = {
     'https://www.sistema-receitas-frontend.onrender.com',
     'http://localhost:3000',
     'http://localhost:5173'
-    // '*',  // Remova esta linha!
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Allow-Origin'
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ],
-  exposedHeaders: ['Authorization', 'Access-Control-Allow-Origin']
+  exposedHeaders: ['Authorization']
 };
 
-// Aplicar CORS como primeiro middleware para garantir que seja aplicado a todas as rotas
+// Aplicar CORS como primeiro middleware
 app.use(cors(corsOptions));
 
 // Middleware para lidar com preflight OPTIONS para todas as rotas
 app.options('*', cors(corsOptions));
-
-// Middleware para garantir headers CORS em todas as respostas
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  // Verificar se é uma requisição OPTIONS (preflight)
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
 
 // Aumentando o timeout para lidar com o "spin up" lento do Render
 const TIMEOUT_MS = 120000; // 2 minutos
