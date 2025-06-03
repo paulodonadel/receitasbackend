@@ -54,22 +54,25 @@ exports.register = async (req, res, next) => {
       name,
       email,
       password,
-      role: "patient"
+      role: role || "patient"
     };
 
-    // Adicionar CPF apenas se fornecido
-    if (Cpf && Cpf.trim()) {
-      userData.Cpf = Cpf.trim();
+    if (role === undefined || role === "patient") {
+      // Paciente: CPF obrigatório
+      if (!Cpf || !Cpf.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Por favor, forneça nome, email, senha e CPF (para pacientes)." 
+        });
+      }
+      userData.Cpf = Cpf.replace(/\D/g, '');
     }
+    // Para admin/secretária, NÃO adiciona o campo Cpf se não foi enviado
 
     // Adicionar outros campos opcionais se fornecidos
     if (address) userData.address = address;
     if (phone) userData.phone = phone;
     if (birthDate) userData.birthDate = birthDate;
-
-    if (userData.Cpf) {
-      userData.Cpf = userData.Cpf.replace(/\D/g, ''); // remove tudo que não for número
-    }
 
     const user = await User.create(userData);
 
