@@ -16,7 +16,7 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionType, 
       deliveryMethod, 
       observations,
-      patientCpf,
+      patientCpf = req.body.cpf, // <-- aceita patientCpf OU cpf
       patientEmail,
       patientCEP,
       patientAddress,
