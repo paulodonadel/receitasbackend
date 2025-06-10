@@ -125,6 +125,10 @@ const PrescriptionSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, "O motivo da rejeição não pode exceder 500 caracteres"]
   },
+  returnRequested: {
+    type: Boolean,
+    default: false
+  },
 
   // Datas importantes
   createdAt: {

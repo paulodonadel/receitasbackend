@@ -16,11 +16,12 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionType, 
       deliveryMethod, 
       observations,
-      patientCpf = req.body.cpf, // <-- aceita patientCpf OU cpf
+      patientCpf = req.body.cpf,
       patientEmail,
       patientCEP,
       patientAddress,
-      numberOfBoxes = 1
+      numberOfBoxes = 1,
+      returnRequested = false // <-- novo campo
     } = req.body;
 
     // Validações básicas
@@ -102,6 +103,7 @@ exports.createPrescription = async (req, res, next) => {
       status: "solicitada",
       numberOfBoxes: numberOfBoxes ? String(numberOfBoxes) : "1",
       patientName: patient.name,
+      returnRequested: typeof data.returnRequested === "boolean" ? data.returnRequested : false,
       ...(deliveryMethod === "email" ? {
         patientCpf: patientCpf.replace(/[^\d]/g, ''),
         patientEmail,
