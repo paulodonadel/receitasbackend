@@ -46,7 +46,6 @@ exports.createPrescription = async (req, res, next) => {
     // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
       const emailRequiredFields = {
-        patientEmail: "E-mail é obrigatório para envio por e-mail",
         patientCEP: "CEP é obrigatório para envio por e-mail",
         patientAddress: "Endereço é obrigatório para envio por e-mail"
       };
@@ -63,17 +62,8 @@ exports.createPrescription = async (req, res, next) => {
         });
       }
 
-      // Validar CPF apenas se fornecido
-      if (patientCpf && !validateCpf(patientCpf)) {
-        return res.status(400).json({
-          success: false,
-          message: "CPF inválido",
-          errorCode: "INVALID_CPF"
-        });
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(patientEmail)) {
+      // Validar e-mail apenas se fornecido
+      if (patientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail)) {
         return res.status(400).json({
           success: false,
           message: "E-mail inválido",
