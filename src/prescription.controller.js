@@ -8,7 +8,6 @@ const { validateCpf } = require("./utils/validationUtils");
 // @route   POST /api/receitas
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
-  // ... (sem alteração, igual ao original)
   try {
     const { 
       medicationName, 
@@ -16,7 +15,7 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionType, 
       deliveryMethod, 
       observations,
-      patientCpf = req.body.cpf, // <-- aceita patientCpf OU cpf
+      patientCpf = req.body.cpf,
       patientEmail,
       patientCEP,
       patientAddress,
@@ -43,6 +42,15 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    // Validação do número de caixas
+    if (isNaN(numberOfBoxes) || Number(numberOfBoxes) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Número de caixas deve ser maior que 0",
+        errorCode: "INVALID_NUMBER_OF_BOXES"
+      });
+    }
+
     // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
       const emailRequiredFields = {
@@ -64,7 +72,14 @@ exports.createPrescription = async (req, res, next) => {
       }
 
       // Validar CPF apenas se fornecido
-      if (patientCpf && !validateCpf(patientCpf)) {
+      if (!patientCpf) {
+        return res.status(400).json({
+          success: false,
+          message: "CPF é obrigatório para envio por e-mail",
+          errorCode: "MISSING_CPF"
+        });
+      }
+      if (!validateCpf(patientCpf)) {
         return res.status(400).json({
           success: false,
           message: "CPF inválido",
