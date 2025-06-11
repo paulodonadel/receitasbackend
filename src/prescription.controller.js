@@ -151,7 +151,7 @@ exports.createPrescription = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      data: prescription,
+      data: formatPrescription(prescription),
       message: "Solicitação de receita criada com sucesso"
     });
 
@@ -864,12 +864,25 @@ function formatPrescription(prescription) {
   if (!prescription) return prescription;
   // Se for um documento Mongoose, converte para objeto simples
   const obj = typeof prescription.toObject === "function" ? prescription.toObject() : { ...prescription };
-  if (obj.numberofboxes !== undefined) {
-    obj.numberofboxes = String(obj.numberofboxes);
-  }
-  // Também cobre variação numberOfBoxes (caso exista)
-  if (obj.numberOfBoxes !== undefined) {
-    obj.numberOfBoxes = String(obj.numberOfBoxes);
-  }
+
+  // Garante todos os campos necessários
+  obj.patient = obj.patient || null;
+  obj.patientName = obj.patientName || (obj.patient && obj.patient.name) || "";
+  obj.patientEmail = obj.patientEmail || (obj.patient && obj.patient.email) || "";
+  obj.patientCpf = obj.patientCpf || (obj.patient && obj.patient.Cpf) || "";
+  obj.numberOfBoxes = obj.numberOfBoxes ? String(obj.numberOfBoxes) : "1";
+  obj.returnRequested = typeof obj.returnRequested === "boolean" ? obj.returnRequested : false;
+
+  // Status amigável para o frontend
+  const statusMap = {
+    solicitada: "pendente",
+    em_analise: "em_analise",
+    aprovada: "aprovada",
+    rejeitada: "rejeitada",
+    pronta: "pronta",
+    enviada: "enviada"
+  };
+  obj.status = statusMap[obj.status] || obj.status;
+
   return obj;
 }
