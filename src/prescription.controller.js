@@ -103,7 +103,7 @@ exports.createPrescription = async (req, res, next) => {
       status: "solicitada",
       numberOfBoxes: numberOfBoxes ? String(numberOfBoxes) : "1",
       patientName: patient.name,
-      returnRequested: typeof data.returnRequested === "boolean" ? data.returnRequested : false,
+      returnRequested: typeof returnRequested === "boolean" ? returnRequested : false,
       ...(deliveryMethod === "email" ? {
         patientCpf: patientCpf.replace(/[^\d]/g, ''),
         patientEmail,
