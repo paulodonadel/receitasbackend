@@ -34,7 +34,8 @@ const {
   managePrescriptionByAdmin,
   deletePrescription,
   exportPrescriptions,
-  getPrescriptionStats
+  getPrescriptionStats,
+  getPrescriptionLog
 } = require('./prescription.controller.js'); // Adicionando a extensão .js explicitamente
 const { protect, authorize } = require('./middlewares/auth.middleware.js'); // Adicionando a extensão .js explicitamente
 const rateLimit = require('express-rate-limit');
@@ -141,6 +142,14 @@ router.patch('/:id/status',
   sensitiveLimiter,
   validateId,
   updatePrescriptionStatus
+);
+
+// Histórico de eventos da prescrição
+router.get('/:id/log',
+  protect(),
+  authorize('patient', 'admin', 'secretary'),
+  validateId,
+  getPrescriptionLog
 );
 
 /**
