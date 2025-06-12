@@ -633,6 +633,19 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       if (prescriptionData.patient) {
         delete prescriptionData.patient;
       }
+
+      // Garante que patientCEP e patientAddress não sejam removidos em updates parciais
+      const existingPrescription = await Prescription.findById(req.params.id);
+      if (existingPrescription) {
+        if (
+          existingPrescription.deliveryMethod === "email" &&
+          (!prescriptionData.patientCEP || !prescriptionData.patientAddress)
+        ) {
+          prescriptionData.patientCEP = prescriptionData.patientCEP || existingPrescription.patientCEP;
+          prescriptionData.patientAddress = prescriptionData.patientAddress || existingPrescription.patientAddress;
+        }
+      }
+
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
         prescriptionData,
@@ -959,10 +972,8 @@ exports.getPrescriptionLog = async (req, res) => {
 // Função utilitária para garantir que numberofboxes seja string
 function formatPrescription(prescription) {
   if (!prescription) return prescription;
-  // Se for um documento Mongoose, converte para objeto simples
   const obj = typeof prescription.toObject === "function" ? prescription.toObject() : { ...prescription };
 
-  // Garante todos os campos necessários
   obj.patient = obj.patient || null;
   obj.patientName = obj.patientName || (obj.patient && obj.patient.name) || "";
   obj.patientEmail = obj.patientEmail || (obj.patient && obj.patient.email) || "";
@@ -970,7 +981,12 @@ function formatPrescription(prescription) {
   obj.numberOfBoxes = obj.numberOfBoxes ? String(obj.numberOfBoxes) : "1";
   obj.returnRequested = typeof obj.returnRequested === "boolean" ? obj.returnRequested : false;
 
-  // Status amigável para o frontend
+  // Garante que patientCEP e patientAddress estejam presentes para deliveryMethod: 'email'
+  if (obj.deliveryMethod === "email") {
+    obj.patientCEP = obj.patientCEP || "";
+    obj.patientAddress = obj.patientAddress || "";
+  }
+
   const statusMap = {
     solicitada: "pendente",
     em_analise: "em_analise",
