@@ -25,31 +25,25 @@ const ActionTypes = {
  * @param {string|ObjectId} [params.prescription] - ID da prescrição (opcional)
  * @param {Object} [params.metadata] - Dados adicionais (opcional)
  */
-exports.logActivity = async ({ user, action, details, prescription, metadata }) => {
-  if (!config.enabled) return;
-
+exports.logActivity = async ({ user, action, details, prescription, metadata, statusChange, error, filters, accessedAs }) => {
   try {
-    // Validação básica
-    if (!user || !action || !details) {
-      throw new Error('Parâmetros obrigatórios faltando');
-    }
-
-    // Limita o tamanho dos detalhes
-    const truncatedDetails = details.length > config.maxEntryLength
-      ? `${details.substring(0, config.maxEntryLength)}... [TRUNCATED]`
-      : details;
-
-    await ActivityLog.create({
-      user: mongoose.Types.ObjectId(user),
+    const log = new ActivityLog({
+      user,
       action,
-      details: truncatedDetails,
-      prescription: prescription ? mongoose.Types.ObjectId(prescription) : undefined,
-      metadata
+      details,
+      prescription,
+      metadata,
+      statusChange,
+      error,
+      filters,
+      accessedAs,
+      createdAt: new Date()
     });
-
-  } catch (error) {
-    console.error('[ActivityLogger] Erro ao registrar atividade:', error.message);
-    // Não lança erro para não afetar o fluxo principal
+    await log.save();
+    // Para debug:
+    // console.log('Log salvo:', log);
+  } catch (err) {
+    console.error('Erro ao salvar log de atividade:', err);
   }
 };
 

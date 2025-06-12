@@ -1,37 +1,41 @@
 const mongoose = require('mongoose');
 
-const activityLogSchema = new mongoose.Schema({
+const ActivityLogSchema = new mongoose.Schema({
   user: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
-    required: true 
+    required: false 
   },
   action: { 
     type: String, 
-    required: true,
-    index: true 
+    required: true 
   },
-  details: {
-    type: String,
-    required: true
+  details: { 
+    type: String 
   },
   prescription: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Prescription' 
   },
-  metadata: {
-    type: mongoose.Schema.Types.Mixed
+  metadata: { 
+    type: Object 
   },
-  ipAddress: String,
-  userAgent: String
-}, { 
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  statusChange: { 
+    type: Object 
+  },
+  error: { 
+    type: String 
+  },
+  filters: { 
+    type: Object 
+  },
+  accessedAs: { 
+    type: String 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
 });
 
-// Indexes para otimização
-activityLogSchema.index({ createdAt: -1 });
-activityLogSchema.index({ user: 1, action: 1 });
-
-module.exports = mongoose.model('ActivityLog', activityLogSchema);
+module.exports = mongoose.model('ActivityLog', ActivityLogSchema);
