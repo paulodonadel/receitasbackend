@@ -25,23 +25,17 @@ const ActionTypes = {
  * @param {string|ObjectId} [params.prescription] - ID da prescrição (opcional)
  * @param {Object} [params.metadata] - Dados adicionais (opcional)
  */
-exports.logActivity = async ({ user, action, details, prescription, metadata, statusChange, error, filters, accessedAs }) => {
+exports.logActivity = async ({ user, action, details, prescription, ...rest }) => {
   try {
     const log = new ActivityLog({
       user,
       action,
       details,
-      prescription,
-      metadata,
-      statusChange,
-      error,
-      filters,
-      accessedAs,
+      prescription: prescription ? mongoose.Types.ObjectId(prescription) : undefined,
+      ...rest,
       createdAt: new Date()
     });
     await log.save();
-    // Para debug:
-    // console.log('Log salvo:', log);
   } catch (err) {
     console.error('Erro ao salvar log de atividade:', err);
   }
