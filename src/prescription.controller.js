@@ -629,6 +629,10 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         }
       });
     } else if (req.method === "PUT") {
+      // Nunca sobrescreva o campo patient em updates!
+      if (prescriptionData.patient) {
+        delete prescriptionData.patient;
+      }
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
         prescriptionData,
