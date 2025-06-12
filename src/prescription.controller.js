@@ -625,6 +625,18 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     if (req.method === "POST") {
       prescription = await Prescription.create(prescriptionData);
       console.log(`>>> Prescrição criada com ID: ${prescription._id}`);
+
+      // REGISTRA O LOG DE CRIAÇÃO
+      await logActivity({
+        user: req.user.id,
+        action: 'create_prescription',
+        details: `Prescrição criada para ${prescription.medicationName}`,
+        prescription: prescription._id,
+        metadata: {
+          medication: prescription.medicationName,
+          type: prescription.prescriptionType
+        }
+      });
     } else if (req.method === "PUT") {
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
@@ -632,6 +644,20 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         { new: true, runValidators: true }
       );
       console.log(`>>> Prescrição atualizada: ${req.params.id}`);
+
+      // REGISTRA O LOG DE EDIÇÃO
+      if (prescription) {
+        await logActivity({
+          user: req.user.id,
+          action: 'update_prescription',
+          details: `Prescrição editada para ${prescription.medicationName}`,
+          prescription: prescription._id,
+          metadata: {
+            medication: prescription.medicationName,
+            type: prescription.prescriptionType
+          }
+        });
+      }
     }
 
     if (!prescription) {
