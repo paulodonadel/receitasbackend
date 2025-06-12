@@ -178,13 +178,15 @@ exports.createPrescription = async (req, res, next) => {
 // @route   GET /api/receitas/me
 // @access  Private/Patient
 exports.getMyPrescriptions = async (req, res, next) => {
-  // ... (sem alteração, igual ao original)
   try {
     const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
     const query = { patient: req.user.id };
 
-    if (status) query.status = status;
-    
+    // Só filtra por status se o parâmetro for enviado
+    if (typeof status !== "undefined" && status !== null && status !== "") {
+      query.status = status;
+    }
+
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -208,7 +210,7 @@ exports.getMyPrescriptions = async (req, res, next) => {
       total,
       page: Number(page),
       pages: Math.ceil(total / limit),
-      data: formattedPrescriptions // <-- GARANTIDO AQUI
+      data: formattedPrescriptions
     });
   } catch (error) {
     console.error("Erro ao obter minhas solicitações:", error);
