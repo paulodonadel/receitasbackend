@@ -31,7 +31,7 @@ exports.logActivity = async ({ user, action, details, prescription, ...rest }) =
       user,
       action,
       details,
-      prescription: prescription ? mongoose.Types.ObjectId(prescription) : undefined,
+      prescription: prescription ? new mongoose.Types.ObjectId(prescription) : undefined,
       ...rest,
       createdAt: new Date()
     });

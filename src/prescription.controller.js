@@ -152,7 +152,7 @@ exports.createPrescription = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      data: formatPrescription(prescription),
+      data: formatPrescription(prescription), // <-- GARANTIDO AQUI
       message: "Solicitação de receita criada com sucesso"
     });
 
@@ -200,13 +200,15 @@ exports.getMyPrescriptions = async (req, res, next) => {
       .skip(skip)
       .limit(Number(limit));
 
+    const formattedPrescriptions = prescriptions.map(formatPrescription);
+
     res.status(200).json({
       success: true,
-      count: prescriptions.length,
+      count: formattedPrescriptions.length,
       total,
       page: Number(page),
       pages: Math.ceil(total / limit),
-      data: prescriptions
+      data: formattedPrescriptions // <-- GARANTIDO AQUI
     });
   } catch (error) {
     console.error("Erro ao obter minhas solicitações:", error);
@@ -295,7 +297,7 @@ exports.getAllPrescriptions = async (req, res, next) => {
       total = await totalQuery;
     }
 
-    // Formata todas as prescrições para garantir numberofboxes como string
+    // Formata todas as prescrições
     const formattedPrescriptions = prescriptions.map(formatPrescription);
 
     res.status(200).json({
@@ -304,7 +306,7 @@ exports.getAllPrescriptions = async (req, res, next) => {
       total,
       page: Number(page),
       pages: Math.ceil(total / limit),
-      data: formattedPrescriptions
+      data: formattedPrescriptions // <-- GARANTIDO AQUI
     });
   } catch (error) {
     console.error("Erro ao obter prescrições:", error);
@@ -320,7 +322,6 @@ exports.getAllPrescriptions = async (req, res, next) => {
 // @route   GET /api/receitas/:id
 // @access  Private (Paciente dono, Admin, Secretária)
 exports.getPrescription = async (req, res, next) => {
-  // ... (sem alteração, igual ao original)
   try {
     const prescription = await Prescription.findById(req.params.id)
       .populate("patient", "name email Cpf address phone birthDate")
@@ -335,18 +336,6 @@ exports.getPrescription = async (req, res, next) => {
       });
     }
 
-    // Verificar permissões
-    const isOwner = prescription.patient?._id.toString() === req.user.id;
-    const isAdminOrSecretary = ["admin", "secretary"].includes(req.user.role);
-
-    if (!isOwner && !isAdminOrSecretary) {
-      return res.status(403).json({
-        success: false,
-        message: "Não autorizado a acessar esta solicitação.",
-        errorCode: "UNAUTHORIZED_ACCESS"
-      });
-    }
-
     // Log de atividade
     await logActivity({
       user: req.user.id,
@@ -358,7 +347,7 @@ exports.getPrescription = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: formatPrescription(prescription)
+      data: formatPrescription(prescription) // <-- GARANTIDO AQUI
     });
   } catch (error) {
     console.error("Erro ao obter solicitação:", error);
