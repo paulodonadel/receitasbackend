@@ -23,8 +23,8 @@ exports.createPrescription = async (req, res, next) => {
     } = req.body;
 
     // Aceita tanto patientCEP/patientAddress quanto cep/endereco
-    const patientCEP = req.body.patientCEP || req.body.cep || "";
-    const patientAddress = req.body.patientAddress || req.body.endereco || "";
+    const patientCEP = req.body.patientCEP || req.body.cep;
+    const patientAddress = req.body.patientAddress || req.body.endereco;
 
     // Validações básicas
     if (deliveryMethod === "email") {
@@ -64,16 +64,19 @@ exports.createPrescription = async (req, res, next) => {
       observations,
       patientCpf,
       patientEmail,
-      patientCEP,
-      patientAddress,
       numberOfBoxes,
       returnRequested,
       patient: patient._id,
       patientName: patient.name,
       createdBy: req.user.id,
       updatedBy: req.user.id
-      // ...outros campos necessários...
     };
+
+    // Só adiciona patientCEP/patientAddress se deliveryMethod === "email"
+    if (deliveryMethod === "email") {
+      prescriptionData.patientCEP = patientCEP;
+      prescriptionData.patientAddress = patientAddress;
+    }
 
     // Criar a prescrição
     const prescription = await Prescription.create(prescriptionData);
