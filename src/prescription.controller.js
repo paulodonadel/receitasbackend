@@ -863,65 +863,21 @@ exports.getPrescriptionLog = async (req, res) => {
   try {
     const prescriptionId = req.params.id;
 
-    // Busca os logs relacionados à prescrição
     const logs = await ActivityLog.find({ prescription: prescriptionId })
       .sort({ createdAt: 1 })
       .populate("user", "name");
 
-    // Mapeia para o formato desejado
-    const actionMap = {
-      create_prescription: "Criou",
-      update_prescription: "Editou",
-      delete_prescription: "Excluiu",
-      status_change: "Alterou status",
-      update_prescription_status: "Alterou status",
-      email_failed: "Falha ao enviar e-mail",
-      export_prescriptions: "Exportou prescrições",
-      view_prescription: "Visualizou",
-      // Adicione outros tipos conforme necessário
-      // Exemplo: "approved": "Aprovou", "rejected": "Rejeitou"
-    };
+    // Retorna os campos brutos esperados pelo frontend
+    const events = logs.map(log => ({
+      action: log.action,
+      details: log.details,
+      createdAt: log.createdAt,
+      user: log.user?._id || log.user || null,
+      prescription: log.prescription
+    }));
 
-    const statusActionMap = {
-      aprovada: "Aprovou",
-      rejeitada: "Rejeitou",
-      pronta: "Marcou como pronta",
-      enviada: "Enviou",
-      solicitada: "Solicitou",
-      em_analise: "Enviou para análise"
-    };
-
-    const events = logs.map(log => {
-      let action = actionMap[log.action] || log.action;
-
-      // Se for alteração de status, detalha o novo status
-      if (
-        log.action === "status_change" ||
-        log.action === "update_prescription_status"
-      ) {
-        const toStatus =
-          log.statusChange?.to ||
-          log.metadata?.to ||
-          log.details?.split("para ")[1] ||
-          "";
-        action =
-          statusActionMap[toStatus] ||
-          `Alterou status para ${toStatus || "desconhecido"}`;
-      }
-
-      return {
-        date: log.createdAt.toISOString(),
-        user: log.user?.name || "Sistema",
-        action
-      };
-    });
-
-    res.status(200).json({
-      success: true,
-      data: events
-    });
+    res.status(200).json(events); // retorna array direto
   } catch (error) {
-    console.error("Erro ao buscar log da prescrição:", error);
     res.status(500).json({
       success: false,
       message: "Erro ao buscar histórico da prescrição"
