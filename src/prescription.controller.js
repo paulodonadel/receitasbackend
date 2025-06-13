@@ -9,67 +9,30 @@ const ActivityLog = require("./models/activityLog.model"); // Adicione no topo s
 // @route   POST /api/receitas
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
-  // ... (sem alteração, igual ao original)
   try {
-    const { 
-      medicationName, 
-      dosage, 
-      prescriptionType, 
-      deliveryMethod, 
+    const {
+      medicationName,
+      dosage,
+      prescriptionType,
+      deliveryMethod,
       observations,
       patientCpf = req.body.cpf,
       patientEmail,
-      patientCEP,
-      patientAddress,
       numberOfBoxes = 1,
-      returnRequested = false // <-- novo campo
+      returnRequested = false
     } = req.body;
 
+    // Aceita tanto patientCEP/patientAddress quanto cep/endereco
+    const patientCEP = req.body.patientCEP || req.body.cep || "";
+    const patientAddress = req.body.patientAddress || req.body.endereco || "";
+
     // Validações básicas
-    const requiredFields = {
-      medicationName: "Nome do medicamento é obrigatório",
-      dosage: "Dosagem é obrigatória",
-      prescriptionType: "Tipo de receita é obrigatório",
-      deliveryMethod: "Método de entrega é obrigatório"
-    };
-
-    const missingFields = Object.entries(requiredFields)
-      .filter(([field]) => !req.body[field])
-      .map(([_, message]) => message);
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: missingFields.join(", "),
-        errorCode: "MISSING_REQUIRED_FIELDS"
-      });
-    }
-
-    // Validações específicas para envio por e-mail
     if (deliveryMethod === "email") {
-      const emailRequiredFields = {
-        patientCEP: "CEP é obrigatório para envio por e-mail",
-        patientAddress: "Endereço é obrigatório para envio por e-mail"
-      };
-
-      const missingEmailFields = Object.entries(emailRequiredFields)
-        .filter(([field]) => !req.body[field])
-        .map(([_, message]) => message);
-
-      if (missingEmailFields.length > 0) {
+      if (!patientCEP || !patientAddress) {
         return res.status(400).json({
           success: false,
-          message: missingEmailFields.join(", "),
+          message: "CEP e endereço são obrigatórios para envio por e-mail.",
           errorCode: "MISSING_EMAIL_FIELDS"
-        });
-      }
-
-      // Validar e-mail apenas se fornecido
-      if (patientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail)) {
-        return res.status(400).json({
-          success: false,
-          message: "E-mail inválido",
-          errorCode: "INVALID_EMAIL"
         });
       }
     }
@@ -84,7 +47,6 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
-    // Verificar se o paciente tem permissão para criar receitas
     if (patient.role !== "patient") {
       return res.status(403).json({
         success: false,
@@ -93,29 +55,27 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
-    // Criar a prescrição
+    // Monta o objeto de criação da prescrição
     const prescriptionData = {
-      patient: req.user.id,
       medicationName,
       dosage,
       prescriptionType,
       deliveryMethod,
       observations,
-      status: "solicitada",
-      numberOfBoxes: numberOfBoxes ? String(numberOfBoxes) : "1",
+      patientCpf,
+      patientEmail,
+      patientCEP,
+      patientAddress,
+      numberOfBoxes,
+      returnRequested,
+      patient: patient._id,
       patientName: patient.name,
-      returnRequested: typeof returnRequested === "boolean" ? returnRequested : false,
-      ...(deliveryMethod === "email" ? {
-        patientCpf: patientCpf.replace(/[^\d]/g, ''),
-        patientEmail,
-        patientCEP: patientCEP.replace(/[^\d]/g, ''),
-        patientAddress
-      } : {
-        patientPhone: patient.phone
-      }),
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      updatedBy: req.user.id
+      // ...outros campos necessários...
     };
 
+    // Criar a prescrição
     const prescription = await Prescription.create(prescriptionData);
 
     // Log de atividade
