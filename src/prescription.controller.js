@@ -4,6 +4,7 @@ const emailService = require("./emailService");
 const { logActivity } = require("./utils/activityLogger");
 const { validateCpf } = require("./utils/validationUtils");
 const ActivityLog = require("./models/activityLog.model"); // Adicione no topo se necessário
+const mongoose = require('mongoose'); // Adicione no topo se ainda não estiver
 
 // @desc    Criar nova solicitação de receita
 // @route   POST /api/receitas
@@ -866,7 +867,19 @@ exports.getPrescriptionLog = async (req, res) => {
   try {
     const prescriptionId = req.params.id;
 
-    const logs = await ActivityLog.find({ prescription: prescriptionId })
+    // Converte para ObjectId se necessário
+    let objectId;
+    try {
+      objectId = new mongoose.Types.ObjectId(prescriptionId);
+    } catch (e) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de prescrição inválido",
+        errorCode: "INVALID_PRESCRIPTION_ID"
+      });
+    }
+
+    const logs = await ActivityLog.find({ prescription: objectId })
       .sort({ createdAt: 1 })
       .populate("user", "name");
 
