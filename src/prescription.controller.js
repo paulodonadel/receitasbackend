@@ -866,11 +866,12 @@ exports.getPrescriptionStats = async (req, res, next) => {
 exports.getPrescriptionLog = async (req, res) => {
   try {
     const prescriptionId = req.params.id;
+    console.log("ID recebido do frontend:", prescriptionId);
 
-    // Converte para ObjectId se necessário
     let objectId;
     try {
       objectId = new mongoose.Types.ObjectId(prescriptionId);
+      console.log("Convertido para ObjectId:", objectId);
     } catch (e) {
       return res.status(400).json({
         success: false,
@@ -883,7 +884,8 @@ exports.getPrescriptionLog = async (req, res) => {
       .sort({ createdAt: 1 })
       .populate("user", "name");
 
-    // Retorna os campos brutos esperados pelo frontend
+    console.log("Logs encontrados:", logs);
+
     const events = logs.map(log => ({
       action: log.action,
       details: log.details,
@@ -892,7 +894,7 @@ exports.getPrescriptionLog = async (req, res) => {
       prescription: log.prescription
     }));
 
-    res.status(200).json(events); // retorna array direto
+    res.status(200).json(events);
   } catch (error) {
     res.status(500).json({
       success: false,
