@@ -92,6 +92,38 @@ app.get('/health', (req, res) => {
   });
 });
 
+// NOVO ENDPOINT: Enviar solicitação de retorno por e-mail
+const emailService = require('./emailService');
+app.post('/api/send-return-request', async (req, res) => {
+  const { email, name } = req.body;
+
+  // Se não houver e-mail, retorna sucesso sem enviar
+  if (!email || !email.trim()) {
+    return res.status(200).json({ success: true, message: "Nenhum e-mail informado. Nenhum e-mail enviado." });
+  }
+
+  const patientName = name || "Paciente";
+  const subject = "Solicitação de Retorno - Dr. Paulo Donadel";
+  const textBody = `
+Saudações, ${patientName}!
+
+Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.
+
+Atenciosamente,
+Dr. Paulo Donadel
+Médico Psiquiatra
+  `.trim();
+
+  try {
+    await emailService.sendEmail(email, subject, textBody);
+    return res.status(200).json({ success: true, message: "E-mail enviado com sucesso." });
+  } catch (error) {
+    console.error("Erro ao enviar e-mail de retorno:", error);
+    // Sempre retorna 200, mesmo em caso de erro
+    return res.status(200).json({ success: true, message: "Falha ao enviar e-mail, mas requisição processada." });
+  }
+});
+
 // Tratamento global de erros
 app.use((err, req, res, next) => {
   // Garante que o erro também devolve CORS!
