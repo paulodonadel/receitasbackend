@@ -880,9 +880,10 @@ exports.getPrescriptionLog = async (req, res) => {
       });
     }
 
+    // ALTERAÇÃO: Popula user com name e email
     const logs = await ActivityLog.find({ prescription: objectId })
       .sort({ createdAt: 1 })
-      .populate("user", "name");
+      .populate("user", "name email"); // <-- aqui
 
     console.log("Logs encontrados:", logs);
 
@@ -890,7 +891,11 @@ exports.getPrescriptionLog = async (req, res) => {
       action: log.action,
       details: log.details,
       createdAt: log.createdAt,
-      user: log.user?._id || log.user || null,
+      user: log.user ? {
+        _id: log.user._id,
+        name: log.user.name,
+        email: log.user.email
+      } : null,
       prescription: log.prescription
     }));
 
