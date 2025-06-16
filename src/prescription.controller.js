@@ -463,7 +463,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
   try {
-    let { userId, userName, name, patientName, patientCpf, ...data } = req.body;
+    let { userId, userName, name, patientName, patientCpf, cep, endereco, patientCEP, patientAddress, patientEmail, ...data } = req.body;
 
     // Prioridade: userId > userName > name > patientName
     let patientId = userId;
@@ -549,7 +549,6 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       "email": "email",
       "retirar_clinica": "retirar_clinica"
     };
-    
     const statusMap = {
       "pendente": "solicitada",
       "solicitada": "solicitada",
@@ -560,16 +559,26 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       "enviada": "enviada"
     };
 
-    // Aplicar mapeamentos
     if (data.deliveryMethod && deliveryMethodMap[data.deliveryMethod]) {
       data.deliveryMethod = deliveryMethodMap[data.deliveryMethod];
     }
-    
     if (data.status && statusMap[data.status]) {
       data.status = statusMap[data.status];
     }
 
-    // Preparar dados da prescrição
+    // Normaliza campos de endereço/email para o padrão do backend
+    // Só preenche se o método de entrega for "email"
+    if (data.deliveryMethod === "email") {
+      data.patientEmail = patientEmail || data.patientEmail;
+      data.patientCEP = patientCEP || cep || data.patientCEP;
+      data.patientAddress = patientAddress || endereco || data.patientAddress;
+    } else {
+      // Remove campos se não for email (opcional, para evitar lixo no banco)
+      delete data.patientEmail;
+      delete data.patientCEP;
+      delete data.patientAddress;
+    }
+
     const prescriptionData = {
       ...data,
       patient: patientId,
