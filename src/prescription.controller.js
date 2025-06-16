@@ -302,6 +302,12 @@ exports.getPrescription = async (req, res, next) => {
       });
     }
 
+    // Defina isOwner antes de usá-la
+    let isOwner = false;
+    if (prescription.patient && prescription.patient._id && req.user && req.user.id) {
+      isOwner = prescription.patient._id.toString() === req.user.id.toString();
+    }
+
     // Log de atividade
     await logActivity({
       user: req.user.id,
