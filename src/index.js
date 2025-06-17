@@ -61,11 +61,13 @@ const authRoutes = require('./auth.routes');
 const prescriptionRoutes = require('./prescription.routes');
 const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
+const emailRoutes = require('./email.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
+app.use('/api/email', emailRoutes);
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
