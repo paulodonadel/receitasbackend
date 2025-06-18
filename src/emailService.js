@@ -182,7 +182,6 @@ Equipe Dr. Paulo Donadel
  * @param {string} options.newStatus - Novo status
  * @param {string} [options.rejectionReason] - Motivo da rejeição (se aplicável)
  * @param {string} [options.updatedBy] - Nome de quem atualizou
- * @param {string} [options.deliveryMethod] - Método de entrega (ex: 'email', 'retirar_clinica')
  */
 exports.sendStatusUpdateEmail = async (options) => {
   const { 
@@ -193,8 +192,7 @@ exports.sendStatusUpdateEmail = async (options) => {
     oldStatus, 
     newStatus, 
     rejectionReason,
-    updatedBy,
-    deliveryMethod // <-- Adicionado aqui
+    updatedBy 
   } = options;
   
   // Mapear status para mensagens amigáveis
@@ -204,8 +202,7 @@ exports.sendStatusUpdateEmail = async (options) => {
     'aprovada': 'Aprovada',
     'rejeitada': 'Rejeitada',
     'pronta': 'Pronta para Retirada',
-    'enviada': 'Enviada',
-    'entregue': 'Entregue'
+    'enviada': 'Enviada'
   };
 
   const statusMessage = statusMessages[newStatus] || newStatus;
@@ -237,10 +234,10 @@ Detalhes da solicitação:
     </ul>
   `;
 
-  // Adicionar informações específicas baseadas no status e método de entrega
+  // Adicionar informações específicas baseadas no status
   if (newStatus === 'aprovada') {
     textBody += `
-
+    
 Sua receita foi aprovada! Em breve ela estará pronta para retirada.
     `;
     htmlBody += `
@@ -250,36 +247,21 @@ Sua receita foi aprovada! Em breve ela estará pronta para retirada.
     </div>
     `;
   } else if (newStatus === 'pronta') {
-    if (deliveryMethod === 'retirar_clinica') {
-      textBody += `
-
-🚚 Sua receita está PRONTA para retirada na clínica!
+    textBody += `
+    
+🚚 Sua receita está PRONTA para retirada!
 
 Você pode retirar sua receita na clínica no prazo de 5 dias úteis.
-      `;
-      htmlBody += `
-      <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <p><strong>🚚 Sua receita está PRONTA para retirada na clínica!</strong></p>
-        <p>Você pode retirar sua receita na clínica no prazo de <strong>5 dias úteis</strong>.</p>
-      </div>
-      `;
-    } else if (deliveryMethod === 'email') {
-      textBody += `
-
-📧 Sua receita foi ENVIADA por e-mail!
-
-Verifique sua caixa de entrada e spam.
-      `;
-      htmlBody += `
-      <div style="background-color: #f3e5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <p><strong>📧 Sua receita foi ENVIADA por e-mail!</strong></p>
-        <p>Verifique sua caixa de entrada e spam.</p>
-      </div>
-      `;
-    }
-  } else if (newStatus === 'enviada' && deliveryMethod === 'email') {
+    `;
+    htmlBody += `
+    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>🚚 Sua receita está PRONTA para retirada!</strong></p>
+      <p>Ela permanecerá na recepção da clínica para que possa ser retirada por até <strong>30 dias</strong>, após isto, ela será eliminada.</p>
+    </div>
+    `;
+  } else if (newStatus === 'enviada') {
     textBody += `
-
+    
 📧 Sua receita foi ENVIADA por e-mail!
 
 Verifique sua caixa de entrada e spam.
@@ -292,7 +274,7 @@ Verifique sua caixa de entrada e spam.
     `;
   } else if (newStatus === 'rejeitada' && rejectionReason) {
     textBody += `
-
+    
 ❌ Sua solicitação foi rejeitada.
 
 Motivo: ${rejectionReason}
@@ -334,7 +316,7 @@ Caso tenha qualquer dúvida, estamos à disposição.
     </div>
     `;
   }
-  
+
   textBody += `
 
 Atenciosamente,
