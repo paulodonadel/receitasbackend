@@ -202,7 +202,8 @@ exports.sendStatusUpdateEmail = async (options) => {
     'aprovada': 'Aprovada',
     'rejeitada': 'Rejeitada',
     'pronta': 'Pronta para Retirada',
-    'enviada': 'Enviada'
+    'enviada': 'Enviada',
+    'entregue': 'Entregue' // <-- Adicione esta linha!
   };
 
   const statusMessage = statusMessages[newStatus] || newStatus;
@@ -259,36 +260,30 @@ Você pode retirar sua receita na clínica no prazo de 5 dias úteis.
       <p>Ela permanecerá na recepção da clínica para que possa ser retirada por até <strong>30 dias</strong>, após isto, ela será eliminada.</p>
     </div>
     `;
-  } else if (newStatus === 'enviada') {
-    textBody += `
-    
-📧 Sua receita foi ENVIADA por e-mail!
-
-Verifique sua caixa de entrada e spam.
-    `;
-    htmlBody += `
-    <div style="background-color: #f3e5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-      <p><strong>📧 Sua receita foi ENVIADA por e-mail!</strong></p>
-      <p>Verifique sua caixa de entrada e spam.</p>
-    </div>
-    `;
   } else if (newStatus === 'rejeitada' && rejectionReason) {
     textBody += `
-    
+
 ❌ Sua solicitação foi rejeitada.
 
 Motivo: ${rejectionReason}
 
 Você pode fazer uma nova solicitação corrigindo as informações necessárias.
+
+Em caso de dúvidas, entre em contato pelo WhatsApp: +55 53 99163-3352
+https://wa.me/5553991633352
     `;
     htmlBody += `
     <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0;">
       <p><strong>❌ Sua solicitação foi rejeitada.</strong></p>
       <p><strong>Motivo:</strong> ${rejectionReason}</p>
       <p>Você pode fazer uma nova solicitação corrigindo as informações necessárias.</p>
+      <p>
+        Em caso de dúvidas, entre em contato pelo WhatsApp:<br>
+        <a href="https://wa.me/5553991633352" target="_blank">+55 53 99163-3352</a>
+      </p>
     </div>
     `;
-  } else if (newStatus === 'entregue') {
+  } else if (newStatus === 'enviada' || newStatus === 'entregue') {
     textBody += `
 
 Sua receita foi marcada como ENTREGUE.
