@@ -326,3 +326,35 @@ Equipe Dr. Paulo Donadel
   return this.sendEmail(to, subject, textBody.trim(), htmlBody);
 };
 
+/**
+ * Envia e-mail de solicitação de retorno para o paciente
+ * @param {object} options - Opções do e-mail
+ * @param {string} options.to - E-mail do destinatário
+ * @param {string} options.name - Nome do paciente
+ */
+exports.sendReturnRequestEmail = async (options) => {
+  const { to, name } = options;
+
+  const subject = "Solicitação de Retorno - Dr. Paulo Donadel";
+  const patientName = name || "Paciente";
+  const textBody = `
+Saudações, ${patientName}!
+
+Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.
+
+Atenciosamente,
+Dr. Paulo Donadel
+Médico Psiquiatra
+  `.trim();
+
+  const htmlBody = `
+    <p>Saudações, <strong>${patientName}</strong>!</p>
+    <p>Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.</p>
+    <p>Atenciosamente,<br>
+    Dr. Paulo Donadel<br>
+    Médico Psiquiatra</p>
+  `;
+
+  return this.sendEmail(to, subject, textBody, htmlBody);
+};
+
