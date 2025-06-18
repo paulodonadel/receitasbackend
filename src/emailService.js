@@ -249,7 +249,7 @@ Sua receita foi aprovada! Em breve ela estará pronta para retirada.
       <p>Em breve ela estará pronta para retirada.</p>
     </div>
     `;
-  } else if (newStatus === 'pronta' || newStatus === 'entregue') {
+  } else if (newStatus === 'pronta') {
     if (deliveryMethod === 'retirar_clinica') {
       textBody += `
 
@@ -314,6 +314,9 @@ Sua receita foi marcada como ENTREGUE.
 - Se você optou por receber por e-mail, por favor, verifique sua caixa de entrada e também a pasta de spam.
 - Se você escolheu retirar na clínica e não reconhece o recebimento, entre em contato com a recepção da clínica imediatamente para esclarecimentos.
 
+Em caso de dúvidas, entre em contato pelo WhatsApp: +55 53 99163-3352
+https://wa.me/5553991633352
+
 Caso tenha qualquer dúvida, estamos à disposição.
     `;
     htmlBody += `
@@ -323,6 +326,10 @@ Caso tenha qualquer dúvida, estamos à disposição.
         <li>Se você optou por receber por <strong>e-mail</strong>, por favor, verifique sua caixa de entrada e também a pasta de spam.</li>
         <li>Se você escolheu <strong>retirar na clínica</strong> e não reconhece o recebimento, entre em contato com a recepção da clínica imediatamente para esclarecimentos.</li>
       </ul>
+      <p>
+        Em caso de dúvidas, entre em contato pelo WhatsApp:<br>
+        <a href="https://wa.me/5553991633352" target="_blank">+55 53 99163-3352</a>
+      </p>
       <p>Caso tenha qualquer dúvida, estamos à disposição.</p>
     </div>
     `;
