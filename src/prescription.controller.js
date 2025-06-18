@@ -654,6 +654,47 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       });
     }
 
+    // Após criar ou atualizar a prescrição
+    if (prescription) {
+      // Verifica se o status foi alterado (em update) ou se está criando com status diferente de 'solicitada'
+      let oldStatus = null;
+      if (req.method === "PUT") {
+        oldStatus = prescription._doc?.status; // status antes do update
+      }
+      const newStatus = prescription.status;
+
+      // Só envia e-mail se status mudou OU se está criando com status diferente de 'solicitada'
+      if (
+        (req.method === "PUT" && oldStatus !== newStatus) ||
+        (req.method === "POST" && newStatus !== "solicitada")
+      ) {
+        try {
+          const emailTo = prescription.patientEmail || (prescription.patient && prescription.patient.email);
+          if (emailTo) {
+            await emailService.sendStatusUpdateEmail({
+              to: emailTo,
+              prescriptionId: prescription._id,
+              patientName: prescription.patientName,
+              medicationName: prescription.medicationName,
+              oldStatus: oldStatus || "solicitada",
+              newStatus,
+              rejectionReason: prescription.rejectionReason,
+              updatedBy: req.user.name
+            });
+          }
+        } catch (emailError) {
+          console.error("Erro ao enviar e-mail de status (admin):", emailError);
+          await logActivity({
+            user: req.user.id,
+            action: 'email_failed',
+            details: `Falha ao enviar e-mail de atualização de status para prescrição ${prescription._id}`,
+            prescription: prescription._id,
+            error: emailError.message
+          });
+        }
+      }
+    }
+
     res.status(200).json({ 
       success: true, 
       data: formatPrescription(prescription),
