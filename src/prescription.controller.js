@@ -408,7 +408,8 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
             oldStatus,
             newStatus: status,
             rejectionReason,
-            updatedBy: req.user.name
+            updatedBy: req.user.name,
+            deliveryMethod: prescription.deliveryMethod // <-- ESSENCIAL!
           });
         }
       } catch (emailError) {
@@ -679,7 +680,8 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
               oldStatus: oldStatus || "solicitada",
               newStatus,
               rejectionReason: prescription.rejectionReason,
-              updatedBy: req.user.name
+              updatedBy: req.user.name,
+              deliveryMethod: prescription.deliveryMethod // <-- ESSENCIAL!
             });
           }
         } catch (emailError) {
