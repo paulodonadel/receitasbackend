@@ -10,7 +10,7 @@ exports.listar = async (req, res) => {
 exports.criar = async (req, res) => {
   try {
     const { nome, telefone, email, observacao, gravidade, status, data } = req.body;
-    if (!nome || !telefone || !email || !gravidade || !status || !data) {
+    if (!nome || !telefone || !gravidade || !status || !data) {
       return res.status(400).json({ message: 'Campos obrigatórios faltando.' });
     }
     const paciente = await EncaixePaciente.create({ nome, telefone, email, observacao, gravidade, status, data });

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const EncaixePacienteSchema = new mongoose.Schema({
   nome: { type: String, required: true },
   telefone: { type: String, required: true },
-  email: { type: String, required: true },
+  email: { type: String, required: false },
   observacao: { type: String },
   gravidade: { type: Number, required: true, min: 1, max: 10 },
   status: { 
