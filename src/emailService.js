@@ -306,8 +306,28 @@ Você pode fazer uma nova solicitação corrigindo as informações necessárias
       <p>Você pode fazer uma nova solicitação corrigindo as informações necessárias.</p>
     </div>
     `;
-  }
+  } else if (newStatus === 'entregue') {
+    textBody += `
 
+Sua receita foi marcada como ENTREGUE.
+
+- Se você optou por receber por e-mail, por favor, verifique sua caixa de entrada e também a pasta de spam.
+- Se você escolheu retirar na clínica e não reconhece o recebimento, entre em contato com a recepção da clínica imediatamente para esclarecimentos.
+
+Caso tenha qualquer dúvida, estamos à disposição.
+    `;
+    htmlBody += `
+    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
+      <p><strong>Sua receita foi marcada como <span style="color: #2196F3;">ENTREGUE</span>.</strong></p>
+      <ul>
+        <li>Se você optou por receber por <strong>e-mail</strong>, por favor, verifique sua caixa de entrada e também a pasta de spam.</li>
+        <li>Se você escolheu <strong>retirar na clínica</strong> e não reconhece o recebimento, entre em contato com a recepção da clínica imediatamente para esclarecimentos.</li>
+      </ul>
+      <p>Caso tenha qualquer dúvida, estamos à disposição.</p>
+    </div>
+    `;
+  }
+  
   textBody += `
 
 Atenciosamente,
