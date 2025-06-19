@@ -425,7 +425,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Link para o frontend
-    const resetLink = `https://sistema-receitas-frontend.onrender.com/reset-password/${resetToken}?email=${encodeURIComponent(email)}`;
+    const resetLink = `https://sistema-receitas-frontend.onrender.com/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
     const subject = 'Redefinição de senha - Dr. Paulo Donadel';
     const text = `
 Olá, ${user.name}!
