@@ -450,24 +450,22 @@ Equipe Dr. Paulo Donadel
 };
 
 // @desc    Redefinir senha
-// @route   PUT /api/auth/resetpassword/:resettoken
+// @route   POST /api/auth/reset-password
 // @access  Public
 exports.resetPassword = async (req, res) => {
-  // Adicionado para debug e validação dos campos obrigatórios
   console.log('Body recebido no reset-password:', req.body);
   if (!req.body.password || !req.body.token || !req.body.email) {
     return res.status(400).json({ success: false, message: 'Campos obrigatórios faltando!' });
   }
 
   try {
-    const { resettoken } = req.params;
-    const { password } = req.body;
+    const { token, password } = req.body;
 
     if (!password || password.length < 6) {
       return res.status(400).json({ success: false, message: 'A nova senha deve ter pelo menos 6 caracteres.' });
     }
 
-    const resetTokenHash = crypto.createHash("sha256").update(resettoken).digest("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
     const user = await User.findOne({
       resetPasswordToken: resetTokenHash,
