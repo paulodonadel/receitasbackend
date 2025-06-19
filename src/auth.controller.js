@@ -407,13 +407,13 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ success: false, message: "E-mail é obrigatório." });
+      return res.status(200).json({ success: true }); // Sempre retorna success:true
     }
 
     const user = await User.findOne({ email });
+    // Sempre retorna sucesso, mesmo que o usuário não exista
     if (!user) {
-      // Sempre retorna sucesso para não expor usuários
-      return res.status(200).json({ success: true, message: "Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha." });
+      return res.status(200).json({ success: true });
     }
 
     // Gerar token seguro
@@ -442,10 +442,10 @@ Equipe Dr. Paulo Donadel
 
     await emailService.sendEmail(email, subject, text);
 
-    return res.status(200).json({ success: true, message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.' });
+    return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Erro ao solicitar redefinição de senha:", error);
-    res.status(500).json({ success: false, message: "Erro ao solicitar redefinição de senha." });
+    return res.status(500).json({ success: false, message: "Erro ao solicitar redefinição de senha." });
   }
 };
 
