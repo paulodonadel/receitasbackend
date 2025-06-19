@@ -101,7 +101,7 @@ router.put('/updatepassword', protect(), updatePassword);
 
 // Rotas de recuperação de senha
 router.post('/forgotpassword', forgotPassword);
-router.put('/resetpassword/:resettoken', resetPassword);
+router.post('/reset-password', resetPassword);
 
 // Rotas administrativas
 router.post('/admin/create', protect(), authorize('admin'), createAdminUser);
