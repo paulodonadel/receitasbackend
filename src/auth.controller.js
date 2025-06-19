@@ -481,18 +481,11 @@ exports.resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    // E-mail de confirmação
-    try {
-      const subject = "Sua senha foi alterada com sucesso";
-      const textBody = `Olá ${user.name},\n\nSua senha no Sistema de Receitas Dr. Paulo Donadel foi alterada com sucesso.\n\nSe você não realizou esta alteração, entre em contato conosco imediatamente.`;
-      await emailService.sendEmail(user.email, subject, textBody);
-    } catch (emailError) {
-      console.error("Erro ao enviar e-mail de confirmação de alteração de senha:", emailError);
-    }
+    // (Opcional: enviar e-mail de confirmação)
 
-    res.status(200).json({ success: true, message: "Senha redefinida com sucesso!" });
+    return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Erro ao redefinir senha:", error);
-    res.status(500).json({ success: false, message: "Erro ao redefinir senha." });
+    return res.status(500).json({ success: false, message: "Erro ao redefinir senha." });
   }
 };
