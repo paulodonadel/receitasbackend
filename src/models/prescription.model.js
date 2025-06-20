@@ -80,10 +80,12 @@ const PrescriptionSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: function(v) {
-        return /^\d{10,11}$/.test(v);
+        if (!v || v === "") return true; // Aceita vazio ou não preenchido
+        return /^\d{10,11}$/.test(v);    // Só valida se preenchido
       },
       message: "Telefone deve conter 10 ou 11 dígitos"
-    }
+    },
+    required: false
   },
   patientCEP: {
     type: String,
