@@ -3,8 +3,8 @@ const User = require("./models/user.model");
 const emailService = require("./emailService");
 const { logActivity } = require("./utils/activityLogger");
 const { validateCpf } = require("./utils/validationUtils");
-const ActivityLog = require("./models/activityLog.model"); // Adicione no topo se necessário
-const mongoose = require('mongoose'); // Adicione no topo se ainda não estiver
+const ActivityLog = require("./models/activityLog.model");
+const mongoose = require('mongoose');
 
 // @desc    Criar nova solicitação de receita
 // @route   POST /api/receitas
@@ -20,7 +20,8 @@ exports.createPrescription = async (req, res, next) => {
       patientCpf = req.body.cpf,
       patientEmail,
       numberOfBoxes = 1,
-      returnRequested = false
+      returnRequested = false,
+      phone // <-- Recebe do frontend
     } = req.body;
 
     // Aceita tanto patientCEP/patientAddress quanto cep/endereco
@@ -69,6 +70,7 @@ exports.createPrescription = async (req, res, next) => {
       returnRequested,
       patient: patient._id,
       patientName: patient.name,
+      patientPhone: phone || patient.phone || "", // <-- Salva telefone
       createdBy: req.user.id,
       updatedBy: req.user.id
     };
@@ -230,7 +232,7 @@ exports.getAllPrescriptions = async (req, res, next) => {
     let prescriptionsQuery = Prescription.find(query)
       .populate({
         path: "patient",
-        select: "name email Cpf",
+        select: "name email Cpf phone",
         match: Object.keys(patientMatch).length ? patientMatch : undefined
       })
       .populate({
@@ -250,12 +252,13 @@ exports.getAllPrescriptions = async (req, res, next) => {
 
     // Conta total para paginação
     let totalQuery = Prescription.countDocuments(query);
+    let total;
     if (Object.keys(patientMatch).length) {
       // Precisa contar manualmente se filtrar por paciente
       const allPrescriptions = await Prescription.find(query)
         .populate({
           path: "patient",
-          select: "name email Cpf",
+          select: "name email Cpf phone",
           match: patientMatch
         });
       total = allPrescriptions.filter(p => p.patient).length;
@@ -464,16 +467,11 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
 // @access  Private/Admin-Secretary
 exports.managePrescriptionByAdmin = async (req, res, next) => {
   try {
-    let { userId, userName, name, patientName, patientCpf, cep, endereco, patientCEP, patientAddress, patientEmail, ...data } = req.body;
+    let { userId, userName, name, patientName, patientCpf, cep, endereco, patientCEP, patientAddress, patientEmail, phone, ...data } = req.body;
 
-    // Prioridade: userId > userName > name > patientName
     let patientId = userId;
-    
     if (!patientId && (userName || name || patientName)) {
       const searchName = userName || name || patientName;
-      console.log(`>>> Buscando usuário por nome: ${searchName}`);
-      
-      // Buscar por nome ou CPF
       let user;
       if (patientCpf) {
         user = await User.findOne({ 
@@ -485,51 +483,29 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       } else {
         user = await User.findOne({ name: { $regex: searchName, $options: "i" } });
       }
-      
       if (!user) {
-        // Se não encontrar usuário, criar um registro básico (para casos onde admin cria receita para paciente não cadastrado)
-        console.log(`>>> Usuário não encontrado, criando registro básico para: ${searchName}`);
-        try {
-          // Gerar e-mail único se o fornecido já existir
-          let uniqueEmail = data.patientEmail || `${searchName.toLowerCase().replace(/\s+/g, '')}@temp.com`;
-          
-          // Verificar se e-mail já existe e gerar um único
-          const existingUser = await User.findOne({ email: uniqueEmail });
-          if (existingUser) {
-            const timestamp = Date.now();
-            uniqueEmail = `temp_${searchName.toLowerCase().replace(/\s+/g, '')}_${timestamp}@temp.com`;
-          }
-          
-          // Gerar CPF único se o fornecido já existir ou não for fornecido
-          let uniqueCpf = patientCpf ? patientCpf.replace(/\D/g, '') : `temp${Date.now()}`;
-          
-          // Verificar se CPF já existe e gerar um único
-          if (patientCpf) {
-            const existingCpfUser = await User.findOne({ Cpf: uniqueCpf });
-            if (existingCpfUser) {
-              uniqueCpf = `temp${Date.now()}`;
-            }
-          }
-          
-          user = await User.create({
-            name: patientName || searchName,
-            email: uniqueEmail,
-            Cpf: uniqueCpf,
-            password: `temp_${Date.now()}`,
-            role: 'patient'
-          });
-          console.log(`>>> Usuário criado com ID: ${user._id}`);
-        } catch (createError) {
-          console.error("Erro ao criar usuário:", createError);
-          return res.status(400).json({ 
-            success: false, 
-            message: "Erro ao processar dados do paciente. Verifique se os dados não estão duplicados." 
-          });
+        let uniqueEmail = data.patientEmail || `${searchName.toLowerCase().replace(/\s+/g, '')}@temp.com`;
+        const existingUser = await User.findOne({ email: uniqueEmail });
+        if (existingUser) {
+          const timestamp = Date.now();
+          uniqueEmail = `temp_${searchName.toLowerCase().replace(/\s+/g, '')}_${timestamp}@temp.com`;
         }
+        let uniqueCpf = patientCpf ? patientCpf.replace(/\D/g, '') : `temp${Date.now()}`;
+        if (patientCpf) {
+          const existingCpfUser = await User.findOne({ Cpf: uniqueCpf });
+          if (existingCpfUser) {
+            uniqueCpf = `temp${Date.now()}`;
+          }
+        }
+        user = await User.create({
+          name: patientName || searchName,
+          email: uniqueEmail,
+          Cpf: uniqueCpf,
+          password: `temp_${Date.now()}`,
+          role: 'patient'
+        });
       }
-      
       patientId = user._id;
-      console.log(`>>> Usando patientId: ${patientId}`);
     }
 
     if (!patientId) {
@@ -539,12 +515,10 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       });
     }
 
-    // Garante que numberOfBoxes seja string
     if (data.numberOfBoxes !== undefined) {
       data.numberOfBoxes = String(data.numberOfBoxes);
     }
 
-    // Mapear valores do frontend para valores do modelo
     const deliveryMethodMap = {
       "clinic": "retirar_clinica",
       "email": "email",
@@ -567,18 +541,18 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       data.status = statusMap[data.status];
     }
 
-    // Normaliza campos de endereço/email para o padrão do backend
-    // Só preenche se o método de entrega for "email"
     if (data.deliveryMethod === "email") {
       data.patientEmail = patientEmail || data.patientEmail;
       data.patientCEP = patientCEP || cep || data.patientCEP;
       data.patientAddress = patientAddress || endereco || data.patientAddress;
     } else {
-      // Remove campos se não for email (opcional, para evitar lixo no banco)
       delete data.patientEmail;
       delete data.patientCEP;
       delete data.patientAddress;
     }
+
+    // Salva o telefone do paciente (opcional)
+    data.patientPhone = phone || data.patientPhone || "";
 
     const prescriptionData = {
       ...data,
@@ -589,15 +563,9 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       updatedBy: req.user.id
     };
 
-    console.log(`>>> Dados da prescrição:`, JSON.stringify(prescriptionData, null, 2));
-
-    // Criação ou atualização
     let prescription;
     if (req.method === "POST") {
       prescription = await Prescription.create(prescriptionData);
-      console.log(`>>> Prescrição criada com ID: ${prescription._id}`);
-
-      // REGISTRA O LOG DE CRIAÇÃO
       await logActivity({
         user: req.user.id,
         action: 'create_prescription',
@@ -609,12 +577,9 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         }
       });
     } else if (req.method === "PUT") {
-      // Nunca sobrescreva o campo patient em updates!
       if (prescriptionData.patient) {
         delete prescriptionData.patient;
       }
-
-      // Garante que patientCEP e patientAddress não sejam removidos em updates parciais
       const existingPrescription = await Prescription.findById(req.params.id);
       if (existingPrescription) {
         if (
@@ -625,15 +590,11 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
           prescriptionData.patientAddress = prescriptionData.patientAddress || existingPrescription.patientAddress;
         }
       }
-
       prescription = await Prescription.findByIdAndUpdate(
         req.params.id,
         prescriptionData,
         { new: true, runValidators: true }
       );
-      console.log(`>>> Prescrição atualizada: ${req.params.id}`);
-
-      // REGISTRA O LOG DE EDIÇÃO
       if (prescription) {
         await logActivity({
           user: req.user.id,
@@ -655,48 +616,6 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
       });
     }
 
-    // Após criar ou atualizar a prescrição
-    if (prescription) {
-      // Verifica se o status foi alterado (em update) ou se está criando com status diferente de 'solicitada'
-      let oldStatus = null;
-      if (req.method === "PUT") {
-        oldStatus = prescription._doc?.status; // status antes do update
-      }
-      const newStatus = prescription.status;
-
-      // Só envia e-mail se status mudou OU se está criando com status diferente de 'solicitada'
-      if (
-        (req.method === "PUT" && oldStatus !== newStatus) ||
-        (req.method === "POST" && newStatus !== "solicitada")
-      ) {
-        try {
-          const emailTo = prescription.patientEmail || (prescription.patient && prescription.patient.email);
-          if (emailTo) {
-            await emailService.sendStatusUpdateEmail({
-              to: emailTo,
-              prescriptionId: prescription._id,
-              patientName: prescription.patientName,
-              medicationName: prescription.medicationName,
-              oldStatus: oldStatus || "solicitada",
-              newStatus,
-              rejectionReason: prescription.rejectionReason,
-              updatedBy: req.user.name,
-              deliveryMethod: prescription.deliveryMethod // <-- ESSENCIAL!
-            });
-          }
-        } catch (emailError) {
-          console.error("Erro ao enviar e-mail de status (admin):", emailError);
-          await logActivity({
-            user: req.user.id,
-            action: 'email_failed',
-            details: `Falha ao enviar e-mail de atualização de status para prescrição ${prescription._id}`,
-            prescription: prescription._id,
-            error: emailError.message
-          });
-        }
-      }
-    }
-
     res.status(200).json({ 
       success: true, 
       data: formatPrescription(prescription),
@@ -704,7 +623,6 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Erro em managePrescriptionByAdmin:", error);
-    
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -712,7 +630,6 @@ exports.managePrescriptionByAdmin = async (req, res, next) => {
         errors: Object.values(error.errors).map(err => err.message)
       });
     }
-    
     res.status(500).json({
       success: false,
       message: "Erro interno do servidor ao processar prescrição."
@@ -975,6 +892,7 @@ function formatPrescription(prescription) {
   obj.patientName = obj.patientName || (obj.patient && obj.patient.name) || "";
   obj.patientEmail = obj.patientEmail || (obj.patient && obj.patient.email) || "";
   obj.patientCpf = obj.patientCpf || (obj.patient && obj.patient.Cpf) || "";
+  obj.patientPhone = obj.patientPhone || (obj.patient && obj.patient.phone) || ""; // <-- Garante retorno do telefone
   obj.numberOfBoxes = obj.numberOfBoxes ? String(obj.numberOfBoxes) : "1";
   obj.returnRequested = typeof obj.returnRequested === "boolean" ? obj.returnRequested : false;
 

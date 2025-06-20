@@ -4,7 +4,7 @@ const User = require('./models/user.model');
 exports.getAllPatients = async (req, res) => {
   try {
     const patients = await User.find({ role: 'patient' }).select('-password -resetPasswordToken -resetPasswordExpires');
-    res.status(200).json(patients); // <-- Retorne só o array!
+    res.status(200).json(patients);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
