@@ -3,6 +3,9 @@ const router = express.Router();
 const patientController = require('../patient.controller');
 const { protect, authorize } = require('../middlewares/auth.middleware'); // ajuste o caminho se necessário
 
+// Endpoint público para autocomplete (ajuste se quiser proteger)
+router.get('/search', patientController.searchPatients);
+
 // Todas as rotas protegidas e apenas para admin
 router.use(protect(), authorize('admin'));
 

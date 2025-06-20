@@ -46,3 +46,43 @@ exports.deletePatient = async (req, res) => {
     res.status(500).json({ success: false, message: 'Erro ao remover paciente.' });
   }
 };
+
+// Buscar pacientes por nome, CPF ou telefone (autocomplete)
+exports.searchPatients = async (req, res) => {
+  try {
+    const { name, cpf, phone } = req.query;
+    if (!name && !cpf && !phone) {
+      return res.status(400).json({ success: false, message: 'Informe ao menos um parâmetro de busca (name, cpf ou phone).' });
+    }
+
+    // Monta filtro dinâmico para busca parcial (case-insensitive)
+    const filters = { role: 'patient' };
+    if (name) {
+      filters.name = { $regex: name, $options: 'i' };
+    }
+    if (cpf) {
+      filters.Cpf = { $regex: cpf.replace(/\D/g, ''), $options: 'i' };
+    }
+    if (phone) {
+      filters.phone = { $regex: phone.replace(/\D/g, ''), $options: 'i' };
+    }
+
+    // Busca pacientes
+    const patients = await User.find(filters)
+      .select('name Cpf email phone cep address');
+
+    // Normaliza resposta para frontend
+    const result = patients.map(p => ({
+      name: p.name || '',
+      cpf: p.Cpf || '',
+      email: p.email || '',
+      phone: p.phone || '',
+      cep: p.cep || '',
+      endereco: p.address || ''
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
+  }
+};
