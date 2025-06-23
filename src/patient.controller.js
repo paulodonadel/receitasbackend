@@ -76,7 +76,7 @@ exports.searchPatients = async (req, res) => {
       name: p.name || '',
       cpf: p.Cpf || '',
       email: p.email || '',
-      phone: p.phone || '',
+      phone: typeof p.phone === 'string' ? p.phone : '', // garante que sempre retorna string
       cep: p.cep || '',
       endereco: p.address || ''
     }));
