@@ -86,3 +86,18 @@ exports.searchPatients = async (req, res) => {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
 };
+
+// Adicione este endpoint para PATCH
+exports.patchPatient = async (req, res) => {
+  try {
+    const patient = await User.findOneAndUpdate(
+      { _id: req.params.id, role: 'patient' },
+      { $set: req.body },
+      { new: true, runValidators: true }
+    ).select('-password -resetPasswordToken -resetPasswordExpires');
+    if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });
+    res.status(200).json({ success: true, data: patient });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao atualizar paciente.' });
+  }
+};
