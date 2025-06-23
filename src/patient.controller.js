@@ -90,6 +90,7 @@ exports.searchPatients = async (req, res) => {
 // Adicione este endpoint para PATCH
 exports.patchPatient = async (req, res) => {
   try {
+    console.log('PATCH body:', req.body); // <-- debug
     const patient = await User.findOneAndUpdate(
       { _id: req.params.id, role: 'patient' },
       { $set: req.body },
