@@ -70,10 +70,16 @@ exports.createPrescription = async (req, res, next) => {
       returnRequested,
       patient: patient._id,
       patientName: patient.name,
-      patientPhone: phone || patient.phone || "", // <-- Salva telefone
+      // patientPhone: phone || patient.phone || "", // <-- TROQUE ESTA LINHA
       createdBy: req.user.id,
       updatedBy: req.user.id
     };
+
+    // Só adiciona patientPhone se houver valor válido
+    const patientPhoneValue = phone || patient.phone;
+    if (patientPhoneValue && /^\d{10,11}$/.test(patientPhoneValue)) {
+      prescriptionData.patientPhone = patientPhoneValue;
+    }
 
     // Só adiciona patientCEP/patientAddress se deliveryMethod === "email"
     if (deliveryMethod === "email") {
