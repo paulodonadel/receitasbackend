@@ -35,7 +35,8 @@ const {
   deletePrescription,
   exportPrescriptions,
   getPrescriptionStats,
-  getPrescriptionLog
+  getPrescriptionLog,
+  repeatPrescription
 } = require('./prescription.controller.js'); // Adicionando a extensão .js explicitamente
 const { protect, authorize } = require('./middlewares/auth.middleware.js'); // Adicionando a extensão .js explicitamente
 const rateLimit = require('express-rate-limit');
@@ -186,6 +187,19 @@ router.delete('/admin/:id',
   sensitiveLimiter,
   validateId,
   deletePrescription
+);
+
+// NOVA FUNCIONALIDADE: Repetir prescrição
+router.post('/:id/repeat',
+  protect(),
+  authorize('admin', 'secretary'),
+  sensitiveLimiter,
+  validateId,
+  (req, res, next) => {
+    console.log(">>> POST /api/receitas/:id/repeat FOI CHAMADO - User:", req.user?.email, "- Role:", req.user?.role);
+    next();
+  },
+  repeatPrescription
 );
 
 /**
