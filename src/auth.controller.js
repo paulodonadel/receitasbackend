@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const emailService = require("./emailService");
+const path = require('path');
+const fs = require('fs');
 
 // @desc    Registrar usuário
 // @route   POST /api/auth/register
@@ -189,6 +191,8 @@ exports.login = async (req, res, next) => {
       emergencyContact: user.emergencyContact,
       medicalInfo: user.medicalInfo,
       preferences: user.preferences,
+      profileImage: user.profileImage,
+      profilePhoto: user.profilePhoto, // Manter compatibilidade
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -232,6 +236,8 @@ exports.getMe = async (req, res, next) => {
       emergencyContact: user.emergencyContact,
       medicalInfo: user.medicalInfo,
       preferences: user.preferences,
+      profileImage: user.profileImage,
+      profilePhoto: user.profilePhoto, // Manter compatibilidade
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -615,6 +621,133 @@ exports.updateProfile = async (req, res, next) => {
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao atualizar perfil'
+    });
+  }
+};
+
+// @desc    Atualizar perfil do usuário com upload de imagem
+// @route   PATCH /api/auth/profile
+// @access  Private
+exports.updateProfileWithImage = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    let updateData = { ...req.body };
+    
+    // Upload nova imagem
+    if (req.file) {
+      const currentUser = await User.findById(userId);
+      if (currentUser?.profileImage) {
+        const oldPath = path.join(__dirname, '../uploads/profiles', path.basename(currentUser.profileImage));
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      updateData.profileImage = `/uploads/profiles/${req.file.filename}`;
+    }
+    
+    // Remover imagem
+    if (req.body.removeProfileImage === 'true') {
+      const currentUser = await User.findById(userId);
+      if (currentUser?.profileImage) {
+        const oldPath = path.join(__dirname, '../uploads/profiles', path.basename(currentUser.profileImage));
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      updateData.profileImage = null;
+      delete updateData.removeProfileImage;
+    }
+    
+    // Processar endereço FormData
+    if (req.body['address[cep]']) {
+      updateData.address = {
+        cep: req.body['address[cep]'],
+        street: req.body['address[street]'],
+        number: req.body['address[number]'],
+        complement: req.body['address[complement]'],
+        neighborhood: req.body['address[neighborhood]'],
+        city: req.body['address[city]'],
+        state: req.body['address[state]']
+      };
+      Object.keys(updateData).forEach(key => {
+        if (key.startsWith('address[')) delete updateData[key];
+      });
+    }
+
+    // Validação de email único (se fornecido)
+    if (updateData.email) {
+      const existingUser = await User.findOne({ email: updateData.email, _id: { $ne: userId } });
+      if (existingUser) {
+        // Limpar arquivo enviado se houver erro
+        if (req.file) {
+          const filePath = path.join(__dirname, '../uploads/profiles', req.file.filename);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+        return res.status(400).json({
+          success: false,
+          message: 'Este e-mail já está sendo usado por outro usuário'
+        });
+      }
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { 
+      new: true, 
+      runValidators: true 
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+    
+    // Retornar dados do usuário sem campos sensíveis
+    const userResponse = {
+      id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      Cpf: updatedUser.Cpf,
+      phone: updatedUser.phone,
+      address: updatedUser.address,
+      dateOfBirth: updatedUser.dateOfBirth,
+      gender: updatedUser.gender,
+      profession: updatedUser.profession,
+      emergencyContact: updatedUser.emergencyContact,
+      medicalInfo: updatedUser.medicalInfo,
+      preferences: updatedUser.preferences,
+      profileImage: updatedUser.profileImage,
+      profilePhoto: updatedUser.profilePhoto, // Manter compatibilidade
+      role: updatedUser.role,
+      isActive: updatedUser.isActive,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt
+    };
+    
+    res.json({
+      success: true,
+      message: 'Perfil atualizado com sucesso',
+      data: userResponse
+    });
+    
+  } catch (error) {
+    console.error('Erro ao atualizar perfil com imagem:', error);
+    
+    // Limpar arquivo enviado se houver erro
+    if (req.file) {
+      const filePath = path.join(__dirname, '../uploads/profiles', req.file.filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    // Tratamento de erros de validação do Mongoose
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Erro de validação',
+        errors: messages
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor ao atualizar perfil' 
     });
   }
 };

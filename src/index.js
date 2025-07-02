@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path');
 
 const app = express();
 
@@ -36,6 +37,9 @@ const TIMEOUT_MS = 120000; // 2 minutos
 // Outras configs
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Servir arquivos estáticos (uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Middleware para logging de requisições
 app.use((req, res, next) => {
@@ -141,6 +145,23 @@ app.post('/api/send-return-request', async (req, res) => {
     console.error("Erro ao enviar e-mail de retorno:", error);
     return res.status(200).json({ success: true, message: "Falha ao enviar e-mail, mas requisição processada." });
   }
+});
+
+// Tratamento específico de erros de upload
+app.use((error, req, res, next) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Arquivo muito grande! Máximo 5MB.' 
+    });
+  }
+  if (error.message && error.message.includes('imagens são permitidas')) {
+    return res.status(400).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+  next(error);
 });
 
 // Tratamento global de erros

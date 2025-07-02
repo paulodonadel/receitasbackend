@@ -74,6 +74,10 @@ const UserSchema = new mongoose.Schema({
     type: String, // URL ou caminho para a foto
     required: false
   },
+  profileImage: {
+    type: String, // Novo campo para upload de imagens
+    default: null
+  },
   // CAMPOS DE CONFIGURAÇÃO
   preferences: {
     emailNotifications: {

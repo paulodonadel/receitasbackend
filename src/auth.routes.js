@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const User = require('./models/user.model');
 const emailService = require('./emailService');
+const upload = require('./middlewares/upload');
+const path = require('path');
+const fs = require('fs');
 const {
   register,
   login,
   getMe,
   updateDetails,
   updateProfile,
+  updateProfileWithImage,
   updatePassword,
   forgotPassword,
   resetPassword,
@@ -56,7 +60,7 @@ router.post('/login', validateLoginInput, login);
 router.get('/me', protect(), getMe);
 router.post('/logout', protect(), logout);
 router.put('/updatedetails', protect(), updateDetails);
-router.patch('/profile', protect(), updateProfile); // Nova rota para atualização de perfil
+router.patch('/profile', protect(), upload.single('profileImage'), updateProfileWithImage); // Nova rota para atualização de perfil com imagem
 router.put('/updatepassword', protect(), updatePassword);
 
 // Rotas de recuperação de senha
