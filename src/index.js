@@ -77,9 +77,38 @@ app.get('/', (req, res) => {
     status: 'online',
     message: 'API de Gerenciamento de Receitas Médicas',
     environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0',
+    documentation: 'https://github.com/seu-usuario/seu-repo/blob/main/API_DOCUMENTATION.md',
     routes: {
-      auth: '/api/auth',
-      prescriptions: '/api/receitas'
+      auth: {
+        base: '/api/auth',
+        endpoints: [
+          'POST /api/auth/register',
+          'POST /api/auth/login',
+          'GET /api/auth/me',
+          'PATCH /api/auth/profile', // Novo endpoint
+          'PUT /api/auth/updatedetails',
+          'PUT /api/auth/updatepassword',
+          'POST /api/auth/forgot-password',
+          'POST /api/auth/reset-password',
+          'POST /api/auth/logout'
+        ]
+      },
+      prescriptions: {
+        base: '/api/receitas',
+        endpoints: [
+          'GET /api/receitas',
+          'POST /api/receitas',
+          'GET /api/receitas/:id',
+          'PUT /api/receitas/:id',
+          'DELETE /api/receitas/:id'
+        ]
+      },
+      health: [
+        'GET /',
+        'GET /api',
+        'GET /health'
+      ]
     }
   });
 });

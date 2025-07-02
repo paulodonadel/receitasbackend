@@ -489,3 +489,109 @@ exports.resetPassword = async (req, res) => {
     return res.status(500).json({ success: false, message: "Erro ao redefinir senha." });
   }
 };
+
+// @desc    Atualizar perfil do usuário
+// @route   PATCH /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      address,
+      dateOfBirth,
+      gender,
+      profession,
+      emergencyContact,
+      medicalInfo,
+      preferences
+    } = req.body;
+
+    // Campos que podem ser atualizados
+    const updateFields = {};
+    
+    // Validações e preparação dos campos
+    if (name !== undefined) updateFields.name = name;
+    if (email !== undefined) {
+      // Verificar se o email já existe para outro usuário
+      const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Este e-mail já está sendo usado por outro usuário'
+        });
+      }
+      updateFields.email = email;
+    }
+    if (phone !== undefined) updateFields.phone = phone;
+    if (address !== undefined) updateFields.address = address;
+    if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
+    if (gender !== undefined) updateFields.gender = gender;
+    if (profession !== undefined) updateFields.profession = profession;
+    if (emergencyContact !== undefined) updateFields.emergencyContact = emergencyContact;
+    if (medicalInfo !== undefined) updateFields.medicalInfo = medicalInfo;
+    if (preferences !== undefined) updateFields.preferences = preferences;
+
+    // Atualizar o usuário
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      updateFields,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+
+    // Retornar dados do usuário sem campos sensíveis
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      Cpf: user.Cpf,
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      profession: user.profession,
+      emergencyContact: user.emergencyContact,
+      medicalInfo: user.medicalInfo,
+      preferences: user.preferences,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfil atualizado com sucesso',
+      data: userResponse
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error);
+    
+    // Tratamento de erros de validação do Mongoose
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Erro de validação',
+        errors: messages
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor ao atualizar perfil'
+    });
+  }
+};

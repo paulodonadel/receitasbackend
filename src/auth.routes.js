@@ -7,6 +7,7 @@ const {
   login,
   getMe,
   updateDetails,
+  updateProfile,
   updatePassword,
   forgotPassword,
   resetPassword,
@@ -55,6 +56,7 @@ router.post('/login', validateLoginInput, login);
 router.get('/me', protect(), getMe);
 router.post('/logout', protect(), logout);
 router.put('/updatedetails', protect(), updateDetails);
+router.patch('/profile', protect(), updateProfile); // Nova rota para atualização de perfil
 router.put('/updatepassword', protect(), updatePassword);
 
 // Rotas de recuperação de senha
