@@ -78,6 +78,10 @@ const UserSchema = new mongoose.Schema({
     type: String, // Novo campo para upload de imagens
     default: null
   },
+  profileImageAPI: {
+    type: String, // URL alternativa via API para CORS
+    default: null
+  },
   // CAMPOS DE CONFIGURAÇÃO
   preferences: {
     emailNotifications: {

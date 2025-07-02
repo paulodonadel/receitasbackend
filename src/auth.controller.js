@@ -192,6 +192,7 @@ exports.login = async (req, res, next) => {
       medicalInfo: user.medicalInfo,
       preferences: user.preferences,
       profileImage: user.profileImage,
+      profileImageAPI: user.profileImageAPI, // URL alternativa para CORS
       profilePhoto: user.profilePhoto, // Manter compatibilidade
       role: user.role,
       isActive: user.isActive,
@@ -237,6 +238,7 @@ exports.getMe = async (req, res, next) => {
       medicalInfo: user.medicalInfo,
       preferences: user.preferences,
       profileImage: user.profileImage,
+      profileImageAPI: user.profileImageAPI, // URL alternativa para CORS
       profilePhoto: user.profilePhoto, // Manter compatibilidade
       role: user.role,
       isActive: user.isActive,
@@ -649,8 +651,11 @@ exports.updateProfileWithImage = async (req, res, next) => {
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
       
+      // Salvar caminho padrão e criar URL alternativa
       updateData.profileImage = `/uploads/profiles/${req.file.filename}`;
+      updateData.profileImageAPI = `/api/image/${req.file.filename}`; // URL alternativa via API
       console.log('✅ [UPLOAD] Nova imagem definida:', updateData.profileImage);
+      console.log('🔄 [UPLOAD] URL alternativa:', updateData.profileImageAPI);
     }
     
     // Remover imagem
@@ -729,6 +734,7 @@ exports.updateProfileWithImage = async (req, res, next) => {
       medicalInfo: updatedUser.medicalInfo,
       preferences: updatedUser.preferences,
       profileImage: updatedUser.profileImage,
+      profileImageAPI: updatedUser.profileImageAPI, // URL alternativa para CORS
       profilePhoto: updatedUser.profilePhoto, // Manter compatibilidade
       role: updatedUser.role,
       isActive: updatedUser.isActive,
