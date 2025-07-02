@@ -15,14 +15,17 @@ const corsOptions = {
     'https://sistema-receitas-frontend.onrender.com',
     'https://www.sistema-receitas-frontend.onrender.com',
     'http://localhost:3000',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://localhost:3001',
+    'https://receitasbackend.onrender.com' // Adicionar o próprio backend para evitar problemas
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
   ],
-  exposedHeaders: ['Authorization']
+  exposedHeaders: ['Authorization'],
+  optionsSuccessStatus: 200 // Para compatibilidade com browsers antigos
 };
 
 // Aplicar CORS como primeiro middleware
@@ -38,8 +41,15 @@ const TIMEOUT_MS = 120000; // 2 minutos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir arquivos estáticos (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Servir arquivos estáticos (uploads) com CORS headers corretos
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=86400'); // Cache por 1 dia
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Middleware para logging de requisições
 app.use((req, res, next) => {
@@ -127,6 +137,31 @@ app.get('/health', (req, res) => {
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString()
   });
+});
+
+// Endpoint de teste para uploads
+app.get('/test-uploads', (req, res) => {
+  const fs = require('fs');
+  const uploadsPath = path.join(__dirname, '../uploads/profiles');
+  
+  try {
+    const files = fs.existsSync(uploadsPath) ? fs.readdirSync(uploadsPath) : [];
+    res.json({
+      status: 'ok',
+      uploadsPath: uploadsPath,
+      filesCount: files.length,
+      files: files.slice(0, 5), // Mostrar apenas os primeiros 5 arquivos
+      corsHeaders: {
+        'Access-Control-Allow-Origin': '*',
+        'Cross-Origin-Resource-Policy': 'cross-origin'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
 });
 
 // NOVO ENDPOINT: Enviar solicitação de retorno por e-mail
