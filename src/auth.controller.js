@@ -635,12 +635,22 @@ exports.updateProfileWithImage = async (req, res, next) => {
     
     // Upload nova imagem
     if (req.file) {
+      console.log('🖼️ [UPLOAD] Arquivo recebido:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        path: req.file.path
+      });
+      
       const currentUser = await User.findById(userId);
       if (currentUser?.profileImage) {
         const oldPath = path.join(__dirname, '../uploads/profiles', path.basename(currentUser.profileImage));
+        console.log('🗑️ [UPLOAD] Removendo imagem antiga:', oldPath);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
+      
       updateData.profileImage = `/uploads/profiles/${req.file.filename}`;
+      console.log('✅ [UPLOAD] Nova imagem definida:', updateData.profileImage);
     }
     
     // Remover imagem
@@ -689,6 +699,12 @@ exports.updateProfileWithImage = async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { 
       new: true, 
       runValidators: true 
+    });
+
+    console.log('💾 [UPLOAD] Usuário atualizado no banco:', {
+      userId: updatedUser._id,
+      profileImage: updatedUser.profileImage,
+      updateSuccess: !!updatedUser
     });
 
     if (!updatedUser) {

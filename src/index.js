@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
@@ -41,15 +42,63 @@ const TIMEOUT_MS = 120000; // 2 minutos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Middleware ESPECÍFICO para imagens - FORÇA headers CORS
+app.use('/uploads/profiles', (req, res, next) => {
+  // FORÇA headers CORS para imagens
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+  
+  // Log específico para imagens
+  console.log(`🖼️ [IMAGE] ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || 'none'}`);
+  
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  
+  next();
+});
+
+// Middleware adicional para debug de uploads
+app.use('/uploads', (req, res, next) => {
+  console.log(`📁 [UPLOAD DEBUG] ${req.method} ${req.originalUrl}`);
+  console.log(`📁 [UPLOAD DEBUG] Origin: ${req.headers.origin}`);
+  console.log(`📁 [UPLOAD DEBUG] User-Agent: ${req.headers['user-agent']?.substring(0, 50)}...`);
+  next();
+});
+
 // Servir arquivos estáticos (uploads) com CORS headers corretos
 app.use('/uploads', (req, res, next) => {
+  // Log para debug
+  console.log(`📁 Upload request: ${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  
+  // Headers CORS mais específicos
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.header('Cache-Control', 'public, max-age=86400'); // Cache por 1 dia
+  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.header('Cache-Control', 'public, max-age=86400');
+  res.header('Vary', 'Origin');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
   next();
-}, express.static(path.join(__dirname, '../uploads')));
+}, express.static(path.join(__dirname, '../uploads'), {
+  // Configurações adicionais para express.static
+  setHeaders: (res, path, stat) => {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 // Middleware para logging de requisições
 app.use((req, res, next) => {
@@ -141,7 +190,6 @@ app.get('/health', (req, res) => {
 
 // Endpoint de teste para uploads
 app.get('/test-uploads', (req, res) => {
-  const fs = require('fs');
   const uploadsPath = path.join(__dirname, '../uploads/profiles');
   
   try {
@@ -179,6 +227,62 @@ app.post('/api/send-return-request', async (req, res) => {
   } catch (error) {
     console.error("Erro ao enviar e-mail de retorno:", error);
     return res.status(200).json({ success: true, message: "Falha ao enviar e-mail, mas requisição processada." });
+  }
+});
+
+// Rota específica para imagens de perfil com CORS máximo
+app.get('/uploads/profiles/:filename', (req, res, next) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, '../uploads/profiles', filename);
+  
+  console.log(`🎯 [DIRECT-IMAGE] Solicitação direta para: ${filename}`);
+  
+  // Verificar se arquivo existe
+  if (!fs.existsSync(filePath)) {
+    console.log(`❌ [DIRECT-IMAGE] Arquivo não encontrado: ${filePath}`);
+    return res.status(404).json({ error: 'Imagem não encontrada' });
+  }
+  
+  // Headers CORS máximos
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader('Content-Type', 'image/jpeg'); // Assumindo JPEG por padrão
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  
+  console.log(`✅ [DIRECT-IMAGE] Servindo: ${filename}`);
+  
+  // Servir arquivo diretamente
+  res.sendFile(filePath);
+});
+
+// Endpoint de teste para verificar se uma imagem específica existe
+app.get('/check-image/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const imagePath = path.join(__dirname, '../uploads/profiles', filename);
+  
+  console.log('🔍 [CHECK-IMAGE] Verificando:', imagePath);
+  
+  if (fs.existsSync(imagePath)) {
+    const stats = fs.statSync(imagePath);
+    res.json({
+      exists: true,
+      filename: filename,
+      path: imagePath,
+      size: stats.size,
+      created: stats.birthtime,
+      modified: stats.mtime,
+      url: `${req.protocol}://${req.get('host')}/uploads/profiles/${filename}`
+    });
+  } else {
+    res.status(404).json({
+      exists: false,
+      filename: filename,
+      path: imagePath,
+      message: 'Imagem não encontrada'
+    });
   }
 });
 
