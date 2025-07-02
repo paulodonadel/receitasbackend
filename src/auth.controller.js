@@ -181,7 +181,20 @@ exports.login = async (req, res, next) => {
       name: user.name,
       email: user.email,
       Cpf: user.Cpf,
-      role: user.role
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      profession: user.profession,
+      emergencyContact: user.emergencyContact,
+      medicalInfo: user.medicalInfo,
+      preferences: user.preferences,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      // Manter compatibilidade com código antigo
+      birthDate: user.birthDate || user.dateOfBirth
     };
 
     res.status(200).json({
@@ -211,10 +224,20 @@ exports.getMe = async (req, res, next) => {
       name: user.name,
       email: user.email,
       Cpf: user.Cpf,
-      role: user.role,
-      address: user.address,
       phone: user.phone,
-      birthDate: user.birthDate
+      address: user.address,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      profession: user.profession,
+      emergencyContact: user.emergencyContact,
+      medicalInfo: user.medicalInfo,
+      preferences: user.preferences,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      // Manter compatibilidade com código antigo
+      birthDate: user.birthDate || user.dateOfBirth
     };
 
     res.status(200).json({
