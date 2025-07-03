@@ -121,51 +121,142 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// SOLUÇÃO ALTERNATIVA: Endpoint API para servir imagens com CORS garantido
+// SIMPLIFIED AND STANDARDIZED IMAGE SERVING
+// Remove all existing /uploads middleware and replace with this:
+
+// Ensure required directories exist
+const ensureDirectories = require('./utils/ensureDirectories');
+ensureDirectories();
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+const profilesDir = path.join(uploadsDir, 'profiles');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(profilesDir)) {
+  fs.mkdirSync(profilesDir, { recursive: true });
+}
+
+// Serve static files with proper CORS headers
+app.use('/uploads', (req, res, next) => {
+  // Set CORS headers for all uploads
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=86400');
+  
+  console.log(`📁 [UPLOADS] ${req.method} ${req.originalUrl}`);
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+}, express.static(uploadsDir, {
+  setHeaders: (res, filePath) => {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+}));
+
+// Specific endpoint for profile images with enhanced error handling
+app.get('/uploads/profiles/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const imagePath = path.join(__dirname, '..', 'uploads', 'profiles', filename);
+  
+  console.log(`🖼️ [PROFILE-IMAGE] Solicitação para: ${filename}`);
+  console.log(`🖼️ [PROFILE-IMAGE] Caminho completo: ${imagePath}`);
+  
+  // Check if file exists
+  if (!fs.existsSync(imagePath)) {
+    console.log(`❌ [PROFILE-IMAGE] Arquivo não encontrado: ${imagePath}`);
+    return res.status(404).json({ 
+      error: 'Imagem não encontrada',
+      filename: filename,
+      path: imagePath 
+    });
+  }
+  
+  // Set appropriate headers
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=86400');
+  
+  // Determine content type
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+  };
+  
+  const contentType = mimeTypes[ext] || 'image/jpeg';
+  res.setHeader('Content-Type', contentType);
+  
+  console.log(`✅ [PROFILE-IMAGE] Servindo: ${filename} (${contentType})`);
+  
+  // Send file
+  res.sendFile(imagePath);
+});
+
+// Alternative API endpoint for images (backup)
 app.get('/api/image/:filename', (req, res) => {
   const filename = req.params.filename;
-  const imagePath = path.join(__dirname, '../uploads/profiles', filename);
+  const imagePath = path.join(__dirname, '..', 'uploads', 'profiles', filename);
   
   console.log(`🎯 [API-IMAGE] Solicitação para: ${filename}`);
   
-  // Verificar se arquivo existe
   if (!fs.existsSync(imagePath)) {
     console.log(`❌ [API-IMAGE] Não encontrado: ${imagePath}`);
     return res.status(404).json({ error: 'Imagem não encontrada' });
   }
   
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+  };
+  
+  const contentType = mimeTypes[ext] || 'image/jpeg';
+  res.setHeader('Content-Type', contentType);
+  
+  console.log(`✅ [API-IMAGE] Servindo: ${filename} (${contentType})`);
+  
+  const fileStream = fs.createReadStream(imagePath);
+  fileStream.pipe(res);
+});
+
+// Debug endpoint to check uploads directory
+app.get('/debug/uploads', (req, res) => {
+  const uploadsPath = path.join(__dirname, '..', 'uploads', 'profiles');
+  
   try {
-    // Headers CORS explícitos
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-    
-    // Detectar tipo de arquivo
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.svg': 'image/svg+xml'
-    };
-    
-    const contentType = mimeTypes[ext] || 'image/jpeg';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    
-    console.log(`✅ [API-IMAGE] Servindo: ${filename} (${contentType})`);
-    
-    // Ler e enviar arquivo
-    const fileStream = fs.createReadStream(imagePath);
-    fileStream.pipe(res);
-    
+    const files = fs.existsSync(uploadsPath) ? fs.readdirSync(uploadsPath) : [];
+    res.json({
+      status: 'ok',
+      uploadsPath: uploadsPath,
+      exists: fs.existsSync(uploadsPath),
+      filesCount: files.length,
+      files: files.slice(0, 10) // Show first 10 files
+    });
   } catch (error) {
-    console.error(`❌ [API-IMAGE] Erro ao servir ${filename}:`, error);
-    res.status(500).json({ error: 'Erro interno ao servir imagem' });
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      uploadsPath: uploadsPath
+    });
   }
 });
 

@@ -644,28 +644,41 @@ exports.updateProfileWithImage = async (req, res, next) => {
         path: req.file.path
       });
       
+      // Remove old image if exists
       const currentUser = await User.findById(userId);
       if (currentUser?.profileImage) {
-        const oldPath = path.join(__dirname, '../uploads/profiles', path.basename(currentUser.profileImage));
+        const oldImageName = path.basename(currentUser.profileImage);
+        const oldPath = path.join(__dirname, '..', 'uploads', 'profiles', oldImageName);
         console.log('🗑️ [UPLOAD] Removendo imagem antiga:', oldPath);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
       }
       
-      // Salvar caminho padrão e criar URL alternativa
+      // Set standardized image URLs
       updateData.profileImage = `/uploads/profiles/${req.file.filename}`;
-      updateData.profileImageAPI = `/api/image/${req.file.filename}`; // URL alternativa via API
-      console.log('✅ [UPLOAD] Nova imagem definida:', updateData.profileImage);
-      console.log('🔄 [UPLOAD] URL alternativa:', updateData.profileImageAPI);
+      updateData.profileImageAPI = `/api/image/${req.file.filename}`;
+      updateData.profilePhoto = `/uploads/profiles/${req.file.filename}`; // Backward compatibility
+      
+      console.log('✅ [UPLOAD] URLs definidas:', {
+        profileImage: updateData.profileImage,
+        profileImageAPI: updateData.profileImageAPI
+      });
     }
     
-    // Remover imagem
+    // Remove image if requested
     if (req.body.removeProfileImage === 'true') {
       const currentUser = await User.findById(userId);
       if (currentUser?.profileImage) {
-        const oldPath = path.join(__dirname, '../uploads/profiles', path.basename(currentUser.profileImage));
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        const oldImageName = path.basename(currentUser.profileImage);
+        const oldPath = path.join(__dirname, '..', 'uploads', 'profiles', oldImageName);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
       }
       updateData.profileImage = null;
+      updateData.profileImageAPI = null;
+      updateData.profilePhoto = null;
       delete updateData.removeProfileImage;
     }
     
@@ -685,13 +698,12 @@ exports.updateProfileWithImage = async (req, res, next) => {
       });
     }
 
-    // Validação de email único (se fornecido)
+    // Validação e atualização
     if (updateData.email) {
       const existingUser = await User.findOne({ email: updateData.email, _id: { $ne: userId } });
       if (existingUser) {
-        // Limpar arquivo enviado se houver erro
         if (req.file) {
-          const filePath = path.join(__dirname, '../uploads/profiles', req.file.filename);
+          const filePath = path.join(__dirname, '..', 'uploads', 'profiles', req.file.filename);
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
         return res.status(400).json({
@@ -706,10 +718,10 @@ exports.updateProfileWithImage = async (req, res, next) => {
       runValidators: true 
     });
 
-    console.log('💾 [UPLOAD] Usuário atualizado no banco:', {
+    console.log('💾 [UPLOAD] Usuário atualizado:', {
       userId: updatedUser._id,
       profileImage: updatedUser.profileImage,
-      updateSuccess: !!updatedUser
+      profileImageAPI: updatedUser.profileImageAPI
     });
 
     if (!updatedUser) {
@@ -719,7 +731,7 @@ exports.updateProfileWithImage = async (req, res, next) => {
       });
     }
     
-    // Retornar dados do usuário sem campos sensíveis
+    // Return user data with all image URLs
     const userResponse = {
       id: updatedUser._id,
       name: updatedUser.name,
@@ -734,8 +746,8 @@ exports.updateProfileWithImage = async (req, res, next) => {
       medicalInfo: updatedUser.medicalInfo,
       preferences: updatedUser.preferences,
       profileImage: updatedUser.profileImage,
-      profileImageAPI: updatedUser.profileImageAPI, // URL alternativa para CORS
-      profilePhoto: updatedUser.profilePhoto, // Manter compatibilidade
+      profileImageAPI: updatedUser.profileImageAPI,
+      profilePhoto: updatedUser.profilePhoto,
       role: updatedUser.role,
       isActive: updatedUser.isActive,
       createdAt: updatedUser.createdAt,
@@ -751,13 +763,12 @@ exports.updateProfileWithImage = async (req, res, next) => {
   } catch (error) {
     console.error('Erro ao atualizar perfil com imagem:', error);
     
-    // Limpar arquivo enviado se houver erro
+    // Clean up uploaded file on error
     if (req.file) {
-      const filePath = path.join(__dirname, '../uploads/profiles', req.file.filename);
+      const filePath = path.join(__dirname, '..', 'uploads', 'profiles', req.file.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
-    // Tratamento de erros de validação do Mongoose
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({

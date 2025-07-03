@@ -71,15 +71,15 @@ const UserSchema = new mongoose.Schema({
     notes: String
   },
   profilePhoto: {
-    type: String, // URL ou caminho para a foto
+    type: String, // URL ou caminho para a foto (backward compatibility)
     required: false
   },
   profileImage: {
-    type: String, // Novo campo para upload de imagens
+    type: String, // Main profile image URL
     default: null
   },
   profileImageAPI: {
-    type: String, // URL alternativa via API para CORS
+    type: String, // Alternative API URL for CORS
     default: null
   },
   // CAMPOS DE CONFIGURAÇÃO
