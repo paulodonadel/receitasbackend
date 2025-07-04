@@ -463,6 +463,30 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
       }
     });
 
+    // NOVO: Enviar notificação push (não bloqueia se falhar)
+    try {
+      const { sendStatusUpdateNotification } = require('./notification.controller');
+      
+      // Criar um objeto req/res mock para o controller de notificações
+      const mockReq = {
+        body: {
+          prescriptionId: prescription._id,
+          status: status,
+          rejectionReason: rejectionReason
+        }
+      };
+      
+      const mockRes = {
+        json: (data) => console.log('✅ Resposta da notificação push:', data),
+        status: (code) => ({ json: (data) => console.log(`Push notification status ${code}:`, data) })
+      };
+
+      await sendStatusUpdateNotification(mockReq, mockRes);
+    } catch (notificationError) {
+      console.warn('⚠️ Falha ao enviar notificação push:', notificationError.message);
+      // Não bloqueia a operação principal
+    }
+
     res.status(200).json({
       success: true,
       data: formatPrescription(updatedPrescription),
