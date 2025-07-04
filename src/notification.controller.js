@@ -2,18 +2,35 @@ const webpush = require('web-push');
 const PushSubscription = require('./models/pushSubscription.model');
 const Prescription = require('./models/prescription.model');
 
-// Configurar VAPID no carregamento do módulo
-webpush.setVapidDetails(
-  'mailto:paulo@seudominio.com', // substitua pelo seu email
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// Configurar VAPID no carregamento do módulo (com verificação)
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails(
+    'mailto:paulo@seudominio.com', // substitua pelo seu email
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+  console.log('✅ VAPID configurado para notificações push');
+} else {
+  console.warn('⚠️ Variáveis VAPID não configuradas. Notificações push desabilitadas.');
+  console.warn('Configure VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY nas variáveis de ambiente.');
+}
 
 // @desc    Inscrever usuário para notificações push
 // @route   POST /api/notifications/subscribe
 // @access  Private
 exports.subscribe = async (req, res) => {
   try {
+    // Verificar se VAPID está configurado
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'Serviço de notificações temporariamente indisponível' 
+      });
+    }
+
     const { subscription, userAgent } = req.body;
     const userId = req.user.id;
 
@@ -84,6 +101,14 @@ exports.unsubscribe = async (req, res) => {
 // @access  Private
 exports.sendTestNotification = async (req, res) => {
   try {
+    // Verificar se VAPID está configurado
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'Serviço de notificações temporariamente indisponível' 
+      });
+    }
+
     const userId = req.user.id;
     const userSubscription = await PushSubscription.findOne({ userId });
 
@@ -139,6 +164,15 @@ exports.sendTestNotification = async (req, res) => {
 // @access  Private/Admin-Secretary
 exports.sendStatusUpdateNotification = async (req, res) => {
   try {
+    // Verificar se VAPID está configurado
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      console.warn('⚠️ VAPID não configurado, notificação push ignorada');
+      return res.json({ 
+        success: true, 
+        message: 'Notificações push não configuradas no servidor' 
+      });
+    }
+
     const { prescriptionId, status, rejectionReason } = req.body;
 
     console.log('📬 Enviando notificação de status:', { prescriptionId, status });

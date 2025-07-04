@@ -3,16 +3,32 @@ const PushSubscription = require('./models/pushSubscription.model');
 
 class NotificationService {
   constructor() {
-    // Configurar VAPID
-    webpush.setVapidDetails(
-      'mailto:paulo@seudominio.com',
-      process.env.VAPID_PUBLIC_KEY,
-      process.env.VAPID_PRIVATE_KEY
-    );
+    // Configurar VAPID com verificação
+    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    
+    this.isConfigured = false;
+    
+    if (vapidPublicKey && vapidPrivateKey) {
+      webpush.setVapidDetails(
+        'mailto:paulo@seudominio.com',
+        vapidPublicKey,
+        vapidPrivateKey
+      );
+      this.isConfigured = true;
+      console.log('✅ NotificationService: VAPID configurado');
+    } else {
+      console.warn('⚠️ NotificationService: VAPID não configurado');
+    }
   }
 
   async sendToUser(userId, notification) {
     try {
+      if (!this.isConfigured) {
+        console.warn('⚠️ VAPID não configurado, notificação ignorada');
+        return { success: false, reason: 'vapid_not_configured' };
+      }
+
       const subscription = await PushSubscription.findOne({ userId });
       
       if (!subscription) {
