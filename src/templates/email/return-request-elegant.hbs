@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitação de Retorno - Dr. Paulo Donadel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #8B4513 0%, #654321 50%, #2F1B14 100%);
+            padding: 30px 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="60" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="60" cy="80" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+        
+        .logo-container {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .logo {
+            max-width: 300px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        
+        .header-title {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header-subtitle {
+            color: #f0f0f0;
+            font-size: 14px;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px 30px;
+            background-color: #ffffff;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            color: #8B4513;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .message {
+            font-size: 16px;
+            color: #444;
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #f8f4f0 0%, #ede5d8 100%);
+            border-left: 4px solid #8B4513;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 10px rgba(139, 69, 19, 0.1);
+        }
+        
+        .highlight-box h3 {
+            color: #8B4513;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .highlight-box p {
+            color: #555;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+            color: #ffffff;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.3);
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.4);
+        }
+        
+        .contact-info {
+            background: linear-gradient(135deg, #2F1B14 0%, #1a0f0a 100%);
+            padding: 30px;
+            color: #ffffff;
+            text-align: center;
+        }
+        
+        .contact-info h3 {
+            color: #D2B48C;
+            font-size: 20px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .contact-item {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #f0f0f0;
+        }
+        
+        .contact-item strong {
+            color: #D2B48C;
+            font-weight: 600;
+        }
+        
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(210, 180, 140, 0.5), transparent);
+            margin: 20px 0;
+        }
+        
+        .footer {
+            background-color: #1a0f0a;
+            padding: 20px;
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+        }
+        
+        .footer a {
+            color: #D2B48C;
+            text-decoration: none;
+        }
+        
+        .medical-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 600px) {
+            .email-container {
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .content {
+                padding: 25px 20px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .logo {
+                max-width: 250px;
+            }
+            
+            .header-title {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header com Logo -->
+        <div class="header">
+            <div class="logo-container">
+                <img src="https://i.imgur.com/your-logo.png" alt="Dr. Paulo Donadel - Psiquiatra" class="logo">
+                <h1 class="header-title">Dr. Paulo Donadel</h1>
+                <p class="header-subtitle">PSIQUIATRA • CRM 12345</p>
+            </div>
+        </div>
+        
+        <!-- Conteúdo Principal -->
+        <div class="content">
+            <div class="greeting">
+                Olá, {{name}}!
+            </div>
+            
+            <div class="message">
+                Espero que esteja bem. Após uma cuidadosa revisão do seu prontuário e considerando a evolução do seu tratamento, gostaria de solicitar um retorno para reavaliação clínica.
+            </div>
+            
+            <div class="highlight-box">
+                <h3>🩺 Motivo da Consulta</h3>
+                <p><strong>Reavaliação do tratamento atual</strong></p>
+                <p>É importante acompanharmos sua evolução e fazer os ajustes necessários para garantir o melhor resultado terapêutico.</p>
+            </div>
+            
+            <div class="message">
+                Sua saúde mental é nossa prioridade. Durante a consulta, poderemos:
+            </div>
+            
+            <div class="highlight-box">
+                <h3>📋 O que faremos na consulta:</h3>
+                <p>• Avaliar a eficácia do tratamento atual</p>
+                <p>• Discutir qualquer efeito colateral ou preocupação</p>
+                <p>• Ajustar medicações se necessário</p>
+                <p>• Orientar sobre os próximos passos do tratamento</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="tel:+5511999999999" class="cta-button">
+                    📞 Agendar Consulta
+                </a>
+            </div>
+            
+            <div class="message">
+                Por favor, entre em contato conosco para agendarmos sua consulta o mais breve possível. Estou à disposição para esclarecer qualquer dúvida.
+            </div>
+        </div>
+        
+        <!-- Informações de Contato -->
+        <div class="contact-info">
+            <h3>📞 Informações de Contato</h3>
+            
+            <div class="contact-item">
+                <strong>Telefone:</strong> (11) 99999-9999
+            </div>
+            
+            <div class="contact-item">
+                <strong>WhatsApp:</strong> (11) 99999-9999
+            </div>
+            
+            <div class="contact-item">
+                <strong>E-mail:</strong> contato@drpaulodonadel.com.br
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="contact-item">
+                <strong>Endereço:</strong><br>
+                Rua Exemplo, 123 - Sala 45<br>
+                Bairro - São Paulo/SP - CEP 00000-000
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="contact-item">
+                <strong>Horário de Atendimento:</strong><br>
+                Segunda a Sexta: 8h às 18h<br>
+                Sábado: 8h às 12h
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                Este é um e-mail automático do sistema de gestão médica.<br>
+                Para dúvidas, entre em contato através dos canais oficiais.<br>
+                <a href="#">Política de Privacidade</a> | <a href="#">Termos de Uso</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
