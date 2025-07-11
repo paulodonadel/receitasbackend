@@ -267,7 +267,6 @@ const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
 const emailRoutes = require('./email.routes');
 const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
-const notificationRoutes = require('./notification.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -275,10 +274,6 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
-
-// Rota de notificações (precisa de middleware de autenticação)
-const authMiddleware = require('./middlewares/auth.middleware');
-app.use('/api/notifications', authMiddleware.protect, notificationRoutes);
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
