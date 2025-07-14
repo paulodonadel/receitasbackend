@@ -10,7 +10,6 @@ const mongoose = require('mongoose');
 // @route   POST /api/receitas
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
-  console.log('[CREATE PRESCRIPTION] Início - Dados recebidos:', JSON.stringify(req.body));
   try {
     const {
       medicationName,
@@ -77,7 +76,7 @@ exports.createPrescription = async (req, res, next) => {
 
     // Só adiciona patientPhone se houver valor válido
     const patientPhoneValue = phone || patient.phone;
-    if (patientPhoneValue && /^\d{10,11}$/.test(patientPhoneValue)) {
+    if (patientPhoneValue && /^\\d{10,11}$/.test(patientPhoneValue)) {
       prescriptionData.patientPhone = patientPhoneValue;
     }
 
@@ -127,9 +126,9 @@ exports.createPrescription = async (req, res, next) => {
       data: formatPrescription(prescription),
       message: "Solicitação de receita criada com sucesso"
     });
-    console.log('[CREATE PRESCRIPTION] Sucesso - Prescrição criada:', JSON.stringify(formatPrescription(prescription)));
+
   } catch (error) {
-    console.error('[CREATE PRESCRIPTION] Erro ao criar solicitação:', error);
+    console.error("Erro ao criar solicitação:", error);
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
