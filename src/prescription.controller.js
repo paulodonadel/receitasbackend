@@ -122,7 +122,9 @@ exports.createPrescription = async (req, res, next) => {
     }
 
     // Corrigido: Retornar o objeto completo da prescrição criada
-    const formattedPrescription = formatPrescription(prescription);
+    // Busca a prescrição recém-criada do banco para garantir todos os campos e datas
+    const createdPrescription = await Prescription.findById(prescription._id);
+    const formattedPrescription = formatPrescription(createdPrescription);
     if (!formattedPrescription || typeof formattedPrescription !== 'object' || Array.isArray(formattedPrescription)) {
       return res.status(500).json({
         success: false,
