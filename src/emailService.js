@@ -348,11 +348,299 @@ Médico Psiquiatra
   `.trim();
 
   const htmlBody = `
-    <p>Saudações, <strong>${patientName}</strong>!</p>
-    <p>Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.</p>
-    <p>Atenciosamente,<br>
-    Dr. Paulo Donadel<br>
-    Médico Psiquiatra</p>
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Solicitação de Retorno - Dr. Paulo Donadel</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f8f8f8;
+                color: #333;
+                line-height: 1.6;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .email-container {
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 0;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            
+            .header {
+                background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+                padding: 40px 30px;
+                text-align: center;
+                position: relative;
+                border-bottom: 1px solid #444;
+            }
+            
+            .header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.03) 50%, transparent 51%);
+            }
+            
+            .logo-container {
+                position: relative;
+                z-index: 2;
+            }
+            
+            .logo-image {
+                max-width: 400px;
+                height: auto;
+                display: block;
+                margin: 0 auto 20px auto;
+            }
+            
+            .system-title {
+                color: #888;
+                font-size: 16px;
+                font-weight: 400;
+                margin-top: 15px;
+                letter-spacing: 1px;
+            }
+            
+            .content {
+                padding: 50px 40px;
+                background-color: #ffffff;
+            }
+            
+            .greeting {
+                font-size: 20px;
+                color: #333;
+                margin-bottom: 30px;
+                font-weight: 400;
+            }
+            
+            .message {
+                font-size: 16px;
+                color: #555;
+                margin-bottom: 30px;
+                line-height: 1.8;
+            }
+            
+            .highlight-box {
+                background: linear-gradient(135deg, #f9f9f9 0%, #f2f2f2 100%);
+                border-left: 4px solid #8B4513;
+                padding: 25px;
+                margin: 30px 0;
+                border-radius: 0 6px 6px 0;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+            
+            .highlight-box h3 {
+                color: #8B4513;
+                font-size: 18px;
+                margin-bottom: 15px;
+                font-weight: 600;
+            }
+            
+            .highlight-box p {
+                color: #666;
+                font-size: 15px;
+                margin-bottom: 10px;
+            }
+            
+            .cta-button {
+                display: inline-block;
+                background: linear-gradient(135deg, #8B4513 0%, #6B3410 100%);
+                color: #ffffff;
+                padding: 15px 30px;
+                text-decoration: none;
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 16px;
+                margin: 25px 0;
+                transition: all 0.3s ease;
+                box-shadow: 0 3px 12px rgba(139, 69, 19, 0.3);
+            }
+            
+            .signature {
+                margin-top: 50px;
+                padding-top: 30px;
+                border-top: 1px solid #e0e0e0;
+            }
+            
+            .signature p {
+                margin: 8px 0;
+                color: #666;
+            }
+            
+            .doctor-name {
+                font-size: 18px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 8px;
+            }
+            
+            .credentials {
+                font-size: 14px;
+                color: #888;
+                font-style: italic;
+            }
+            
+            .contact-info {
+                background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+                padding: 40px 30px;
+                color: #ffffff;
+                text-align: center;
+                border-top: 1px solid #444;
+            }
+            
+            .contact-info h3 {
+                color: #ccc;
+                font-size: 18px;
+                margin-bottom: 25px;
+                font-weight: 600;
+            }
+            
+            .contact-item {
+                margin: 15px 0;
+                font-size: 14px;
+                color: #bbb;
+            }
+            
+            .contact-item strong {
+                color: #8B4513;
+                font-weight: 600;
+            }
+            
+            .divider {
+                height: 1px;
+                background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
+                margin: 25px 0;
+            }
+            
+            .footer {
+                background-color: #1a1a1a;
+                padding: 25px;
+                text-align: center;
+                color: #888;
+                font-size: 12px;
+                border-top: 1px solid #333;
+            }
+            
+            @media (max-width: 600px) {
+                .email-container {
+                    margin: 0;
+                    border-radius: 0;
+                }
+                
+                .content {
+                    padding: 25px 20px;
+                }
+                
+                .header {
+                    padding: 20px 15px;
+                }
+                
+                .logo-text {
+                    font-size: 24px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <!-- Header com Logo -->
+            <div class="header">
+                <div class="logo-container">
+                    <!-- Logomarca Oficial -->
+                    <div style="margin-bottom: 20px;">
+                        <img src="src/templates/email/assets/logo-paulo-donadel.png" alt="Dr. Paulo Donadel - Psiquiatra" style="max-width: 400px; height: auto; display: block; margin: 0 auto;" />
+                    </div>
+                    
+                    <div class="system-title">Sistema de Gerenciamento de Receitas Médicas</div>
+                </div>
+            </div>
+            
+            <!-- Conteúdo Principal -->
+            <div class="content">
+                <div class="greeting">
+                    Saudações, <strong>${patientName}</strong>!
+                </div>
+                
+                <div class="message">
+                    Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível.
+                </div>
+                
+                <div class="highlight-box">
+                    <h3>🩺 Objetivo da Consulta</h3>
+                    <p><strong>Reavaliação e continuidade do tratamento</strong></p>
+                    <p>Juntos, elaboraremos seu plano terapêutico para os próximos meses, garantindo a melhor abordagem para sua saúde mental.</p>
+                </div>
+                
+                <div class="message">
+                    Durante nossa consulta, poderemos:
+                </div>
+                
+                <div class="highlight-box">
+                    <h3>� Durante a consulta:</h3>
+                    <p>• Avaliar a evolução do seu quadro clínico</p>
+                    <p>• Revisar e ajustar medicações se necessário</p>
+                    <p>• Discutir estratégias terapêuticas atualizadas</p>
+                    <p>• Estabelecer metas para o próximo período</p>
+                </div>
+                
+                <div class="signature">
+                    <p class="doctor-name">Dr. Paulo Henrique Gabiatti Donadel</p>
+                    <p class="credentials">Médico Psiquiatra CRM: 37848-RS - RQE 32527</p>
+                    <p class="credentials">Membro associado efetivo da Associação Brasileira de Psiquiatria</p>
+                    <p class="credentials">Membro da European Psychiatric Association</p>
+                    <p class="credentials">Pós-graduado em Sexologia Clínica</p>
+                </div>
+            </div>
+            
+            <!-- Informações de Contato -->
+            <div class="contact-info">
+                <h3>📞 Informações de Contato</h3>
+                
+                <div class="contact-item">
+                    <strong>E-mail:</strong> paulodonadel@abp.org.br
+                </div>
+                
+                <div class="contact-item">
+                    <strong>Telefones:</strong> (53) 3241-6966 e (53) 3311-0444
+                </div>
+                
+                <div class="divider"></div>
+                
+                <div class="contact-item">
+                    <strong>Endereço:</strong><br>
+                    Clínica Pampa Centro Clínico<br>
+                    Av. Tupy Silveira 1926, Centro<br>
+                    Bagé-RS - CEP: 96400-110
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                <p>
+                    Este é um e-mail automático do sistema de gestão da clínica.<br>
+                    Para agendar sua consulta, entre em contato pelos telefones informados.<br>
+                    © 2025 Dr. Paulo Donadel - Todos os direitos reservados
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
   `;
 
   return this.sendEmail(to, subject, textBody, htmlBody);
