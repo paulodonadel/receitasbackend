@@ -122,9 +122,17 @@ exports.createPrescription = async (req, res, next) => {
     }
 
     // Corrigido: Retornar o objeto completo da prescrição criada
+    const formattedPrescription = formatPrescription(prescription);
+    if (!formattedPrescription || typeof formattedPrescription !== 'object' || Array.isArray(formattedPrescription)) {
+      return res.status(500).json({
+        success: false,
+        message: "Erro ao formatar a prescrição criada.",
+        errorCode: "FORMAT_PRESCRIPTION_ERROR"
+      });
+    }
     res.status(201).json({
       success: true,
-      data: prescription.toObject ? formatPrescription(prescription) : prescription,
+      data: formattedPrescription,
       message: "Solicitação de receita criada com sucesso"
     });
 
