@@ -77,7 +77,7 @@ exports.createPrescription = async (req, res, next) => {
 
     // Só adiciona patientPhone se houver valor válido
     const patientPhoneValue = phone || patient.phone;
-    if (patientPhoneValue && /^\\d{10,11}$/.test(patientPhoneValue)) {
+    if (patientPhoneValue && /^\d{10,11}$/.test(patientPhoneValue)) {
       prescriptionData.patientPhone = patientPhoneValue;
     }
 
