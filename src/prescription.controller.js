@@ -1024,6 +1024,7 @@ exports.getPrescriptionLog = async (req, res) => {
 
 // Função utilitária para garantir que numberOfBoxes seja string
 function formatPrescription(prescription) {
+  console.log("[formatPrescription] Recebido:", prescription);
   if (!prescription) {
     console.error("[formatPrescription] prescription é falsy:", prescription);
     return null;
@@ -1042,11 +1043,16 @@ function formatPrescription(prescription) {
   obj.numberOfBoxes = obj.numberOfBoxes ? String(obj.numberOfBoxes) : "1";
   obj.id = obj._id || obj.id;
 
-  // Log final do objeto formatado
+  // Checagem extra: precisa ter id ou _id
+  if (!obj._id && !obj.id) {
+    console.error("[formatPrescription] Objeto sem _id/id:", obj);
+    return null;
+  }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
     console.error("[formatPrescription] Retorno inválido:", obj);
     return null;
   }
+  console.log("[formatPrescription] Retornando:", obj);
   return obj;
 }
 
