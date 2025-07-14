@@ -87,33 +87,28 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionData.patientAddress = patientAddress;
     }
 
-    // Criar a prescrição
-    try {
-      const createdPrescription = await Prescription.create(prescriptionData);
-      if (!createdPrescription) {
-        console.error("[createPrescription] Falha ao criar prescrição:", prescriptionData);
-        return res.status(500).json({ message: "Erro ao criar prescrição." });
-      }
-      const prescription = await Prescription.findById(createdPrescription._id).populate("patient");
-      if (!prescription) {
-        console.error("[createPrescription] Prescrição não encontrada após criação:", createdPrescription._id);
-        return res.status(500).json({ message: "Erro ao buscar prescrição criada." });
-      }
-      const formattedPrescription = formatPrescription(prescription);
-      if (!formattedPrescription) {
-        console.error("[createPrescription] formatPrescription retornou valor inválido:", prescription);
-        return res.status(500).json({ message: "Erro ao formatar prescrição." });
-      }
-      // Log de sucesso
-      console.log("[createPrescription] Prescrição criada e formatada:", formattedPrescription);
-      return res.status(201).json(formattedPrescription);
-    } catch (error) {
-      console.error("[createPrescription] Erro inesperado:", error);
-      return res.status(500).json({ message: "Erro interno ao criar prescrição." });
+    // Criação da prescrição (sem try/catch aninhado)
+    const createdPrescription = await Prescription.create(prescriptionData);
+    if (!createdPrescription) {
+      console.error("[createPrescription] Falha ao criar prescrição:", prescriptionData);
+      return res.status(500).json({ success: false, message: "Erro ao criar prescrição." });
+    }
+    const prescription = await Prescription.findById(createdPrescription._id).populate("patient");
+    if (!prescription) {
+      console.error("[createPrescription] Prescrição não encontrada após criação:", createdPrescription._id);
+      return res.status(500).json({ success: false, message: "Erro ao buscar prescrição criada." });
+    }
+    const formattedPrescription = formatPrescription(prescription);
+    if (!formattedPrescription) {
+      console.error("[createPrescription] formatPrescription retornou valor inválido:", prescription);
+      return res.status(500).json({ success: false, message: "Erro ao formatar prescrição." });
     }
 
-    // Log de atividade
-    await logActivity({
+    // Log de sucesso
+    console.log("[createPrescription] Prescrição criada e formatada:", formattedPrescription);
+
+    // Log de atividade (não bloqueante)
+    logActivity({
       user: req.user.id,
       action: 'create_prescription',
       details: `Prescrição criada para ${medicationName}`,
@@ -122,45 +117,33 @@ exports.createPrescription = async (req, res, next) => {
         medication: medicationName,
         type: prescriptionType
       }
-    });
+    }).catch(e => console.error("[createPrescription] Falha ao logar atividade:", e));
 
     // Tentar enviar e-mail de confirmação (não bloqueante)
-    try {
-      await emailService.sendPrescriptionConfirmation({
+    if (deliveryMethod === "email" && patient.email) {
+      emailService.sendPrescriptionConfirmation({
         to: patient.email,
         prescriptionId: prescription._id,
         patientName: patient.name,
         medicationName,
         status: "solicitada"
-      });
-    } catch (emailError) {
-      console.error("Erro ao enviar e-mail de confirmação:", emailError);
-      await logActivity({
-        user: req.user.id,
-        action: 'email_failed',
-        details: `Falha ao enviar e-mail para ${patient.email}`,
-        prescription: prescription._id,
-        error: emailError.message
+      }).catch(emailError => {
+        console.error("Erro ao enviar e-mail de confirmação:", emailError);
+        logActivity({
+          user: req.user.id,
+          action: 'email_failed',
+          details: `Falha ao enviar e-mail para ${patient.email}`,
+          prescription: prescription._id,
+          error: emailError.message
+        }).catch(() => {});
       });
     }
 
-    // Corrigido: Retornar o objeto completo da prescrição criada
-    // Busca a prescrição recém-criada do banco para garantir todos os campos e datas
-    const createdPrescription = await Prescription.findById(prescription._id);
-    const formattedPrescription = formatPrescription(createdPrescription);
-    if (!formattedPrescription || typeof formattedPrescription !== 'object' || Array.isArray(formattedPrescription)) {
-      return res.status(500).json({
-        success: false,
-        message: "Erro ao formatar a prescrição criada.",
-        errorCode: "FORMAT_PRESCRIPTION_ERROR"
-      });
-    }
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: formattedPrescription,
       message: "Solicitação de receita criada com sucesso"
     });
-
   } catch (error) {
     console.error("Erro ao criar solicitação:", error);
     if (error.name === "ValidationError") {
