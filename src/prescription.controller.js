@@ -121,9 +121,10 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    // Corrigido: Retornar o objeto completo da prescrição criada
     res.status(201).json({
       success: true,
-      data: formatPrescription(prescription),
+      data: prescription.toObject ? formatPrescription(prescription) : prescription,
       message: "Solicitação de receita criada com sucesso"
     });
 
