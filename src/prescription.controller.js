@@ -88,7 +88,29 @@ exports.createPrescription = async (req, res, next) => {
     }
 
     // Criar a prescrição
-    const prescription = await Prescription.create(prescriptionData);
+    try {
+      const createdPrescription = await Prescription.create(prescriptionData);
+      if (!createdPrescription) {
+        console.error("[createPrescription] Falha ao criar prescrição:", prescriptionData);
+        return res.status(500).json({ message: "Erro ao criar prescrição." });
+      }
+      const prescription = await Prescription.findById(createdPrescription._id).populate("patient");
+      if (!prescription) {
+        console.error("[createPrescription] Prescrição não encontrada após criação:", createdPrescription._id);
+        return res.status(500).json({ message: "Erro ao buscar prescrição criada." });
+      }
+      const formattedPrescription = formatPrescription(prescription);
+      if (!formattedPrescription) {
+        console.error("[createPrescription] formatPrescription retornou valor inválido:", prescription);
+        return res.status(500).json({ message: "Erro ao formatar prescrição." });
+      }
+      // Log de sucesso
+      console.log("[createPrescription] Prescrição criada e formatada:", formattedPrescription);
+      return res.status(201).json(formattedPrescription);
+    } catch (error) {
+      console.error("[createPrescription] Erro inesperado:", error);
+      return res.status(500).json({ message: "Erro interno ao criar prescrição." });
+    }
 
     // Log de atividade
     await logActivity({
@@ -1019,7 +1041,14 @@ exports.getPrescriptionLog = async (req, res) => {
 
 // Função utilitária para garantir que numberOfBoxes seja string
 function formatPrescription(prescription) {
-  if (!prescription) return prescription;
+  if (!prescription) {
+    console.error("[formatPrescription] prescription é falsy:", prescription);
+    return null;
+  }
+  if (typeof prescription === 'string') {
+    console.error("[formatPrescription] prescription é string:", prescription);
+    return null;
+  }
   const obj = typeof prescription.toObject === "function" ? prescription.toObject() : { ...prescription };
 
   obj.patient = obj.patient || null;
@@ -1030,6 +1059,11 @@ function formatPrescription(prescription) {
   obj.numberOfBoxes = obj.numberOfBoxes ? String(obj.numberOfBoxes) : "1";
   obj.id = obj._id || obj.id;
 
+  // Log final do objeto formatado
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    console.error("[formatPrescription] Retorno inválido:", obj);
+    return null;
+  }
   return obj;
 }
 
