@@ -12,15 +12,16 @@ const mongoose = require('mongoose');
 exports.createPrescription = async (req, res, next) => {
   try {
     const {
-      medicationName,
+      medicationName = req.body.medicationName || req.body.medication,
       dosage,
       prescriptionType,
       deliveryMethod,
-      observations,
-      patientCpf = req.body.cpf,
+      // Observations pode vir como 'observations' ou 'instructions'
+      observations = req.body.observations || req.body.instructions || "",
+      patientCpf = req.body.patientCpf || req.body.cpf,
       patientEmail,
-      numberOfBoxes = 1,
-      returnRequested = false,
+      numberOfBoxes = req.body.numberOfBoxes || req.body.quantity || 1,
+      returnRequested = req.body.returnRequested || false,
       phone
     } = req.body;
 
