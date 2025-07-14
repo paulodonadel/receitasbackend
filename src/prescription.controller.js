@@ -107,6 +107,13 @@ exports.createPrescription = async (req, res, next) => {
     // Log de sucesso
     console.log("[createPrescription] Prescrição criada e formatada:", formattedPrescription);
 
+    // Log de resposta final
+    console.log("[createPrescription] RESPONSE FINAL:", {
+      success: true,
+      data: formattedPrescription,
+      message: "Solicitação de receita criada com sucesso"
+    });
+
     // Log de atividade (não bloqueante)
     logActivity({
       user: req.user.id,
