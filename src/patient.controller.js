@@ -24,9 +24,25 @@ exports.getPatientById = async (req, res) => {
 // Atualizar paciente
 exports.updatePatient = async (req, res) => {
   try {
+    // Monta address se vierem campos separados
+    const updateData = { ...req.body };
+    // Aceita 'telefone' como alias de 'phone'
+    if (req.body.telefone && !req.body.phone) {
+      updateData.phone = req.body.telefone;
+    }
+    if (req.body.cep || req.body.endereco) {
+      updateData.address = updateData.address || {};
+      if (req.body.cep) updateData.address.cep = req.body.cep;
+      if (req.body.endereco) {
+        // Se endereco vier como "Rua, Número", tenta separar
+        const [street, number] = req.body.endereco.split(',').map(s => s.trim());
+        if (street) updateData.address.street = street;
+        if (number) updateData.address.number = number;
+      }
+    }
     const patient = await User.findOneAndUpdate(
       { _id: req.params.id, role: 'patient' },
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).select('-password -resetPasswordToken -resetPasswordExpires');
     if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });

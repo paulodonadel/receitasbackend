@@ -459,19 +459,34 @@ exports.getAllPatients = async (req, res) => {
 // @access  Private/Admin-Secretary
 exports.createPatient = async (req, res) => {
   try {
-    const {
+    // Aceita 'telefone' como alias de 'phone'
+    let {
       name,
       email,
       password,
       phone,
+      telefone,
       Cpf,
       address,
+      cep,
+      endereco,
       dateOfBirth,
       gender,
       profession,
       emergencyContact,
       medicalInfo
     } = req.body;
+    if (!phone && telefone) phone = telefone;
+    // Monta address se vierem campos separados
+    if (cep || endereco) {
+      address = address || {};
+      if (cep) address.cep = cep;
+      if (endereco) {
+        const [street, number] = endereco.split(',').map(s => s.trim());
+        if (street) address.street = street;
+        if (number) address.number = number;
+      }
+    }
 
     // Validações básicas
     if (!name || !email || !password) {
