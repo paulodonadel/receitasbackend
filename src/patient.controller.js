@@ -88,14 +88,35 @@ exports.searchPatients = async (req, res) => {
       .select('name Cpf email phone address');
 
     // Normaliza resposta para frontend
-    const result = patients.map(p => ({
-      name: p.name || '',
-      cpf: p.Cpf || '',
-      email: p.email || '',
-      phone: typeof p.phone === 'string' ? p.phone : '',
-      cep: p.address?.cep || '',
-      endereco: [p.address?.street, p.address?.number].filter(Boolean).join(', ') || ''
-    }));
+    const result = patients.map(p => {
+      // Monta endereco como string completa
+      const enderecoStr = [
+        p.address?.street,
+        p.address?.number,
+        p.address?.complement,
+        p.address?.neighborhood,
+        p.address?.city,
+        p.address?.state
+      ].filter(Boolean).join(', ');
+      return {
+        id: p._id,
+        name: p.name || '',
+        email: p.email || '',
+        Cpf: p.Cpf || '',
+        phone: typeof p.phone === 'string' ? p.phone : '',
+        cep: p.address?.cep || '',
+        endereco: enderecoStr || '',
+        address: {
+          cep: p.address?.cep || '',
+          street: p.address?.street || '',
+          number: p.address?.number || '',
+          complement: p.address?.complement || '',
+          neighborhood: p.address?.neighborhood || '',
+          city: p.address?.city || '',
+          state: p.address?.state || ''
+        }
+      };
+    });
 
     res.status(200).json(result);
   } catch (error) {
