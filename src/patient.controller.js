@@ -24,20 +24,49 @@ exports.getPatientById = async (req, res) => {
 // Atualizar paciente
 exports.updatePatient = async (req, res) => {
   try {
-    // Monta address se vierem campos separados
+    // Monta address se vierem campos separados ou como string
     const updateData = { ...req.body };
     // Aceita 'telefone' como alias de 'phone'
     if (req.body.telefone && !req.body.phone) {
       updateData.phone = req.body.telefone;
     }
-    if (req.body.cep || req.body.endereco) {
+    // Se address vier como string, faz o parse
+    if (typeof req.body.address === 'string' && req.body.address.trim() !== '') {
+      const parts = req.body.address.split(',').map(s => s.trim());
+      updateData.address = {
+        street: parts[0] || '',
+        number: parts[1] || '',
+        complement: '',
+        neighborhood: parts[2] || '',
+        city: '',
+        state: ''
+      };
+      // Se city/state vierem juntos (ex: "Bagé/RS")
+      if (parts[3]) {
+        const cityState = parts[3].split('/').map(s => s.trim());
+        updateData.address.city = cityState[0] || '';
+        updateData.address.state = cityState[1] || '';
+      }
+    }
+    // Se vierem campos soltos
+    if (req.body.cep) {
       updateData.address = updateData.address || {};
-      if (req.body.cep) updateData.address.cep = req.body.cep;
-      if (req.body.endereco) {
-        // Se endereco vier como "Rua, Número", tenta separar
-        const [street, number] = req.body.endereco.split(',').map(s => s.trim());
-        if (street) updateData.address.street = street;
-        if (number) updateData.address.number = number;
+      updateData.address.cep = req.body.cep;
+    }
+    if (req.body.endereco) {
+      // Parse endereco string para address
+      const parts = req.body.endereco.split(',').map(s => s.trim());
+      updateData.address = updateData.address || {};
+      updateData.address.street = parts[0] || '';
+      updateData.address.number = parts[1] || '';
+      updateData.address.complement = '';
+      updateData.address.neighborhood = parts[2] || '';
+      updateData.address.city = '';
+      updateData.address.state = '';
+      if (parts[3]) {
+        const cityState = parts[3].split('/').map(s => s.trim());
+        updateData.address.city = cityState[0] || '';
+        updateData.address.state = cityState[1] || '';
       }
     }
     const patient = await User.findOneAndUpdate(
@@ -89,14 +118,12 @@ exports.searchPatients = async (req, res) => {
 
     // Normaliza resposta para frontend
     const result = patients.map(p => {
-      // Monta endereco como string completa
+      // Monta endereco como string a partir do objeto address
       const enderecoStr = [
         p.address?.street,
         p.address?.number,
-        p.address?.complement,
         p.address?.neighborhood,
-        p.address?.city,
-        p.address?.state
+        p.address?.city && p.address?.state ? `${p.address.city}/${p.address.state}` : p.address?.city || p.address?.state
       ].filter(Boolean).join(', ');
       return {
         id: p._id,

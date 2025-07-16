@@ -487,30 +487,41 @@ exports.createPatient = async (req, res) => {
       try {
         address = JSON.parse(address);
       } catch (e) {
-        // Se não for JSON, tenta parsear como string de endereço
+        // Se não for JSON, tenta parsear como string de endereço ("Rua, Número, Bairro, Cidade/UF")
         const parts = address.split(',').map(s => s.trim());
         address = {
           street: parts[0] || '',
           number: parts[1] || '',
-          complement: parts[2] || '',
-          neighborhood: parts[3] || '',
-          city: parts[4] || '',
-          state: parts[5] || ''
+          complement: '',
+          neighborhood: parts[2] || '',
+          city: '',
+          state: ''
         };
+        // Se city/state vierem juntos (ex: "Bagé/RS")
+        if (parts[3]) {
+          const cityState = parts[3].split('/').map(s => s.trim());
+          address.city = cityState[0] || '';
+          address.state = cityState[1] || '';
+        }
       }
     }
     if (typeof address !== 'object' || address === null) address = {};
     // Preenche address com campos soltos se vierem
     if (cep) address.cep = cep;
     if (endereco) {
-      // Espera: "Rua, Número, Complemento, Bairro, Cidade, Estado"
+      // Parse endereco string para address ("Rua, Número, Bairro, Cidade/UF")
       const parts = endereco.split(',').map(s => s.trim());
-      if (parts[0]) address.street = parts[0];
-      if (parts[1]) address.number = parts[1];
-      if (parts[2]) address.complement = parts[2];
-      if (parts[3]) address.neighborhood = parts[3];
-      if (parts[4]) address.city = parts[4];
-      if (parts[5]) address.state = parts[5];
+      address.street = parts[0] || '';
+      address.number = parts[1] || '';
+      address.complement = '';
+      address.neighborhood = parts[2] || '';
+      address.city = '';
+      address.state = '';
+      if (parts[3]) {
+        const cityState = parts[3].split('/').map(s => s.trim());
+        address.city = cityState[0] || '';
+        address.state = cityState[1] || '';
+      }
     }
 
     // Validações básicas
