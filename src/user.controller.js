@@ -556,33 +556,20 @@ exports.createPatient = async (req, res) => {
       },
       message: 'Paciente criado com sucesso'
     });
-  } catch (error) {
-    console.error('Erro ao criar paciente:', error);
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Erro de validação',
-        errors: Object.values(error.errors).map(err => err.message),
-        errorCode: 'VALIDATION_ERROR'
-      });
+    } catch (error) {
+        console.error('Erro ao criar paciente:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Erro de validação',
+                errors: Object.values(error.errors).map(err => err.message),
+                errorCode: 'VALIDATION_ERROR'
+            });
+        }
+        res.status(500).json({
+            success: false,
+            message: 'Erro ao criar paciente',
+            errorCode: 'CREATE_PATIENT_ERROR'
+        });
     }
-    res.status(500).json({
-      success: false,
-      message: 'Erro ao criar paciente',
-      errorCode: 'CREATE_PATIENT_ERROR'
-    });
-  }
-};
-
-module.exports = {
-  getProfile,
-  updateProfile,
-  changePassword,
-  uploadProfilePhoto,
-  getProfilePhoto,
-  removeProfilePhoto,
-  getUserStats,
-  getAllPatients,
-  createPatient
-};
 
