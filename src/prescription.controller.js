@@ -26,7 +26,26 @@ exports.createPrescription = async (req, res, next) => {
 
     // Aceita tanto patientCEP/patientAddress quanto cep/endereco
     const patientCEP = req.body.patientCEP || req.body.cep;
-    const patientAddress = req.body.patientAddress || req.body.endereco;
+    let patientAddress = req.body.patientAddress || req.body.endereco;
+    // Se patientAddress vier como string, faz o parse detalhado
+    if (typeof patientAddress === 'string' && patientAddress.trim() !== '') {
+      const parts = patientAddress.split(',').map(s => s.trim());
+      let city = '', state = '';
+      if (parts[3]) {
+        const cityState = parts[3].split('/').map(s => s.trim());
+        city = cityState[0] || '';
+        state = cityState[1] || '';
+      }
+      patientAddress = {
+        street: parts[0] || '',
+        number: parts[1] || '',
+        complement: '',
+        neighborhood: parts[2] || '',
+        city,
+        state,
+        cep: patientCEP || ''
+      };
+    }
 
     // Validações básicas
     if (deliveryMethod === "email") {
@@ -71,7 +90,9 @@ exports.createPrescription = async (req, res, next) => {
       patient: patient._id,
       patientName: patient.name,
       createdBy: req.user.id,
-      updatedBy: req.user.id
+      updatedBy: req.user.id,
+      patientAddress: patientAddress,
+      patientCEP: patientCEP || ''
     };
 
     // Só adiciona patientPhone se houver valor válido

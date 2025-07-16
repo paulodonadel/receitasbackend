@@ -489,20 +489,21 @@ exports.createPatient = async (req, res) => {
       } catch (e) {
         // Se não for JSON, tenta parsear como string de endereço ("Rua, Número, Bairro, Cidade/UF")
         const parts = address.split(',').map(s => s.trim());
+        let city = '', state = '';
+        if (parts[3]) {
+          const cityState = parts[3].split('/').map(s => s.trim());
+          city = cityState[0] || '';
+          state = cityState[1] || '';
+        }
         address = {
           street: parts[0] || '',
           number: parts[1] || '',
           complement: '',
           neighborhood: parts[2] || '',
-          city: '',
-          state: ''
+          city,
+          state,
+          cep: cep || ''
         };
-        // Se city/state vierem juntos (ex: "Bagé/RS")
-        if (parts[3]) {
-          const cityState = parts[3].split('/').map(s => s.trim());
-          address.city = cityState[0] || '';
-          address.state = cityState[1] || '';
-        }
       }
     }
     if (typeof address !== 'object' || address === null) address = {};
