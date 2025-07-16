@@ -69,16 +69,16 @@ exports.searchPatients = async (req, res) => {
 
     // Busca pacientes
     const patients = await User.find(filters)
-      .select('name Cpf email phone cep address');
+      .select('name Cpf email phone address');
 
     // Normaliza resposta para frontend
     const result = patients.map(p => ({
       name: p.name || '',
       cpf: p.Cpf || '',
       email: p.email || '',
-      phone: typeof p.phone === 'string' ? p.phone : '', // garante que sempre retorna string
-      cep: p.cep || '',
-      endereco: p.address || ''
+      phone: typeof p.phone === 'string' ? p.phone : '',
+      cep: p.address?.cep || '',
+      endereco: [p.address?.street, p.address?.number].filter(Boolean).join(', ') || ''
     }));
 
     res.status(200).json(result);

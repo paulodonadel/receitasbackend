@@ -524,10 +524,19 @@ exports.createPatient = async (req, res) => {
     // Verificar completude do perfil
     const profileCompleteness = patient.checkProfileCompleteness();
 
+    // Padroniza resposta para frontend
+    const obj = patient.toObject();
     res.status(201).json({
       success: true,
       data: {
-        ...patient.toObject(),
+        id: obj._id,
+        name: obj.name || '',
+        email: obj.email || '',
+        cpf: obj.Cpf || '',
+        phone: typeof obj.phone === 'string' ? obj.phone : '',
+        cep: obj.address?.cep || '',
+        endereco: [obj.address?.street, obj.address?.number].filter(Boolean).join(', ') || '',
+        role: obj.role || '',
         profileCompleteness
       },
       message: 'Paciente criado com sucesso'
