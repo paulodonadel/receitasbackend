@@ -467,6 +467,7 @@ exports.createPatient = async (req, res) => {
       phone,
       telefone,
       Cpf,
+      cpf,
       address,
       cep,
       endereco,
@@ -478,8 +479,28 @@ exports.createPatient = async (req, res) => {
     } = req.body;
     // Aceita 'telefone' como alias de 'phone'
     if (!phone && telefone) phone = telefone;
-    // Monta address se vierem campos separados OU se address não for objeto
+    // Aceita 'cpf' minúsculo também
+    if (!Cpf && cpf) Cpf = cpf;
+    // Garante que address seja sempre objeto
+    if (typeof address === 'string' && address.trim() !== '') {
+      // Tenta fazer o parse se vier como JSON string
+      try {
+        address = JSON.parse(address);
+      } catch (e) {
+        // Se não for JSON, tenta parsear como string de endereço
+        const parts = address.split(',').map(s => s.trim());
+        address = {
+          street: parts[0] || '',
+          number: parts[1] || '',
+          complement: parts[2] || '',
+          neighborhood: parts[3] || '',
+          city: parts[4] || '',
+          state: parts[5] || ''
+        };
+      }
+    }
     if (typeof address !== 'object' || address === null) address = {};
+    // Preenche address com campos soltos se vierem
     if (cep) address.cep = cep;
     if (endereco) {
       // Espera: "Rua, Número, Complemento, Bairro, Cidade, Estado"
@@ -552,18 +573,18 @@ exports.createPatient = async (req, res) => {
         id: obj._id,
         name: obj.name || '',
         email: obj.email || '',
-        cpf: obj.Cpf || '',
+        Cpf: obj.Cpf || '',
         role: obj.role || '',
         phone: typeof obj.phone === 'string' ? obj.phone : '',
-        cep: obj.address?.cep || '',
-        endereco: [
-          obj.address?.street,
-          obj.address?.number,
-          obj.address?.complement,
-          obj.address?.neighborhood,
-          obj.address?.city,
-          obj.address?.state
-        ].filter(Boolean).join(', ') || ''
+        address: {
+          cep: obj.address?.cep || '',
+          street: obj.address?.street || '',
+          number: obj.address?.number || '',
+          complement: obj.address?.complement || '',
+          neighborhood: obj.address?.neighborhood || '',
+          city: obj.address?.city || '',
+          state: obj.address?.state || ''
+        }
       },
       profileCompleteness,
       message: 'Paciente criado com sucesso'
