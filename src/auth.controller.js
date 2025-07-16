@@ -1,3 +1,26 @@
+// Função utilitária para parsear address string
+function parseAddressString(addressStr = '', cep = '') {
+  const parts = addressStr.split(',').map(p => p.trim());
+  let street = parts[0] || '';
+  let number = parts[1] || '';
+  let neighborhood = parts[2] || '';
+  let city = '';
+  let state = '';
+  if (parts[3]) {
+    const cityState = parts[3].split('/').map(s => s.trim());
+    city = cityState[0] || '';
+    state = cityState[1] || '';
+  }
+  return {
+    cep: cep || '',
+    street,
+    number,
+    complement: '',
+    neighborhood,
+    city,
+    state
+  };
+}
 const User = require('./models/user.model');
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -69,7 +92,13 @@ exports.register = async (req, res, next) => {
     userData.Cpf = Cpf.replace(/\D/g, '');
 
     // Adicionar outros campos opcionais se fornecidos
-    if (address) userData.address = address;
+    if (address) {
+      if (typeof address === 'string') {
+        userData.address = parseAddressString(address, req.body.cep);
+      } else {
+        userData.address = address;
+      }
+    }
     if (phone) userData.phone = phone;
     if (birthDate) userData.birthDate = birthDate;
 
@@ -91,7 +120,15 @@ exports.register = async (req, res, next) => {
       name: user.name,
       email: user.email,
       Cpf: user.Cpf || null,
-      role: user.role
+      address: user.address || {},
+      role: user.role,
+      endereco: user.address && typeof user.address === 'object'
+        ? [
+            user.address.street,
+            user.address.neighborhood,
+            user.address.city && user.address.state ? `${user.address.city}/${user.address.state}` : user.address.city || user.address.state
+          ].filter(Boolean).join(', ')
+        : ''
     };
 
     // Enviar e-mail de boas-vindas (não bloqueia o cadastro se falhar)
