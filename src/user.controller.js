@@ -476,16 +476,20 @@ exports.createPatient = async (req, res) => {
       emergencyContact,
       medicalInfo
     } = req.body;
+    // Aceita 'telefone' como alias de 'phone'
     if (!phone && telefone) phone = telefone;
-    // Monta address se vierem campos separados
-    if (cep || endereco) {
-      address = address || {};
-      if (cep) address.cep = cep;
-      if (endereco) {
-        const [street, number] = endereco.split(',').map(s => s.trim());
-        if (street) address.street = street;
-        if (number) address.number = number;
-      }
+    // Monta address se vierem campos separados OU se address não for objeto
+    if (typeof address !== 'object' || address === null) address = {};
+    if (cep) address.cep = cep;
+    if (endereco) {
+      // Espera: "Rua, Número, Complemento, Bairro, Cidade, Estado"
+      const parts = endereco.split(',').map(s => s.trim());
+      if (parts[0]) address.street = parts[0];
+      if (parts[1]) address.number = parts[1];
+      if (parts[2]) address.complement = parts[2];
+      if (parts[3]) address.neighborhood = parts[3];
+      if (parts[4]) address.city = parts[4];
+      if (parts[5]) address.state = parts[5];
     }
 
     // Validações básicas
@@ -548,11 +552,18 @@ exports.createPatient = async (req, res) => {
         id: obj._id,
         name: obj.name || '',
         email: obj.email || '',
-        Cpf: obj.Cpf || '',
+        cpf: obj.Cpf || '',
         role: obj.role || '',
         phone: typeof obj.phone === 'string' ? obj.phone : '',
         cep: obj.address?.cep || '',
-        endereco: [obj.address?.street, obj.address?.number].filter(Boolean).join(', ') || ''
+        endereco: [
+          obj.address?.street,
+          obj.address?.number,
+          obj.address?.complement,
+          obj.address?.neighborhood,
+          obj.address?.city,
+          obj.address?.state
+        ].filter(Boolean).join(', ') || ''
       },
       profileCompleteness,
       message: 'Paciente criado com sucesso'
