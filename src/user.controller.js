@@ -543,17 +543,18 @@ exports.createPatient = async (req, res) => {
     const obj = patient.toObject();
     res.status(201).json({
       success: true,
-      data: {
+      token: req.token || '',
+      user: {
         id: obj._id,
         name: obj.name || '',
         email: obj.email || '',
-        cpf: obj.Cpf || '',
+        Cpf: obj.Cpf || '',
+        role: obj.role || '',
         phone: typeof obj.phone === 'string' ? obj.phone : '',
         cep: obj.address?.cep || '',
-        endereco: [obj.address?.street, obj.address?.number].filter(Boolean).join(', ') || '',
-        role: obj.role || '',
-        profileCompleteness
+        endereco: [obj.address?.street, obj.address?.number].filter(Boolean).join(', ') || ''
       },
+      profileCompleteness,
       message: 'Paciente criado com sucesso'
     });
     } catch (error) {
