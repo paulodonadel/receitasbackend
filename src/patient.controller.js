@@ -4,7 +4,17 @@ const User = require('./models/user.model');
 exports.getAllPatients = async (req, res) => {
   try {
     const patients = await User.find({ role: 'patient' }).select('-password -resetPasswordToken -resetPasswordExpires');
-    res.status(200).json(patients);
+    // Normaliza resposta para frontend
+    const result = patients.map(p => ({
+      id: p._id,
+      name: p.name,
+      email: p.email,
+      Cpf: p.Cpf,
+      phone: p.phone,
+      endereco: p.endereco && typeof p.endereco === 'object' ? p.endereco : {},
+      // outros campos relevantes podem ser adicionados aqui
+    }));
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
@@ -15,7 +25,17 @@ exports.getPatientById = async (req, res) => {
   try {
     const patient = await User.findOne({ _id: req.params.id, role: 'patient' }).select('-password -resetPasswordToken -resetPasswordExpires');
     if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });
-    res.status(200).json({ success: true, data: patient });
+    // Normaliza resposta para frontend
+    const result = {
+      id: patient._id,
+      name: patient.name,
+      email: patient.email,
+      Cpf: patient.Cpf,
+      phone: patient.phone,
+      endereco: patient.endereco && typeof patient.endereco === 'object' ? patient.endereco : {},
+      // outros campos relevantes podem ser adicionados aqui
+    };
+    res.status(200).json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar paciente.' });
   }
@@ -144,8 +164,8 @@ exports.searchPatients = async (req, res) => {
           neighborhood: p.address.neighborhood || '',
           city: p.address.city || '',
           state: p.address.state || ''
-        } : null,
-        cep: p.address && typeof p.address === 'object' ? (p.address.cep || '') : '',
+        const patients = await User.find(filters)
+          .select('name Cpf email phone endereco');
         endereco: enderecoStr
       };
     });
@@ -154,20 +174,4 @@ exports.searchPatients = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
-};
-
-// Adicione este endpoint para PATCH
-exports.patchPatient = async (req, res) => {
-  try {
-    console.log('PATCH body:', req.body); // <-- debug
-    const patient = await User.findOneAndUpdate(
-      { _id: req.params.id, role: 'patient' },
-      { $set: req.body },
-      { new: true, runValidators: true }
-    ).select('-password -resetPasswordToken -resetPasswordExpires');
-    if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });
-    res.status(200).json({ success: true, data: patient });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao atualizar paciente.' });
-  }
-};
+            endereco: p.endereco && typeof p.endereco === 'object' ? p.endereco : {},
