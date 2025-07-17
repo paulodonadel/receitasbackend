@@ -18,7 +18,6 @@ exports.getAllPatients = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
-}
 };
 
 // Buscar paciente por ID
@@ -152,7 +151,6 @@ exports.searchPatients = async (req, res) => {
 
     res.status(200).json(result);
   } catch (error) {
-
-
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
+}

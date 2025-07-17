@@ -617,4 +617,5 @@ exports.createPatient = async (req, res) => {
             errorCode: 'CREATE_PATIENT_ERROR'
         });
     }
+}
 
