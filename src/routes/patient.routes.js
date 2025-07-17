@@ -12,7 +12,7 @@ router.use(protect(), authorize('admin'));
 router.get('/', patientController.getAllPatients);
 router.get('/:id', patientController.getPatientById);
 router.put('/:id', patientController.updatePatient);
-router.patch('/:id', patientController.patchPatient);
+// router.patch('/:id', patientController.patchPatient); // Removido: handler não existe
 router.delete('/:id', patientController.deletePatient);
 
 module.exports = router;
