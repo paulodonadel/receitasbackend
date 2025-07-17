@@ -122,27 +122,31 @@ exports.searchPatients = async (req, res) => {
     // Normaliza resposta para frontend
     const result = patients.map(p => {
       // Monta endereco como string a partir do objeto address
-      const enderecoStr = [
-        p.address?.street,
-        p.address?.neighborhood,
-        p.address?.city && p.address?.state ? `${p.address.city}/${p.address.state}` : p.address?.city || p.address?.state
-      ].filter(Boolean).join(', ');
+      let enderecoStr = null;
+      if (p.address && typeof p.address === 'object') {
+        enderecoStr = [
+          p.address.street,
+          p.address.neighborhood,
+          p.address.city && p.address.state ? `${p.address.city}/${p.address.state}` : p.address.city || p.address.state
+        ].filter(Boolean).join(', ');
+      }
       return {
         id: p._id,
         name: p.name || '',
         email: p.email || '',
         Cpf: p.Cpf || '',
         phone: typeof p.phone === 'string' ? p.phone : '',
-        address: {
-          cep: p.address?.cep || '',
-          street: p.address?.street || '',
-          number: p.address?.number || '',
-          complement: p.address?.complement || '',
-          neighborhood: p.address?.neighborhood || '',
-          city: p.address?.city || '',
-          state: p.address?.state || ''
-        },
-        endereco: enderecoStr || ''
+        address: p.address && typeof p.address === 'object' ? {
+          cep: p.address.cep || '',
+          street: p.address.street || '',
+          number: p.address.number || '',
+          complement: p.address.complement || '',
+          neighborhood: p.address.neighborhood || '',
+          city: p.address.city || '',
+          state: p.address.state || ''
+        } : null,
+        cep: p.address && typeof p.address === 'object' ? (p.address.cep || '') : '',
+        endereco: enderecoStr
       };
     });
 

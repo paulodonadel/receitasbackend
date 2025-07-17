@@ -95,9 +95,18 @@ exports.register = async (req, res, next) => {
     if (address) {
       if (typeof address === 'string') {
         userData.address = parseAddressString(address, req.body.cep);
-      } else {
-        userData.address = address;
+      } else if (typeof address === 'object' && address !== null) {
+        // Garante que cep do body sobrescreve o do objeto address, se fornecido
+        userData.address = { ...address };
+        if (req.body.cep && req.body.cep.trim() !== '') {
+          userData.address.cep = req.body.cep;
+        } else if (!userData.address.cep && req.body.cep) {
+          userData.address.cep = req.body.cep;
+        }
       }
+    } else if (req.body.cep && req.body.cep.trim() !== '') {
+      // Se não veio address mas veio cep, cria address só com cep
+      userData.address = { cep: req.body.cep };
     }
     if (phone) userData.phone = phone;
     if (birthDate) userData.birthDate = birthDate;
