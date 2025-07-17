@@ -91,23 +91,19 @@ exports.register = async (req, res, next) => {
     }
     userData.Cpf = Cpf.replace(/\D/g, '');
 
-    // Adicionar outros campos opcionais se fornecidos
-    if (address) {
-      if (typeof address === 'string') {
-        userData.address = parseAddressString(address, req.body.cep);
-      } else if (typeof address === 'object' && address !== null) {
-        // Garante que cep do body sobrescreve o do objeto address, se fornecido
-        userData.address = { ...address };
-        if (req.body.cep && req.body.cep.trim() !== '') {
-          userData.address.cep = req.body.cep;
-        } else if (!userData.address.cep && req.body.cep) {
-          userData.address.cep = req.body.cep;
-        }
-      }
+    // Unifica campo endereco como objeto (compatível com frontend)
+    if (req.body.endereco && typeof req.body.endereco === 'object' && req.body.endereco !== null) {
+      userData.endereco = { ...req.body.endereco };
+      // Se vier address, ignora e prioriza endereco
+    } else if (address && typeof address === 'object' && address !== null) {
+      userData.endereco = { ...address };
+    } else if (address && typeof address === 'string') {
+      userData.endereco = parseAddressString(address, req.body.cep);
     } else if (req.body.cep && req.body.cep.trim() !== '') {
-      // Se não veio address mas veio cep, cria address só com cep
-      userData.address = { cep: req.body.cep };
+      userData.endereco = { cep: req.body.cep };
     }
+    // Remove qualquer campo address do userData
+    if (userData.address) delete userData.address;
     if (phone) userData.phone = phone;
     if (birthDate) userData.birthDate = birthDate;
 
@@ -129,15 +125,8 @@ exports.register = async (req, res, next) => {
       name: user.name,
       email: user.email,
       Cpf: user.Cpf || null,
-      address: user.address || {},
       role: user.role,
-      endereco: user.address && typeof user.address === 'object'
-        ? [
-            user.address.street,
-            user.address.neighborhood,
-            user.address.city && user.address.state ? `${user.address.city}/${user.address.state}` : user.address.city || user.address.state
-          ].filter(Boolean).join(', ')
-        : ''
+      endereco: user.endereco && typeof user.endereco === 'object' ? user.endereco : {},
     };
 
     // Enviar e-mail de boas-vindas (não bloqueia o cadastro se falhar)
