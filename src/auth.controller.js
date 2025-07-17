@@ -120,13 +120,20 @@ exports.register = async (req, res, next) => {
     
     const token = user.getSignedJwtToken();
 
+    // Garante que o campo endereco seja retornado corretamente
+    let enderecoObj = {};
+    if (user.endereco && typeof user.endereco === 'object' && Object.keys(user.endereco).length > 0) {
+      enderecoObj = user.endereco;
+    } else if (user._doc && user._doc.endereco && typeof user._doc.endereco === 'object') {
+      enderecoObj = user._doc.endereco;
+    }
     const userResponse = {
       id: user._id,
       name: user.name,
       email: user.email,
       Cpf: user.Cpf || null,
       role: user.role,
-      endereco: user.endereco && typeof user.endereco === 'object' ? user.endereco : {},
+      endereco: enderecoObj,
     };
 
     // Enviar e-mail de boas-vindas (não bloqueia o cadastro se falhar)

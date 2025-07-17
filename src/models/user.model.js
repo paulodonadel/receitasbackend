@@ -35,7 +35,7 @@ const UserSchema = new mongoose.Schema({
     required: false,
     trim: true
   },
-  address: {
+  endereco: {
     street: String,
     number: String,
     complement: String,
@@ -163,7 +163,7 @@ UserSchema.methods.matchPassword = async function(enteredPassword) {
 // Método para verificar se o perfil está completo
 UserSchema.methods.checkProfileCompleteness = function() {
   const requiredFields = ['name', 'email', 'phone'];
-  const optionalButImportant = ['Cpf', 'address.street', 'address.city', 'address.cep'];
+  const optionalButImportant = ['Cpf', 'endereco.street', 'endereco.city', 'endereco.cep'];
   
   let completeness = 0;
   const totalFields = requiredFields.length + optionalButImportant.length;
@@ -209,9 +209,9 @@ UserSchema.methods.getMissingFields = function() {
   if (!this.email || this.email.trim() === '') missing.push('email');
   if (!this.phone || this.phone.trim() === '') missing.push('phone');
   if (!this.Cpf || this.Cpf.trim() === '') missing.push('cpf');
-  if (!this.address?.street || this.address.street.trim() === '') missing.push('address.street');
-  if (!this.address?.city || this.address.city.trim() === '') missing.push('address.city');
-  if (!this.address?.cep || this.address.cep.trim() === '') missing.push('address.cep');
+  if (!this.endereco?.street || this.endereco.street.trim() === '') missing.push('endereco.street');
+  if (!this.endereco?.city || this.endereco.city.trim() === '') missing.push('endereco.city');
+  if (!this.endereco?.cep || this.endereco.cep.trim() === '') missing.push('endereco.cep');
   
   return missing;
 };
@@ -229,18 +229,16 @@ UserSchema.virtual('displayName').get(function() {
 
 // Virtual para endereço completo
 UserSchema.virtual('fullAddress').get(function() {
-  if (!this.address) return '';
-  
+  if (!this.endereco) return '';
   const parts = [
-    this.address.street,
-    this.address.number,
-    this.address.complement,
-    this.address.neighborhood,
-    this.address.city,
-    this.address.state,
-    this.address.cep
+    this.endereco.street,
+    this.endereco.number,
+    this.endereco.complement,
+    this.endereco.neighborhood,
+    this.endereco.city,
+    this.endereco.state,
+    this.endereco.cep
   ].filter(part => part && part.trim() !== '');
-  
   return parts.join(', ');
 });
 
