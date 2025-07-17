@@ -18,6 +18,7 @@ exports.getAllPatients = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
+}
 };
 
 // Buscar paciente por ID
@@ -137,41 +138,21 @@ exports.searchPatients = async (req, res) => {
 
     // Busca pacientes
     const patients = await User.find(filters)
-      .select('name Cpf email phone address');
+      .select('name Cpf email phone endereco');
 
     // Normaliza resposta para frontend
-    const result = patients.map(p => {
-      // Monta endereco como string a partir do objeto address
-      let enderecoStr = null;
-      if (p.address && typeof p.address === 'object') {
-        enderecoStr = [
-          p.address.street,
-          p.address.neighborhood,
-          p.address.city && p.address.state ? `${p.address.city}/${p.address.state}` : p.address.city || p.address.state
-        ].filter(Boolean).join(', ');
-      }
-      return {
-        id: p._id,
-        name: p.name || '',
-        email: p.email || '',
-        Cpf: p.Cpf || '',
-        phone: typeof p.phone === 'string' ? p.phone : '',
-        address: p.address && typeof p.address === 'object' ? {
-          cep: p.address.cep || '',
-          street: p.address.street || '',
-          number: p.address.number || '',
-          complement: p.address.complement || '',
-          neighborhood: p.address.neighborhood || '',
-          city: p.address.city || '',
-          state: p.address.state || ''
-        const patients = await User.find(filters)
-          .select('name Cpf email phone endereco');
-        endereco: enderecoStr
-      };
-    });
+    const result = patients.map(p => ({
+      id: p._id,
+      name: p.name || '',
+      email: p.email || '',
+      Cpf: p.Cpf || '',
+      phone: typeof p.phone === 'string' ? p.phone : '',
+      endereco: p.endereco && typeof p.endereco === 'object' ? p.endereco : {},
+    }));
 
     res.status(200).json(result);
   } catch (error) {
+
+
     res.status(500).json({ success: false, message: 'Erro ao buscar pacientes.' });
   }
-            endereco: p.endereco && typeof p.endereco === 'object' ? p.endereco : {},
