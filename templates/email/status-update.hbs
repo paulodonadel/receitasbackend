@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Atualização de Status</title>
+</head>
+<body>
+  <h2>Atualização de Receita #{{prescriptionId}}</h2>
+  
+  <p><strong>Medicamento:</strong> {{medicationName}}</p>
+  <p><strong>Status anterior:</strong> {{oldStatus}}</p>
+  <p><strong>Novo status:</strong> <strong>{{newStatus}}</strong></p>
+  
+  {{#if rejectionReason}}
+  <p><strong>Motivo:</strong> {{rejectionReason}}</p>
+  {{/if}}
+  
+  <p><em>Data: {{date}}</em></p>
+  
+  <footer>
+    <p>Este é um e-mail automático, por favor não responda.</p>
+  </footer>
+</body>
+</html>
