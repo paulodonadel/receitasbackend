@@ -11,6 +11,11 @@ const mongoose = require('mongoose');
 // @access  Private/Patient
 exports.createPrescription = async (req, res, next) => {
   try {
+    console.log("=== DEBUG: Dados recebidos ===");
+    console.log("Body completo:", JSON.stringify(req.body, null, 2));
+    console.log("User ID:", req.user?.id);
+    console.log("User role:", req.user?.role);
+    
     const {
       medicationName,
       dosage,
@@ -23,6 +28,13 @@ exports.createPrescription = async (req, res, next) => {
       returnRequested = false,
       phone
     } = req.body;
+
+    console.log("=== DEBUG: Campos extraídos ===");
+    console.log("medicationName:", medicationName);
+    console.log("dosage:", dosage);
+    console.log("prescriptionType:", prescriptionType);
+    console.log("deliveryMethod:", deliveryMethod);
+    console.log("numberOfBoxes:", numberOfBoxes);
 
     // Aceita tanto patientCEP/patientAddress quanto cep/endereco
     const patientCEP = req.body.patientCEP || req.body.cep;
@@ -47,14 +59,11 @@ exports.createPrescription = async (req, res, next) => {
       };
     }
 
-    // Validações básicas
+    // Validações básicas - CEP e endereço opcionais para e-mail
     if (deliveryMethod === "email") {
-      if (!patientCEP || !patientAddress) {
-        return res.status(400).json({
-          success: false,
-          message: "CEP e endereço são obrigatórios para envio por e-mail.",
-          errorCode: "MISSING_EMAIL_FIELDS"
-        });
+      // Apenas aviso se não tiver CEP/endereço, mas não bloqueia
+      if (!patientCEP && !patientAddress) {
+        console.log("Aviso: CEP e endereço não fornecidos para envio por e-mail");
       }
     }
 
@@ -97,7 +106,7 @@ exports.createPrescription = async (req, res, next) => {
 
     // Só adiciona patientPhone se houver valor válido
     const patientPhoneValue = phone || patient.phone;
-    if (patientPhoneValue && /^\\d{10,11}$/.test(patientPhoneValue)) {
+    if (patientPhoneValue && /^\d{10,11}$/.test(patientPhoneValue)) {
       prescriptionData.patientPhone = patientPhoneValue;
     }
 
@@ -108,7 +117,13 @@ exports.createPrescription = async (req, res, next) => {
     }
 
     // Criar a prescrição
+    console.log("=== DEBUG: Dados para criação ===");
+    console.log("prescriptionData:", JSON.stringify(prescriptionData, null, 2));
+    
     const prescription = await Prescription.create(prescriptionData);
+    
+    console.log("=== DEBUG: Prescrição criada com sucesso ===");
+    console.log("prescription ID:", prescription._id);
 
     // Log de atividade
     await logActivity({
@@ -144,24 +159,56 @@ exports.createPrescription = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      data: formatPrescription(prescription),
+      data: {
+        _id: prescription._id,
+        medicationName: prescription.medicationName,
+        dosage: prescription.dosage,
+        prescriptionType: prescription.prescriptionType,
+        deliveryMethod: prescription.deliveryMethod,
+        status: prescription.status,
+        createdAt: prescription.createdAt
+      },
       message: "Solicitação de receita criada com sucesso"
     });
 
   } catch (error) {
-    console.error("Erro ao criar solicitação:", error);
+    console.error("=== DEBUG: Erro ao criar solicitação ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    
     if (error.name === "ValidationError") {
+      console.error("=== DEBUG: Erros de validação ===");
+      const validationErrors = Object.values(error.errors).map(err => {
+        console.error(`Campo: ${err.path}, Valor: ${err.value}, Erro: ${err.message}`);
+        return err.message;
+      });
+      
       return res.status(400).json({
         success: false,
-        message: "Erro de validação",
-        errors: Object.values(error.errors).map(err => err.message),
-        errorCode: "VALIDATION_ERROR"
+        message: "Dados inválidos fornecidos",
+        errors: validationErrors,
+        errorCode: "VALIDATION_ERROR",
+        details: error.errors // Incluir detalhes para debug
       });
     }
+    
+    if (error.code === 11000) {
+      console.error("=== DEBUG: Erro de duplicação ===");
+      console.error("Duplicate key:", error.keyValue);
+      return res.status(400).json({
+        success: false,
+        message: "Já existe uma solicitação similar",
+        errorCode: "DUPLICATE_ERROR"
+      });
+    }
+    
+    console.error("=== DEBUG: Erro não tratado ===");
     res.status(500).json({
       success: false,
-      message: "Erro ao criar solicitação.",
-      errorCode: "PRESCRIPTION_CREATE_ERROR"
+      message: "Erro interno do servidor ao criar solicitação",
+      errorCode: "INTERNAL_SERVER_ERROR",
+      error: error.message // Incluir mensagem para debug
     });
   }
 };

@@ -67,13 +67,30 @@ const sensitiveLimiter = rateLimit({
 
 // Middleware de validação básica para criação de prescrição
 const validatePrescriptionInput = (req, res, next) => {
-  if (!req.body.medicationName || !req.body.dosage) {
+  console.log("=== DEBUG: Middleware de validação ===");
+  console.log("medicationName:", req.body.medicationName);
+  console.log("dosage:", req.body.dosage);
+  
+  // Validação mais flexível - apenas verifica se os campos existem
+  if (!req.body.medicationName || req.body.medicationName.trim() === '') {
+    console.log("=== DEBUG: medicationName inválido ===");
     return res.status(400).json({
       success: false,
       errorCode: "INVALID_INPUT",
-      message: "Nome do medicamento e dosagem são obrigatórios"
+      message: "Nome do medicamento é obrigatório"
     });
   }
+  
+  if (!req.body.dosage || req.body.dosage.trim() === '') {
+    console.log("=== DEBUG: dosage inválido ===");
+    return res.status(400).json({
+      success: false,
+      errorCode: "INVALID_INPUT", 
+      message: "Dosagem é obrigatória"
+    });
+  }
+  
+  console.log("=== DEBUG: Validação passou ===");
   next();
 };
 

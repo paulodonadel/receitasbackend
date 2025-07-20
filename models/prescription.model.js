@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 const validator = require("validator");
 
 const PrescriptionSchema = new mongoose.Schema({
@@ -27,7 +27,7 @@ const PrescriptionSchema = new mongoose.Schema({
       values: ["branco", "azul", "amarelo"],
       message: "Tipo de receituário inválido"
     },
-    required: [true, "O tipo de receituário é obrigatório"]
+    default: "branco" // Valor padrão se não fornecido
   },
   deliveryMethod: {
     type: String,
@@ -35,7 +35,7 @@ const PrescriptionSchema = new mongoose.Schema({
       values: ["email", "retirar_clinica"],
       message: "Método de entrega inválido"
     },
-    required: [true, "O método de entrega é obrigatório"]
+    default: "retirar_clinica" // Valor padrão se não fornecido
   },
   numberOfBoxes: {
     type: String,
@@ -93,18 +93,20 @@ const PrescriptionSchema = new mongoose.Schema({
   patientCEP: {
     type: String,
     trim: true,
+    required: false, // Não obrigatório
     validate: {
       validator: function(v) {
-        if (!v || v === "") return true; // Não obrigatório
+        if (!v || v === "") return true; // Aceita vazio
         const cleanCEP = v.replace(/\D/g, '');
         return cleanCEP.length === 8;
       },
-      message: "CEP deve conter 8 dígitos numéricos"
+      message: "CEP deve conter 8 dígitos (quando fornecido)"
     }
   },
   patientAddress: {
     type: String,
     trim: true,
+    required: false, // Não obrigatório
     maxlength: [200, "O endereço não pode exceder 200 caracteres"]
   },
 
