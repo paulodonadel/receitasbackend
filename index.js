@@ -278,6 +278,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
+app.use('/api/reminders', require('./reminder.routes'));
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
@@ -463,6 +464,11 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 10000;
+
+// Inicializar cron jobs para lembretes
+const { startReminderCron } = require('./cronJobs');
+startReminderCron();
+
 const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });

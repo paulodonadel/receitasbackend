@@ -364,3 +364,261 @@ Médico Psiquiatra
   return this.sendEmail(to, subject, textBody, htmlBody);
 };
 
+
+
+// Função para enviar e-mail de lembrete de medicamento
+const sendReminderEmail = async (email, medicationName, dosage, daysBeforeEnd, notes = '') => {
+  try {
+    if (!transporter) {
+      console.log('⚠️ Transporter não configurado. E-mail de lembrete não enviado.');
+      return { success: false, message: 'Serviço de e-mail não configurado' };
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'noreply@receitas.com',
+      to: email,
+      subject: `🔔 Lembrete: Medicamento ${medicationName} está terminando`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Lembrete de Medicamento</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background-color: white;
+              border-radius: 10px;
+              padding: 30px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 2px solid #e3f2fd;
+            }
+            .header h1 {
+              color: #1976d2;
+              margin: 0;
+              font-size: 24px;
+            }
+            .reminder-icon {
+              font-size: 48px;
+              margin-bottom: 10px;
+            }
+            .medication-info {
+              background-color: #f8f9fa;
+              border-left: 4px solid #ff9800;
+              padding: 20px;
+              margin: 20px 0;
+              border-radius: 5px;
+            }
+            .medication-info h3 {
+              color: #ff9800;
+              margin-top: 0;
+              font-size: 18px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 10px 0;
+              padding: 8px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #555;
+            }
+            .info-value {
+              color: #333;
+            }
+            .alert-box {
+              background-color: #fff3cd;
+              border: 1px solid #ffeaa7;
+              border-radius: 5px;
+              padding: 15px;
+              margin: 20px 0;
+              text-align: center;
+            }
+            .alert-box .alert-text {
+              color: #856404;
+              font-weight: bold;
+              font-size: 16px;
+            }
+            .action-section {
+              background-color: #e3f2fd;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 25px 0;
+              text-align: center;
+            }
+            .action-section h3 {
+              color: #1976d2;
+              margin-top: 0;
+            }
+            .btn {
+              display: inline-block;
+              background-color: #1976d2;
+              color: white;
+              padding: 12px 25px;
+              text-decoration: none;
+              border-radius: 5px;
+              font-weight: bold;
+              margin: 10px;
+              transition: background-color 0.3s;
+            }
+            .btn:hover {
+              background-color: #1565c0;
+            }
+            .notes-section {
+              background-color: #f1f8e9;
+              border-left: 4px solid #4caf50;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 5px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #eee;
+              color: #666;
+              font-size: 14px;
+            }
+            .footer .clinic-info {
+              margin: 10px 0;
+            }
+            @media (max-width: 600px) {
+              body {
+                padding: 10px;
+              }
+              .container {
+                padding: 20px;
+              }
+              .info-row {
+                flex-direction: column;
+              }
+              .info-label {
+                margin-bottom: 5px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="reminder-icon">🔔</div>
+              <h1>Lembrete de Medicamento</h1>
+              <p style="color: #666; margin: 0;">Sistema de Receitas Médicas</p>
+            </div>
+
+            <div class="alert-box">
+              <div class="alert-text">
+                ⚠️ Seu medicamento está terminando em ${daysBeforeEnd} dias!
+              </div>
+            </div>
+
+            <div class="medication-info">
+              <h3>📋 Informações do Medicamento</h3>
+              <div class="info-row">
+                <span class="info-label">💊 Medicamento:</span>
+                <span class="info-value">${medicationName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">📏 Dosagem:</span>
+                <span class="info-value">${dosage}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">⏰ Aviso:</span>
+                <span class="info-value">${daysBeforeEnd} dias antes do término</span>
+              </div>
+            </div>
+
+            ${notes ? `
+            <div class="notes-section">
+              <h4 style="color: #4caf50; margin-top: 0;">📝 Observações:</h4>
+              <p style="margin: 0;">${notes}</p>
+            </div>
+            ` : ''}
+
+            <div class="action-section">
+              <h3>🚀 Próximos Passos</h3>
+              <p>Para solicitar uma nova receita, acesse o sistema:</p>
+              <a href="${process.env.FRONTEND_URL || 'https://sistema-receitas-frontend.onrender.com'}/patient/request-prescription" class="btn">
+                🏥 Solicitar Nova Receita
+              </a>
+              <p style="margin-top: 15px; color: #666; font-size: 14px;">
+                <strong>Importante:</strong> Este é apenas um lembrete. Você deve entrar no sistema para fazer uma nova solicitação.
+              </p>
+            </div>
+
+            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h4 style="color: #333; margin-top: 0;">📞 Precisa de Ajuda?</h4>
+              <p style="margin: 5px 0; color: #666;">
+                <strong>Clínica:</strong> Entre em contato conosco se tiver dúvidas
+              </p>
+              <p style="margin: 5px 0; color: #666;">
+                <strong>Sistema:</strong> Acesse o portal online para gerenciar suas receitas
+              </p>
+            </div>
+
+            <div class="footer">
+              <div class="clinic-info">
+                <strong>Sistema de Receitas Médicas</strong><br>
+                Gestão inteligente de prescrições médicas
+              </div>
+              <p style="margin: 15px 0 5px 0;">
+                Este é um e-mail automático. Não responda a esta mensagem.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                Enviado em ${new Date().toLocaleDateString('pt-BR', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('✅ E-mail de lembrete enviado com sucesso:', result.messageId);
+    
+    return { 
+      success: true, 
+      message: 'E-mail de lembrete enviado com sucesso',
+      messageId: result.messageId 
+    };
+
+  } catch (error) {
+    console.error('❌ Erro ao enviar e-mail de lembrete:', error);
+    return { 
+      success: false, 
+      message: 'Erro ao enviar e-mail de lembrete',
+      error: error.message 
+    };
+  }
+};
+
+module.exports = {
+  sendWelcomeEmail,
+  sendStatusUpdateEmail,
+  sendReminderEmail
+};
+
