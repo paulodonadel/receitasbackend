@@ -93,18 +93,20 @@ const PrescriptionSchema = new mongoose.Schema({
   patientCEP: {
     type: String,
     trim: true,
+    required: false, // Não obrigatório
     validate: {
       validator: function(v) {
-        if (!v || v === "") return true; // Não obrigatório
+        if (!v || v === "") return true; // Aceita vazio
         const cleanCEP = v.replace(/\D/g, '');
         return cleanCEP.length === 8;
       },
-      message: "CEP deve conter 8 dígitos numéricos"
+      message: "CEP deve conter 8 dígitos (quando fornecido)"
     }
   },
   patientAddress: {
     type: String,
     trim: true,
+    required: false, // Não obrigatório
     maxlength: [200, "O endereço não pode exceder 200 caracteres"]
   },
 
