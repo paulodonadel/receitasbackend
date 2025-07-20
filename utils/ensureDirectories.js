@@ -2,25 +2,23 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Garante que os diretórios necessários existam
+ * Ensures that required directories exist
  */
 function ensureDirectories() {
   const directories = [
     path.join(__dirname, '..', '..', 'uploads'),
     path.join(__dirname, '..', '..', 'uploads', 'profiles'),
-    path.join(__dirname, '..', '..', 'uploads', 'prescriptions'),
-    path.join(__dirname, '..', '..', 'uploads', 'documents'),
-    path.join(__dirname, '..', '..', 'logs'),
-    path.join(__dirname, '..', '..', 'temp')
+    path.join(__dirname, '..', '..', 'uploads', 'profile-photos') // backward compatibility
   ];
 
   directories.forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
-      console.log(`📁 Diretório criado: ${dir}`);
+      console.log(`📁 Created directory: ${dir}`);
+    } else {
+      console.log(`📁 Directory exists: ${dir}`);
     }
   });
 }
 
 module.exports = ensureDirectories;
-

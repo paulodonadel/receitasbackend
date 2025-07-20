@@ -6,54 +6,47 @@ const { protect } = require('../middlewares/auth.middleware');
 // Aplicar middleware de autenticação a todas as rotas
 router.use(protect());
 
-// @desc    Buscar pacientes por CPF ou nome
-// @route   GET /api/patients/search?cpf=12345678901 ou GET /api/patients/search?name=João
+// @desc    Buscar pacientes por CPF
+// @route   GET /api/patients/search?cpf=12345678901
 // @access  Private (Admin/Secretary)
 router.get('/search', async (req, res) => {
   try {
-    const { cpf, name } = req.query;
+    const { cpf } = req.query;
     
-    if (!cpf && !name) {
+    if (!cpf) {
       return res.status(400).json({
         success: false,
-        message: 'CPF ou nome é obrigatório para busca'
+        message: 'CPF é obrigatório para busca'
+      });
+    }
+
+    // Limpar CPF (remover pontos, traços, etc.)
+    const cpfClean = cpf.replace(/\D/g, '');
+    
+    if (cpfClean.length !== 11) {
+      return res.status(400).json({
+        success: false,
+        message: 'CPF deve ter 11 dígitos'
       });
     }
 
     const User = require('../models/user.model');
-    let searchQuery = { role: 'patient' };
     
-    if (cpf) {
-      // Busca por CPF
-      const cpfClean = cpf.replace(/\D/g, '');
-      
-      if (cpfClean.length !== 11) {
-        return res.status(400).json({
-          success: false,
-          message: 'CPF deve ter 11 dígitos'
-        });
-      }
-      
-      searchQuery.Cpf = cpfClean;
-    } else if (name) {
-      // Busca por nome (case insensitive, busca parcial)
-      searchQuery.name = { $regex: name, $options: 'i' };
-    }
+    // Buscar usuário por CPF
+    const patient = await User.findOne({ 
+      Cpf: cpfClean,
+      role: 'patient' 
+    }).select('-password -resetPasswordToken -resetPasswordExpires');
 
-    // Buscar usuários
-    const patients = await User.find(searchQuery)
-      .select('-password -resetPasswordToken -resetPasswordExpires')
-      .limit(10); // Limitar a 10 resultados
-
-    if (!patients || patients.length === 0) {
+    if (!patient) {
       return res.status(404).json({
         success: false,
-        message: 'Nenhum paciente encontrado'
+        message: 'Paciente não encontrado'
       });
     }
 
     // Normalizar resposta para o frontend
-    const results = patients.map(patient => ({
+    const result = {
       _id: patient._id,
       id: patient._id,
       name: patient.name,
@@ -65,11 +58,11 @@ router.get('/search', async (req, res) => {
       cep: patient.endereco?.cep || '',
       createdAt: patient.createdAt,
       updatedAt: patient.updatedAt
-    }));
+    };
 
-    res.status(200).json(results);
+    res.status(200).json([result]); // Retorna array para compatibilidade com frontend
   } catch (error) {
-    console.error('Erro ao buscar pacientes:', error);
+    console.error('Erro ao buscar paciente por CPF:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

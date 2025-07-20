@@ -33,15 +33,9 @@ const transporter = nodemailer.createTransport({
 exports.sendEmail = async (to, subject, text, html) => {
   // Verifica se as configurações mínimas estão presentes
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_FROM) {
-      console.warn("Configuração de email incompleta. Email não enviado.");
-      // Retorna sucesso silencioso para não quebrar o fluxo
-      return Promise.resolve({ message: "Email não configurado" });
-  }
-
-  // Verifica se o destinatário é válido
-  if (!to || !to.includes('@')) {
-    console.warn("Destinatário de e-mail inválido:", to);
-    return Promise.resolve({ message: "Destinatário inválido" });
+      console.error("Configuração de email incompleta. Email não enviado.");
+      // Retorna uma promessa rejeitada para indicar falha
+      return Promise.reject(new Error("Configuração de email incompleta."));
   }
 
   // Configurar opções do e-mail

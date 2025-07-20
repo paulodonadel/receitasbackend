@@ -47,11 +47,14 @@ exports.createPrescription = async (req, res, next) => {
       };
     }
 
-    // Validações básicas - CEP e endereço opcionais para e-mail
+    // Validações básicas
     if (deliveryMethod === "email") {
-      // Apenas aviso se não tiver CEP/endereço, mas não bloqueia
-      if (!patientCEP && !patientAddress) {
-        console.log("Aviso: CEP e endereço não fornecidos para envio por e-mail");
+      if (!patientCEP || !patientAddress) {
+        return res.status(400).json({
+          success: false,
+          message: "CEP e endereço são obrigatórios para envio por e-mail.",
+          errorCode: "MISSING_EMAIL_FIELDS"
+        });
       }
     }
 
@@ -94,7 +97,7 @@ exports.createPrescription = async (req, res, next) => {
 
     // Só adiciona patientPhone se houver valor válido
     const patientPhoneValue = phone || patient.phone;
-    if (patientPhoneValue && /^\d{10,11}$/.test(patientPhoneValue)) {
+    if (patientPhoneValue && /^\\d{10,11}$/.test(patientPhoneValue)) {
       prescriptionData.patientPhone = patientPhoneValue;
     }
 
@@ -147,29 +150,18 @@ exports.createPrescription = async (req, res, next) => {
 
   } catch (error) {
     console.error("Erro ao criar solicitação:", error);
-    
     if (error.name === "ValidationError") {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
         success: false,
-        message: "Dados inválidos fornecidos",
-        errors: validationErrors,
+        message: "Erro de validação",
+        errors: Object.values(error.errors).map(err => err.message),
         errorCode: "VALIDATION_ERROR"
       });
     }
-    
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "Já existe uma solicitação similar",
-        errorCode: "DUPLICATE_ERROR"
-      });
-    }
-    
     res.status(500).json({
       success: false,
-      message: "Erro interno do servidor ao criar solicitação",
-      errorCode: "INTERNAL_SERVER_ERROR"
+      message: "Erro ao criar solicitação.",
+      errorCode: "PRESCRIPTION_CREATE_ERROR"
     });
   }
 };
