@@ -63,9 +63,9 @@ const schemas = {
   }),
 
   updateStatus: Joi.object({
-    status: Joi.string().valid('approved', 'rejected').required().messages({
+    status: Joi.string().valid('em_analise', 'aprovada', 'rejeitada', 'pronta', 'enviada', 'entregue', 'solicitada_urgencia').required().messages({
       'string.empty': 'O status é obrigatório',
-      'any.only': 'Status inválido. Valores permitidos: approved, rejected',
+      'any.only': 'Status inválido. Valores permitidos: em_analise, aprovada, rejeitada, pronta, enviada, entregue, solicitada_urgencia',
       'any.required': 'O status é obrigatório'
     }),
     reason: Joi.string().when('status', {
