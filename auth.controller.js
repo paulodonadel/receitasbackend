@@ -229,6 +229,7 @@ exports.login = async (req, res, next) => {
       Cpf: user.Cpf,
       phone: user.phone,
       address: user.address,
+      endereco: user.endereco, // Adicionar campo endereco
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
@@ -275,6 +276,7 @@ exports.getMe = async (req, res, next) => {
       Cpf: user.Cpf,
       phone: user.phone,
       address: user.address,
+      endereco: user.endereco, // Adicionar campo endereco
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
@@ -633,6 +635,7 @@ exports.updateProfile = async (req, res, next) => {
       Cpf: user.Cpf,
       phone: user.phone,
       address: user.address,
+      endereco: user.endereco, // Adicionar campo endereco
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
