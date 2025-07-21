@@ -114,7 +114,7 @@ const PrescriptionSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: {
-      values: ["solicitada", "solicitada_urgencia", "em_analise", "aprovada", "rejeitada", "pronta", "enviada"],
+      values: ["solicitada", "solicitada_urgencia", "em_analise", "aprovada", "rejeitada", "pronta", "enviada", "entregue"],
       message: "Status inválido"
     },
     default: "solicitada"
@@ -163,6 +163,9 @@ const PrescriptionSchema = new mongoose.Schema({
     type: Date
   },
   sentAt: {
+    type: Date
+  },
+  deliveredAt: {
     type: Date
   },
 

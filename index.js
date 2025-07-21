@@ -271,6 +271,7 @@ const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
 const emailRoutes = require('./email.routes');
 const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
+const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -278,7 +279,8 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
-app.use('/api/reminders', require('./reminder.routes'));
+app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
+app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
@@ -466,11 +468,13 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 10000;
 
 // Inicializar cron jobs para lembretes
-const { startReminderCron } = require('./cronJobs');
-startReminderCron();
+const { initializeCronJobs } = require('./cronJobs');
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  
+  // Inicializar cron jobs após o servidor estar rodando
+  initializeCronJobs();
 });
 
 // Configurando timeout do servidor

@@ -620,3 +620,162 @@ const sendReminderEmail = async (email, medicationName, dosage, daysBeforeEnd, n
 exports.sendStatusUpdateEmail = exports.sendStatusUpdateEmail;
 exports.sendReminderEmail = exports.sendReminderEmail;
 
+
+
+/**
+ * Envia e-mail de lembrete para renovação de receita
+ * @param {object} options - Opções do e-mail
+ * @param {string} options.to - E-mail do destinatário
+ * @param {string} options.patientName - Nome do paciente
+ * @param {string} options.medicationName - Nome do medicamento
+ * @param {Date} options.endDate - Data prevista de término do medicamento
+ * @param {number} options.daysRemaining - Dias restantes do medicamento
+ */
+exports.sendReminderEmail = async (options) => {
+  const { to, patientName, medicationName, endDate, daysRemaining } = options;
+  
+  const subject = "🔔 Lembrete: Renovação de Receita - Dr. Paulo Donadel";
+  
+  const endDateFormatted = new Date(endDate).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const textBody = `
+Olá ${patientName},
+
+Este é um lembrete automático sobre sua medicação.
+
+📋 INFORMAÇÕES DO MEDICAMENTO:
+• Medicamento: ${medicationName}
+• Data prevista de término: ${endDateFormatted}
+• Dias restantes: ${daysRemaining > 0 ? daysRemaining : 'Medicamento deve estar terminando'}
+
+⏰ AÇÃO NECESSÁRIA:
+${daysRemaining > 0 
+  ? `Seu medicamento terminará em ${daysRemaining} dias. É recomendado solicitar uma nova receita agora para evitar interrupção do tratamento.`
+  : 'Seu medicamento deve estar terminando. Solicite uma nova receita o quanto antes para não interromper o tratamento.'
+}
+
+🏥 COMO SOLICITAR:
+1. Acesse o sistema: https://sistema-receitas-frontend.onrender.com
+2. Faça login com suas credenciais
+3. Clique em "Solicitar Nova Receita"
+4. Preencha os dados do medicamento
+
+📞 CONTATO:
+Em caso de dúvidas, entre em contato:
+• E-mail: paulodonadel@abp.org.br
+• Telefone da clínica: (53) 3242-3131
+
+⚠️ IMPORTANTE:
+• As receitas são processadas às quintas-feiras
+• Não interrompa o tratamento sem orientação médica
+• Este é um lembrete automático baseado no seu padrão de uso
+
+Atenciosamente,
+Dr. Paulo Donadel
+CRM/RS 12345
+
+---
+Este é um e-mail automático. Não responda a este e-mail.
+Sistema de Receitas Médicas - Dr. Paulo Donadel
+  `;
+  
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lembrete de Renovação de Receita</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+    .action-box { background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #b3d9ff; }
+    .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+    .warning { background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107; margin: 20px 0; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+    .emoji { font-size: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="emoji">🔔</span> Lembrete de Renovação</h1>
+    <p>Sistema de Receitas Médicas - Dr. Paulo Donadel</p>
+  </div>
+  
+  <div class="content">
+    <p>Olá <strong>${patientName}</strong>,</p>
+    <p>Este é um lembrete automático sobre sua medicação.</p>
+    
+    <div class="info-box">
+      <h3><span class="emoji">📋</span> Informações do Medicamento</h3>
+      <p><strong>Medicamento:</strong> ${medicationName}</p>
+      <p><strong>Data prevista de término:</strong> ${endDateFormatted}</p>
+      <p><strong>Dias restantes:</strong> ${daysRemaining > 0 ? daysRemaining : 'Medicamento deve estar terminando'}</p>
+    </div>
+    
+    <div class="action-box">
+      <h3><span class="emoji">⏰</span> Ação Necessária</h3>
+      <p>${daysRemaining > 0 
+        ? `Seu medicamento terminará em <strong>${daysRemaining} dias</strong>. É recomendado solicitar uma nova receita agora para evitar interrupção do tratamento.`
+        : 'Seu medicamento deve estar terminando. <strong>Solicite uma nova receita o quanto antes</strong> para não interromper o tratamento.'
+      }</p>
+      
+      <a href="https://sistema-receitas-frontend.onrender.com" class="button">
+        <span class="emoji">🏥</span> Acessar Sistema
+      </a>
+    </div>
+    
+    <div class="info-box">
+      <h3><span class="emoji">📝</span> Como Solicitar</h3>
+      <ol>
+        <li>Acesse o sistema clicando no botão acima</li>
+        <li>Faça login com suas credenciais</li>
+        <li>Clique em "Solicitar Nova Receita"</li>
+        <li>Preencha os dados do medicamento</li>
+      </ol>
+    </div>
+    
+    <div class="info-box">
+      <h3><span class="emoji">📞</span> Contato</h3>
+      <p>Em caso de dúvidas, entre em contato:</p>
+      <p><strong>E-mail:</strong> paulodonadel@abp.org.br</p>
+      <p><strong>Telefone:</strong> (53) 3242-3131</p>
+    </div>
+    
+    <div class="warning">
+      <h3><span class="emoji">⚠️</span> Importante</h3>
+      <ul>
+        <li>As receitas são processadas às <strong>quintas-feiras</strong></li>
+        <li>Não interrompa o tratamento sem orientação médica</li>
+        <li>Este é um lembrete automático baseado no seu padrão de uso</li>
+      </ul>
+    </div>
+    
+    <p>Atenciosamente,<br>
+    <strong>Dr. Paulo Donadel</strong><br>
+    CRM/RS 12345</p>
+  </div>
+  
+  <div class="footer">
+    <p>Este é um e-mail automático. Não responda a este e-mail.</p>
+    <p>Sistema de Receitas Médicas - Dr. Paulo Donadel</p>
+  </div>
+</body>
+</html>
+  `;
+  
+  try {
+    return await exports.sendEmail(to, subject, textBody, htmlBody);
+  } catch (error) {
+    console.error('Erro ao enviar e-mail de lembrete:', error);
+    throw error;
+  }
+};
+
