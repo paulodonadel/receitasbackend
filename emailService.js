@@ -616,8 +616,7 @@ const sendReminderEmail = async (email, medicationName, dosage, daysBeforeEnd, n
   }
 };
 
-module.exports = {
-  sendStatusUpdateEmail,
-  sendReminderEmail
-};
+// Exportar funções
+exports.sendStatusUpdateEmail = exports.sendStatusUpdateEmail;
+exports.sendReminderEmail = exports.sendReminderEmail;
 
