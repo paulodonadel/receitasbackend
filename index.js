@@ -69,6 +69,25 @@ const TIMEOUT_MS = 120000; // 2 minutos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Middleware CORS extra para garantir headers em todas as rotas /api/*
+app.use('/api', (req, res, next) => {
+  const allowedOrigins = [
+    'https://paulodonadel.com.br',
+    'https://sistema-receitas-frontend.onrender.com'
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Se for preflight, responde imediatamente
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Middleware adicional para debug de uploads
 app.use('/uploads', (req, res, next) => {
   console.log(`📁 [UPLOAD DEBUG] ${req.method} ${req.originalUrl}`);
