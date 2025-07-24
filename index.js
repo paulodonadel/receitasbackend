@@ -307,8 +307,15 @@ app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
 // Garantir resposta padrão para GET /api/reminders caso o controller não responda
 app.use('/api/reminders', require('./reminder.routes'));
-app.get('/api/reminders', (req, res, next) => {
-  if (res.headersSent) return;
+// Fallback para qualquer método em /api/reminders se não houver resposta
+app.use('/api/reminders', (req, res, next) => {
+  if (res.headersSent) return next();
+  // CORS headers
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
   res.status(500).json({
     success: false,
     message: 'Nenhuma resposta do backend para /api/reminders. Verifique autenticação, controller e integração.'
