@@ -73,11 +73,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', (req, res, next) => {
   const allowedOrigins = [
     'https://paulodonadel.com.br',
-    'https://sistema-receitas-frontend.onrender.com'
+    'https://www.paulodonadel.com.br',
+    'https://sistema-receitas-frontend.onrender.com',
+    'https://www.sistema-receitas-frontend.onrender.com'
   ];
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // Para debug, envie o header com * (mas browsers ignoram se credentials)
+    res.header('Access-Control-Allow-Origin', '*');
   }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
