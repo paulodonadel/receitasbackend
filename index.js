@@ -305,7 +305,15 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
-app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
+// Garantir resposta padrão para GET /api/reminders caso o controller não responda
+app.use('/api/reminders', require('./reminder.routes'));
+app.get('/api/reminders', (req, res, next) => {
+  if (res.headersSent) return;
+  res.status(500).json({
+    success: false,
+    message: 'Nenhuma resposta do backend para /api/reminders. Verifique autenticação, controller e integração.'
+  });
+});
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 
 // Rotas básicas de status
