@@ -69,32 +69,6 @@ const TIMEOUT_MS = 120000; // 2 minutos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware CORS extra para garantir headers em todas as rotas /api/*
-app.use('/api', (req, res, next) => {
-  const allowedOrigins = [
-    'https://paulodonadel.com.br',
-    'https://www.paulodonadel.com.br',
-    'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com'
-  ];
-  const origin = req.headers.origin;
-  // Sempre envie o header, mas só envie credentials se permitido
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.setHeader('Access-Control-Expose-Headers', 'Authorization');
-  // Se for preflight, responde imediatamente
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
 // Middleware adicional para debug de uploads
 app.use('/uploads', (req, res, next) => {
   console.log(`📁 [UPLOAD DEBUG] ${req.method} ${req.originalUrl}`);
@@ -305,22 +279,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
-// Garantir resposta padrão para GET /api/reminders caso o controller não responda
-app.use('/api/reminders', require('./reminder.routes'));
-// Fallback para qualquer método em /api/reminders se não houver resposta
-app.use('/api/reminders', (req, res, next) => {
-  if (res.headersSent) return next();
-  // CORS headers
-  const origin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.status(500).json({
-    success: false,
-    message: 'Nenhuma resposta do backend para /api/reminders. Verifique autenticação, controller e integração.'
-  });
-});
+app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 
 // Rotas básicas de status
