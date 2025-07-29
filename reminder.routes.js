@@ -1,5 +1,4 @@
-// Rota para admin listar todos os lembretes
-router.get('/admin', protect, authorize('admin'), require('./reminder.controller').getAllReminders);
+
 const express = require('express');
 const { body } = require('express-validator');
 const {
@@ -8,11 +7,15 @@ const {
   updateReminder,
   deleteReminder,
   calculateReminderDates,
-  sendPendingReminders
+  sendPendingReminders,
+  getAllReminders
 } = require('./reminder.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
 const router = express.Router();
+
+// Rota para admin listar todos os lembretes
+router.get('/admin', protect, authorize('admin'), getAllReminders);
 
 // Validações para criação de lembrete
 const createReminderValidation = [
