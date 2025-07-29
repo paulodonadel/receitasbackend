@@ -1,3 +1,5 @@
+// Rota para admin listar todos os lembretes
+router.get('/admin', protect, authorize('admin'), require('./reminder.controller').getAllReminders);
 const express = require('express');
 const { body } = require('express-validator');
 const {

@@ -1,3 +1,43 @@
+// @desc    Listar todos os lembretes do sistema (admin)
+// @route   GET /api/reminders/admin
+// @access  Private (Admin)
+exports.getAllReminders = async (req, res) => {
+  try {
+    const filter = {};
+    // Filtro por paciente
+    if (req.query.user) {
+      filter.patient = req.query.user;
+    }
+    // Filtro por status
+    if (req.query.status === 'active') filter.isActive = true;
+    if (req.query.status === 'inactive') filter.isActive = false;
+    // Filtro por data do lembrete
+    if (req.query.from || req.query.to) {
+      filter.reminderDate = {};
+      if (req.query.from) filter.reminderDate.$gte = new Date(req.query.from);
+      if (req.query.to) filter.reminderDate.$lte = new Date(req.query.to);
+    }
+
+    const reminders = await require('./models/reminder.model')
+      .find(filter)
+      .populate('patient', 'name email')
+      .populate('prescription', 'medicationName dosage prescriptionType')
+      .sort({ reminderDate: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: reminders.length,
+      data: reminders
+    });
+  } catch (error) {
+    console.error('Erro ao buscar lembretes (admin):', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor',
+      error: error.message
+    });
+  }
+};
 const Reminder = require('./models/reminder.model');
 const Prescription = require('./models/prescription.model');
 const User = require('./models/user.model');
