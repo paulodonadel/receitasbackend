@@ -33,8 +33,24 @@ const corsOptions = {
   optionsSuccessStatus: 200 // Para compatibilidade com browsers antigos
 };
 
+
 // Aplicar CORS como primeiro middleware
 app.use(cors(corsOptions));
+
+// Middleware global para garantir CORS em todas as respostas
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Permite qualquer origin listado no corsOptions ou fallback para '*'
+  if (origin && corsOptions.origin.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  next();
+});
 
 // SOLUÇÃO DEFINITIVA PARA CORS DE IMAGENS - Aplicar ANTES de qualquer outra rota
 app.use('/uploads', (req, res, next) => {

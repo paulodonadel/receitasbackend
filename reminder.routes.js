@@ -1,6 +1,7 @@
 
 const express = require('express');
 const { body } = require('express-validator');
+
 const {
   createReminder,
   getMyReminders,
@@ -11,6 +12,21 @@ const {
   getAllReminders
 } = require('./reminder.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
+const { validationResult } = require('express-validator');
+
+// Middleware para tratar erros de validação e garantir resposta JSON padronizada
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Erro de validação',
+      errorCode: 'VALIDATION_ERROR',
+      errors: errors.array()
+    });
+  }
+  next();
+}
 
 const router = express.Router();
 
@@ -94,13 +110,14 @@ const calculateDatesValidation = [
 ];
 
 // Rotas para pacientes
-router.post('/', protect, authorize('patient'), createReminderValidation, createReminder);
+
+router.post('/', protect, authorize('patient'), createReminderValidation, handleValidationErrors, createReminder);
 router.get('/', protect, authorize('patient'), getMyReminders);
-router.put('/:id', protect, authorize('patient'), updateReminderValidation, updateReminder);
+router.put('/:id', protect, authorize('patient'), updateReminderValidation, handleValidationErrors, updateReminder);
 router.delete('/:id', protect, authorize('patient'), deleteReminder);
 
 // Rota para calcular datas (preview)
-router.post('/calculate', protect, authorize('patient'), calculateDatesValidation, calculateReminderDates);
+router.post('/calculate', protect, authorize('patient'), calculateDatesValidation, handleValidationErrors, calculateReminderDates);
 
 // Rota para enviar lembretes pendentes (apenas admin)
 router.post('/send-pending', protect, authorize('admin'), sendPendingReminders);
