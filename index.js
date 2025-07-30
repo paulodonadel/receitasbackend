@@ -285,10 +285,19 @@ const patientRoutes = require('./routes/patient.routes');
 const reportsRoutes = require('./reports.routes');
 
 // Log detalhado para todas as requisições em /api/reminders
+
+// Log detalhado para todas as requisições em /api/reminders
 app.use('/api/reminders', (req, res, next) => {
   console.log(`[REMINDERS-DEBUG] ${req.method} ${req.originalUrl} | Origin: ${req.headers.origin} | Auth: ${req.headers.authorization ? 'Sim' : 'Não'}`);
   next();
 });
+
+// Log antes de chamar o router de reminders
+app.use('/api/reminders', (req, res, next) => {
+  console.log('[REMINDERS-ROUTER] Antes de chamar reminder.routes.js');
+  next();
+});
+app.use('/api/reminders', require('./reminder.routes'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
