@@ -305,7 +305,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes);
-app.use('/api/reminders', require('./reminder.routes'));
+
 app.use('/api/reports', reportsRoutes);
 
 // Rotas básicas de status
