@@ -124,6 +124,7 @@ const calculateDatesValidation = [
 
 router.post('/', protect, authorize('patient'), createReminderValidation, handleValidationErrors, createReminder);
 router.get('/', protect, authorize('patient'), getMyReminders);
+router.get('', protect, authorize('patient'), getMyReminders);
 router.put('/:id', protect, authorize('patient'), updateReminderValidation, handleValidationErrors, updateReminder);
 router.delete('/:id', protect, authorize('patient'), deleteReminder);
 
