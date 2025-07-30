@@ -154,6 +154,10 @@ exports.protect = (strict = false) => {
     }
   };
 };
+    console.log(`[AUTH-MIDDLEWARE] Iniciando proteção para rota: ${req.method} ${req.originalUrl}`);
+    console.warn(`[AUTH-MIDDLEWARE] Token não fornecido para ${req.method} ${req.originalUrl}`);
+    console.error(`[AUTH-MIDDLEWARE] Erro ao verificar token em ${req.method} ${req.originalUrl}:`, error);
+    console.warn(`[AUTH-MIDDLEWARE] Usuário não encontrado para token em ${req.method} ${req.originalUrl}`);
 
 /**
  * Middleware para autorização baseada em roles
@@ -192,6 +196,9 @@ exports.authorize = (...roles) => {
     next();
   };
 };
+    console.log(`[AUTHZ-MIDDLEWARE] Checando roles para rota: ${req.method} ${req.originalUrl} | Roles permitidas: ${roles.join(', ')} | Role do usuário: ${req.user ? req.user.role : 'N/A'}`);
+    console.warn(`[AUTHZ-MIDDLEWARE] Nenhum usuário autenticado em ${req.method} ${req.originalUrl}`);
+    console.warn(`[AUTHZ-MIDDLEWARE] Usuário sem permissão em ${req.method} ${req.originalUrl}`);
 
 /**
  * Middleware para revogação de tokens

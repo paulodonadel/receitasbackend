@@ -281,17 +281,23 @@ const prescriptionRoutes = require('./prescription.routes');
 const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
 const emailRoutes = require('./email.routes');
-const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
-const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
+const patientRoutes = require('./routes/patient.routes');
+const reportsRoutes = require('./reports.routes');
+
+// Log detalhado para todas as requisições em /api/reminders
+app.use('/api/reminders', (req, res, next) => {
+  console.log(`[REMINDERS-DEBUG] ${req.method} ${req.originalUrl} | Origin: ${req.headers.origin} | Auth: ${req.headers.authorization ? 'Sim' : 'Não'}`);
+  next();
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
-app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
-app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
-app.use('/api/reports', reportsRoutes); // Rotas de relatórios
+app.use('/api/patients', patientRoutes);
+app.use('/api/reminders', require('./reminder.routes'));
+app.use('/api/reports', reportsRoutes);
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
@@ -472,10 +478,15 @@ app.use((err, req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
+  res.header('Vary', 'Origin');
+  console.error(`[${new Date().toISOString()}] ERRO GLOBAL:`, err);
+  if (res.headersSent) {
+    return next(err);
+  }
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Erro interno no servidor'
+    message: err.message || 'Erro interno no servidor',
+    error: err.stack || null
   });
 });
 
