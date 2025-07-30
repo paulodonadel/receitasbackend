@@ -162,6 +162,7 @@ exports.createReminder = async (req, res) => {
 // @access  Private (Patient)
 exports.getMyReminders = async (req, res) => {
   try {
+    console.log(`[REMINDERS-CONTROLLER] getMyReminders chamado para user: ${req.user ? req.user.id : 'N/A'} | Auth: ${req.headers.authorization ? 'Sim' : 'Não'}`);
     const reminders = await Reminder.find({
       patient: req.user.id,
       isActive: true
@@ -176,7 +177,7 @@ exports.getMyReminders = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erro ao buscar lembretes:", error);
+    console.error(`[REMINDERS-CONTROLLER] Erro ao buscar lembretes para user: ${req.user ? req.user.id : 'N/A'} |`, error);
     res.status(500).json({
       success: false,
       message: "Erro interno do servidor",
