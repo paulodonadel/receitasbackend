@@ -30,6 +30,12 @@ function handleValidationErrors(req, res, next) {
 
 const router = express.Router();
 
+// Log de entrada no router de reminders
+router.use((req, res, next) => {
+  console.log(`[REMINDERS-ROUTER] Entrou no router de reminders: ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Rota para admin listar todos os lembretes
 router.get('/admin', protect, authorize('admin'), getAllReminders);
 
