@@ -11,7 +11,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 
-// CORS correto para o frontend (apenas uma vez, ANTES de todas as rotas)
+// CORS correto para o frontend (primeiro middleware)
 const allowedOrigins = [
   'https://sistema-receitas-frontend.onrender.com',
   'https://www.sistema-receitas-frontend.onrender.com',
@@ -25,29 +25,19 @@ const allowedOrigins = [
   'https://receitasbackend.onrender.com'
 ];
 
-app.use(cors({
-  origin: function(origin, callback) {
-    // Permite requests sem origin (ex: mobile, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'), false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200
-}));
-
-// Middleware para garantir CORS em todas as respostas (inclusive erros)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
   }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
   next();
 });
 
