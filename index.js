@@ -21,14 +21,24 @@ const allowedOrigins = [
 ];
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  // Log para debug
+  if (origin) {
+    console.log(`[CORS] Origin: ${origin} | Allowed: ${allowedOrigins.includes(origin)}`);
+  } else {
+    console.log('[CORS] Sem origin header na requisição');
+  }
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    res.header('Vary', 'Origin');
     if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
+      return res.status(200).end();
     }
+  } else if (origin) {
+    // Origin não permitida, log para debug
+    console.warn(`[CORS] Origin NÃO PERMITIDA: ${origin}`);
   }
   next();
 });
