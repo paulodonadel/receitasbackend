@@ -1,14 +1,8 @@
-// Handler catch-all para logar requests não tratados
-router.use((req, res, next) => {
-  console.warn(`[REMINDERS-ROUTER] Nenhuma rota casou para: ${req.method} ${req.originalUrl}`);
-  next();
-});
 
 const express = require('express');
 const { body } = require('express-validator');
 
-
-
+const router = express.Router();
 
 const {
   createReminder,
@@ -36,7 +30,11 @@ function handleValidationErrors(req, res, next) {
   next();
 }
 
-const router = express.Router();
+// Handler catch-all para logar requests não tratados
+router.use((req, res, next) => {
+  console.warn(`[REMINDERS-ROUTER] Nenhuma rota casou para: ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Log de entrada no router de reminders
 router.use((req, res, next) => {
