@@ -6,11 +6,7 @@ const fs = require('fs');
 
 const app = express();
 
-// ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
-app.set('trust proxy', 1);
-
-
-// CORS correto para o frontend (primeiro middleware)
+// CORS deve ser o PRIMEIRO middleware
 const allowedOrigins = [
   'https://sistema-receitas-frontend.onrender.com',
   'https://www.sistema-receitas-frontend.onrender.com',
@@ -23,7 +19,6 @@ const allowedOrigins = [
   'http://localhost:3001',
   'https://receitasbackend.onrender.com'
 ];
-
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
@@ -37,6 +32,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
+app.set('trust proxy', 1);
 
 // SOLUÇÃO DEFINITIVA PARA CORS DE IMAGENS - Aplicar ANTES de qualquer outra rota
 app.use('/uploads', (req, res, next) => {
@@ -457,7 +455,10 @@ app.use((error, req, res, next) => {
 // Tratamento global de erros
 app.use((err, req, res, next) => {
   // Garante que o erro também devolve CORS!
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
