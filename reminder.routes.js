@@ -1,7 +1,6 @@
 
 const express = require('express');
 const { body } = require('express-validator');
-const router = express.Router();
 
 // Handler catch-all para logar requests não tratados
 router.use((req, res, next) => {
