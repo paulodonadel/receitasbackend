@@ -2,11 +2,9 @@
 const express = require('express');
 const { body } = require('express-validator');
 
-// Handler catch-all para logar requests não tratados
-router.use((req, res, next) => {
-  console.warn(`[REMINDERS-ROUTER] Nenhuma rota casou para: ${req.method} ${req.originalUrl}`);
-  next();
-});
+const router = express.Router();
+
+
 
 const {
   createReminder,
