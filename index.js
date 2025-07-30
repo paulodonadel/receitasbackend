@@ -74,8 +74,9 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// Middleware para lidar com preflight OPTIONS para todas as rotas
-app.options('*', cors(corsOptions));
+
+// Middleware para lidar com preflight OPTIONS para todas as rotas (já coberto pelo CORS acima)
+// app.options('*', cors());
 
 // Aumentando o timeout para lidar com o "spin up" lento do Render
 const TIMEOUT_MS = 120000; // 2 minutos
