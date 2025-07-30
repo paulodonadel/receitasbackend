@@ -10,41 +10,40 @@ const app = express();
 // ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
 app.set('trust proxy', 1);
 
-// CORS CORRETO PARA O FRONTEND NO RENDER E DOMÍNIO PERSONALIZADO
-const corsOptions = {
-  origin: [
-    'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com',
-    'https://paulodonadel.com.br',
-    'https://www.paulodonadel.com.br',
-    'https://receitas.paulodonadel.com.br',
-    'https://www.receitas.paulodonadel.com.br',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:3001',
-    'https://receitasbackend.onrender.com' // Adicionar o próprio backend para evitar problemas
-  ],
+
+// CORS correto para o frontend (apenas uma vez, ANTES de todas as rotas)
+const allowedOrigins = [
+  'https://sistema-receitas-frontend.onrender.com',
+  'https://www.sistema-receitas-frontend.onrender.com',
+  'https://paulodonadel.com.br',
+  'https://www.paulodonadel.com.br',
+  'https://receitas.paulodonadel.com.br',
+  'https://www.receitas.paulodonadel.com.br',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  'https://receitasbackend.onrender.com'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Permite requests sem origin (ex: mobile, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
-  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200 // Para compatibilidade com browsers antigos
-};
+  optionsSuccessStatus: 200
+}));
 
-
-// Aplicar CORS como primeiro middleware
-app.use(cors(corsOptions));
-
-// Middleware global para garantir CORS em todas as respostas
+// Middleware para garantir CORS em todas as respostas (inclusive erros)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // Permite qualquer origin listado no corsOptions ou fallback para '*'
-  if (origin && corsOptions.origin.includes(origin)) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
   }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
