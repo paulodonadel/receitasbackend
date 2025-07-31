@@ -1,49 +1,16 @@
-
 const express = require('express');
 const { body } = require('express-validator');
-
-const router = express.Router();
-
 const {
   createReminder,
   getMyReminders,
   updateReminder,
   deleteReminder,
   calculateReminderDates,
-  sendPendingReminders,
-  getAllReminders
+  sendPendingReminders
 } = require('./reminder.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
-const { validationResult } = require('express-validator');
 
-// Middleware para tratar erros de validação e garantir resposta JSON padronizada
-function handleValidationErrors(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Erro de validação',
-      errorCode: 'VALIDATION_ERROR',
-      errors: errors.array()
-    });
-  }
-  next();
-}
-
-// Handler catch-all para logar requests não tratados
-router.use((req, res, next) => {
-  console.warn(`[REMINDERS-ROUTER] Nenhuma rota casou para: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// Log de entrada no router de reminders
-router.use((req, res, next) => {
-  console.log(`[REMINDERS-ROUTER] Entrou no router de reminders: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// Rota para admin listar todos os lembretes
-router.get('/admin', protect, authorize('admin'), getAllReminders);
+const router = express.Router();
 
 // Validações para criação de lembrete
 const createReminderValidation = [
@@ -122,15 +89,13 @@ const calculateDatesValidation = [
 ];
 
 // Rotas para pacientes
-
-router.post('/', protect, authorize('patient'), createReminderValidation, handleValidationErrors, createReminder);
+router.post('/', protect, authorize('patient'), createReminderValidation, createReminder);
 router.get('/', protect, authorize('patient'), getMyReminders);
-router.get('', protect, authorize('patient'), getMyReminders);
-router.put('/:id', protect, authorize('patient'), updateReminderValidation, handleValidationErrors, updateReminder);
+router.put('/:id', protect, authorize('patient'), updateReminderValidation, updateReminder);
 router.delete('/:id', protect, authorize('patient'), deleteReminder);
 
 // Rota para calcular datas (preview)
-router.post('/calculate', protect, authorize('patient'), calculateDatesValidation, handleValidationErrors, calculateReminderDates);
+router.post('/calculate', protect, authorize('patient'), calculateDatesValidation, calculateReminderDates);
 
 // Rota para enviar lembretes pendentes (apenas admin)
 router.post('/send-pending', protect, authorize('admin'), sendPendingReminders);

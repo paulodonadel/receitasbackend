@@ -161,9 +161,7 @@ exports.protect = (strict = false) => {
  */
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    console.log(`[AUTHZ-MIDDLEWARE] authorize chamado para rota: ${req.method} ${req.originalUrl} | Roles permitidas: ${roles.join(', ')} | req.user: ${req.user ? JSON.stringify({id: req.user._id, role: req.user.role}) : 'N/A'}`);
     if (!req.user) {
-      console.warn(`[AUTHZ-MIDDLEWARE] Falha: req.user não definido em ${req.method} ${req.originalUrl}`);
       logSecurityEvent('AUTH_FAILURE', {
         ip: req.ip,
         path: req.path,
@@ -177,7 +175,6 @@ exports.authorize = (...roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      console.warn(`[AUTHZ-MIDDLEWARE] Falha: role do usuário (${req.user.role}) não está entre os permitidos (${roles.join(', ')}) em ${req.method} ${req.originalUrl}`);
       logSecurityEvent('AUTHORIZATION_FAILURE', {
         userId: req.user._id,
         role: req.user.role,

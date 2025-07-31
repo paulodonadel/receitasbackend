@@ -1,50 +1,40 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 
-// CORS deve ser o PRIMEIRO middleware
-const allowedOrigins = [
-  'https://sistema-receitas-frontend.onrender.com',
-  'https://www.sistema-receitas-frontend.onrender.com',
-  'https://paulodonadel.com.br',
-  'https://www.paulodonadel.com.br',
-  'https://receitas.paulodonadel.com.br',
-  'https://www.receitas.paulodonadel.com.br',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:3001',
-  'https://receitasbackend.onrender.com'
-];
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  // Log para debug
-  if (origin) {
-    console.log(`[CORS] Origin: ${origin} | Allowed: ${allowedOrigins.includes(origin)}`);
-  } else {
-    console.log('[CORS] Sem origin header na requisição');
-  }
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-    res.header('Vary', 'Origin');
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-  } else if (origin) {
-    // Origin não permitida, log para debug
-    console.warn(`[CORS] Origin NÃO PERMITIDA: ${origin}`);
-  }
-  next();
-});
-
 // ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
 app.set('trust proxy', 1);
+
+// CORS CORRETO PARA O FRONTEND NO RENDER E DOMÍNIO PERSONALIZADO
+const corsOptions = {
+  origin: [
+    'https://sistema-receitas-frontend.onrender.com',
+    'https://www.sistema-receitas-frontend.onrender.com',
+    'https://paulodonadel.com.br',
+    'https://www.paulodonadel.com.br',
+    'https://receitas.paulodonadel.com.br',
+    'https://www.receitas.paulodonadel.com.br',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:3001',
+    'https://receitasbackend.onrender.com' // Adicionar o próprio backend para evitar problemas
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+  ],
+  exposedHeaders: ['Authorization'],
+  optionsSuccessStatus: 200 // Para compatibilidade com browsers antigos
+};
+
+// Aplicar CORS como primeiro middleware
+app.use(cors(corsOptions));
 
 // SOLUÇÃO DEFINITIVA PARA CORS DE IMAGENS - Aplicar ANTES de qualquer outra rota
 app.use('/uploads', (req, res, next) => {
@@ -69,9 +59,8 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-
-// Middleware para lidar com preflight OPTIONS para todas as rotas (já coberto pelo CORS acima)
-// app.options('*', cors());
+// Middleware para lidar com preflight OPTIONS para todas as rotas
+app.options('*', cors(corsOptions));
 
 // Aumentando o timeout para lidar com o "spin up" lento do Render
 const TIMEOUT_MS = 120000; // 2 minutos
@@ -281,32 +270,17 @@ const prescriptionRoutes = require('./prescription.routes');
 const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
 const emailRoutes = require('./email.routes');
-const patientRoutes = require('./routes/patient.routes');
-const reportsRoutes = require('./reports.routes');
-
-// Log detalhado para todas as requisições em /api/reminders
-
-// Log detalhado para todas as requisições em /api/reminders
-app.use('/api/reminders', (req, res, next) => {
-  console.log(`[REMINDERS-DEBUG] ${req.method} ${req.originalUrl} | Origin: ${req.headers.origin} | Auth: ${req.headers.authorization ? 'Sim' : 'Não'}`);
-  next();
-});
-
-// Log antes de chamar o router de reminders
-app.use('/api/reminders', (req, res, next) => {
-  console.log('[REMINDERS-ROUTER] Antes de chamar reminder.routes.js');
-  next();
-});
-app.use('/api/reminders', require('./reminder.routes'));
+const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
+const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);
-app.use('/api/patients', patientRoutes);
-
-app.use('/api/reports', reportsRoutes);
+app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
+app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
+app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
@@ -480,22 +454,14 @@ app.use((error, req, res, next) => {
 // Tratamento global de erros
 app.use((err, req, res, next) => {
   // Garante que o erro também devolve CORS!
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.header('Vary', 'Origin');
-  console.error(`[${new Date().toISOString()}] ERRO GLOBAL:`, err);
-  if (res.headersSent) {
-    return next(err);
-  }
+  console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Erro interno no servidor',
-    error: err.stack || null
+    message: err.message || 'Erro interno no servidor'
   });
 });
 
