@@ -22,7 +22,8 @@ const corsOptions = {
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:3001',
-    'https://receitasbackend.onrender.com' // Adicionar o próprio backend para evitar problemas
+    'https://receitasbackend.onrender.com', // Adicionar o próprio backend para evitar problemas
+    '*' // Permitir qualquer origem temporariamente para debug
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],

@@ -12,15 +12,15 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 
 const router = express.Router();
 
-// Validações para criação de lembrete
+// Validações para criação de lembrete (compatível com frontend)
 const createReminderValidation = [
-  body('prescriptionId')
+  body('medicationName')
     .notEmpty()
-    .withMessage('ID da prescrição é obrigatório')
-    .isMongoId()
-    .withMessage('ID da prescrição inválido'),
+    .withMessage('Nome do medicamento é obrigatório')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Nome do medicamento deve ter entre 2 e 100 caracteres'),
   
-  body('pillsPerDay')
+  body('dailyPills')
     .isFloat({ min: 0.5, max: 20 })
     .withMessage('Comprimidos por dia deve ser entre 0.5 e 20'),
   
@@ -28,7 +28,7 @@ const createReminderValidation = [
     .isInt({ min: 1, max: 1000 })
     .withMessage('Total de comprimidos deve ser entre 1 e 1000'),
   
-  body('reminderDaysBefore')
+  body('reminderDays')
     .optional()
     .isInt({ min: 1, max: 30 })
     .withMessage('Dias de antecedência deve ser entre 1 e 30'),
@@ -67,9 +67,9 @@ const updateReminderValidation = [
     .withMessage('Status ativo deve ser verdadeiro ou falso')
 ];
 
-// Validações para cálculo de datas
+// Validações para cálculo de datas (compatível com frontend)
 const calculateDatesValidation = [
-  body('pillsPerDay')
+  body('dailyPills')
     .isFloat({ min: 0.5, max: 20 })
     .withMessage('Comprimidos por dia deve ser entre 0.5 e 20'),
   
@@ -77,7 +77,7 @@ const calculateDatesValidation = [
     .isInt({ min: 1, max: 1000 })
     .withMessage('Total de comprimidos deve ser entre 1 e 1000'),
   
-  body('reminderDaysBefore')
+  body('reminderDays')
     .optional()
     .isInt({ min: 1, max: 30 })
     .withMessage('Dias de antecedência deve ser entre 1 e 30'),
@@ -101,4 +101,8 @@ router.post('/calculate', protect, authorize('patient'), calculateDatesValidatio
 router.post('/send-pending', protect, authorize('admin'), sendPendingReminders);
 
 module.exports = router;
+
+
+// Rota para admin obter todos os lembretes
+router.get('/all', protect, authorize('admin'), require('./reminder.controller').getAllReminders);
 

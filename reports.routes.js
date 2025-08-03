@@ -3,14 +3,27 @@ const { query } = require('express-validator');
 const {
   getOverviewStats,
   getVolumeReport,
-  getTopPatientsReport,
-  getTopMedicationsReport,
-  getFrequencyReport,
-  getRemindersReport
+  getTopPatients,
+  getTopMedications
 } = require('./reports.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
 const router = express.Router();
+
+// Middleware específico para CORS em relatórios
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  console.log(`📊 [REPORTS] ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin}`);
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Validações para relatórios
 const periodValidation = [
@@ -58,27 +71,14 @@ router.get('/volume',
 router.get('/top-patients', 
   adminOnly, 
   [...periodValidation, ...limitValidation], 
-  getTopPatientsReport
+  getTopPatients
 );
 
 // Medicamentos mais prescritos
 router.get('/top-medications', 
   adminOnly, 
   [...periodValidation, ...limitValidation], 
-  getTopMedicationsReport
-);
-
-// Frequência média de solicitações por paciente
-router.get('/frequency', 
-  adminOnly, 
-  periodValidation, 
-  getFrequencyReport
-);
-
-// Relatório de lembretes
-router.get('/reminders', 
-  adminOnly, 
-  getRemindersReport
+  getTopMedications
 );
 
 module.exports = router;

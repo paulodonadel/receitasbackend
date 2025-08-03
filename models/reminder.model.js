@@ -1,24 +1,24 @@
 const mongoose = require("mongoose");
 
 const ReminderSchema = new mongoose.Schema({
-  // Referência à prescrição
-  prescription: {
+  // Referência ao usuário/paciente
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Prescription",
-    required: [true, "A prescrição é obrigatória"],
+    ref: "User",
+    required: [true, "O usuário é obrigatório"],
     index: true
   },
   
-  // Referência ao paciente (para facilitar consultas)
-  patient: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: [true, "O paciente é obrigatório"],
-    index: true
+  // Informações do medicamento
+  medicationName: {
+    type: String,
+    required: [true, "Nome do medicamento é obrigatório"],
+    trim: true,
+    maxlength: [100, "Nome do medicamento não pode exceder 100 caracteres"]
   },
   
   // Informações para cálculo do lembrete
-  pillsPerDay: {
+  dailyPills: {
     type: Number,
     required: [true, "Quantidade de comprimidos por dia é obrigatória"],
     min: [0.5, "Mínimo de 0.5 comprimidos por dia"],
@@ -32,7 +32,7 @@ const ReminderSchema = new mongoose.Schema({
     max: [1000, "Máximo de 1000 comprimidos"]
   },
   
-  reminderDaysBefore: {
+  reminderDays: {
     type: Number,
     required: [true, "Dias de antecedência para lembrete é obrigatório"],
     min: [1, "Mínimo de 1 dia de antecedência"],
@@ -40,13 +40,7 @@ const ReminderSchema = new mongoose.Schema({
     default: 7 // Padrão: 7 dias antes
   },
   
-  // Datas calculadas
-  startDate: {
-    type: Date,
-    required: [true, "Data de início é obrigatória"],
-    default: Date.now
-  },
-  
+  // Datas calculadas automaticamente
   calculatedEndDate: {
     type: Date,
     required: [true, "Data calculada de término é obrigatória"]

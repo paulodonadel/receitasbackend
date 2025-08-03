@@ -476,7 +476,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     const prescriptionId = req.params.id;
 
     // MELHORIA: Incluir novo status de urgência e entregue
-    const validStatus = ["em_analise", "aprovada", "rejeitada", "pronta", "enviada", "entregue", "solicitada_urgencia"];
+    const validStatus = ["solicitada", "solicitada_urgencia", "em_analise", "aprovada", "rejeitada", "pronta", "enviada", "entregue"];
     if (!status || !validStatus.includes(status)) {
       return res.status(400).json({
         success: false,

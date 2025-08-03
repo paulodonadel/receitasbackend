@@ -3,50 +3,31 @@ const Prescription = require('./models/prescription.model');
 const User = require('./models/user.model');
 const emailService = require('./emailService');
 
-// @desc    Criar lembrete para uma prescrição
+// @desc    Criar lembrete para um medicamento
 // @route   POST /api/reminders
 // @access  Private (Patient)
 exports.createReminder = async (req, res) => {
   try {
     const { 
-      prescriptionId, 
-      pillsPerDay, 
+      medicationName,
+      dailyPills, 
       totalPills, 
-      reminderDaysBefore,
+      reminderDays,
       customReminderDate 
     } = req.body;
 
     console.log("=== DEBUG: Criando lembrete ===");
-    console.log("prescriptionId:", prescriptionId);
-    console.log("pillsPerDay:", pillsPerDay);
+    console.log("medicationName:", medicationName);
+    console.log("dailyPills:", dailyPills);
     console.log("totalPills:", totalPills);
-    console.log("reminderDaysBefore:", reminderDaysBefore);
+    console.log("reminderDays:", reminderDays);
 
     // Validações básicas
-    if (!prescriptionId || !pillsPerDay || !totalPills) {
+    if (!medicationName || !dailyPills || !totalPills) {
       return res.status(400).json({
         success: false,
-        message: "Prescrição, comprimidos por dia e total de comprimidos são obrigatórios",
+        message: "Nome do medicamento, comprimidos por dia e total de comprimidos são obrigatórios",
         errorCode: "MISSING_REQUIRED_FIELDS"
-      });
-    }
-
-    // Verificar se a prescrição existe e pertence ao usuário
-    const prescription = await Prescription.findById(prescriptionId);
-    if (!prescription) {
-      return res.status(404).json({
-        success: false,
-        message: "Prescrição não encontrada",
-        errorCode: "PRESCRIPTION_NOT_FOUND"
-      });
-    }
-
-    // Verificar se o usuário é o dono da prescrição
-    if (prescription.patient.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Você não tem permissão para criar lembretes para esta prescrição",
-        errorCode: "UNAUTHORIZED_PRESCRIPTION"
       });
     }
 
@@ -60,36 +41,21 @@ exports.createReminder = async (req, res) => {
       });
     }
 
-    // Verificar se já existe um lembrete ativo para esta prescrição
-    const existingReminder = await Reminder.findOne({
-      prescription: prescriptionId,
-      isActive: true
-    });
-
-    if (existingReminder) {
-      return res.status(400).json({
-        success: false,
-        message: "Já existe um lembrete ativo para esta prescrição",
-        errorCode: "REMINDER_ALREADY_EXISTS"
-      });
-    }
-
     // Criar dados do lembrete
     const reminderData = {
-      prescription: prescriptionId,
-      patient: req.user.id,
-      pillsPerDay: parseFloat(pillsPerDay),
+      userId: req.user.id,
+      medicationName: medicationName.trim(),
+      dailyPills: parseFloat(dailyPills),
       totalPills: parseInt(totalPills),
-      reminderDaysBefore: reminderDaysBefore ? parseInt(reminderDaysBefore) : 7,
+      reminderDays: reminderDays ? parseInt(reminderDays) : 7,
       patientEmail: patient.email,
-      medicationName: prescription.medicationName,
       patientName: patient.name,
-      createdBy: req.user.id
+      isActive: true
     };
 
     // Se foi fornecida uma data personalizada, usar ela
     if (customReminderDate) {
-      reminderData.reminderDate = new Date(customReminderDate);
+      reminderData.customReminderDate = new Date(customReminderDate);
     }
 
     console.log("=== DEBUG: Dados do lembrete ===");
@@ -117,17 +83,20 @@ exports.createReminder = async (req, res) => {
   }
 };
 
-// @desc    Listar lembretes do usuário
+/// @desc    Obter lembretes do usuário
 // @route   GET /api/reminders
 // @access  Private (Patient)
 exports.getMyReminders = async (req, res) => {
   try {
     const reminders = await Reminder.find({
-      patient: req.user.id,
+      userId: req.user.id,
       isActive: true
     })
-    .populate('prescription', 'medicationName dosage prescriptionType status')
     .sort({ reminderDate: 1 });
+
+    console.log("=== DEBUG: Lembretes encontrados ===");
+    console.log("Quantidade:", reminders.length);
+    console.log("Dados:", reminders);
 
     res.status(200).json({
       success: true,
@@ -261,9 +230,14 @@ exports.deleteReminder = async (req, res) => {
 // @access  Private (Patient)
 exports.calculateReminderDates = async (req, res) => {
   try {
-    const { pillsPerDay, totalPills, reminderDaysBefore = 7, startDate } = req.body;
+    const { dailyPills, totalPills, reminderDays = 7, startDate } = req.body;
 
-    if (!pillsPerDay || !totalPills) {
+    console.log("=== DEBUG: Calculando datas ===");
+    console.log("dailyPills:", dailyPills);
+    console.log("totalPills:", totalPills);
+    console.log("reminderDays:", reminderDays);
+
+    if (!dailyPills || !totalPills) {
       return res.status(400).json({
         success: false,
         message: "Comprimidos por dia e total de comprimidos são obrigatórios",
@@ -274,24 +248,37 @@ exports.calculateReminderDates = async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date();
     
     // Calcular data de término
-    const endDate = Reminder.calculateEndDate(start, parseInt(totalPills), parseFloat(pillsPerDay));
+    const daysOfTreatment = Math.ceil(parseInt(totalPills) / parseFloat(dailyPills));
+    const endDate = new Date(start);
+    endDate.setDate(endDate.getDate() + daysOfTreatment);
     
-    // Sugerir data de lembrete
-    const suggestedDate = Reminder.suggestReminderDate(endDate, parseInt(reminderDaysBefore));
+    // Sugerir data de lembrete (quinta-feira anterior)
+    const reminderDate = new Date(endDate);
+    reminderDate.setDate(reminderDate.getDate() - parseInt(reminderDays));
     
-    // Calcular dias de tratamento
-    const daysOfTreatment = Math.ceil(parseInt(totalPills) / parseFloat(pillsPerDay));
+    // Encontrar quinta-feira anterior
+    const dayOfWeek = reminderDate.getDay();
+    const daysToThursday = (dayOfWeek + 3) % 7; // 4 = quinta-feira
+    reminderDate.setDate(reminderDate.getDate() - daysToThursday);
+
+    const daysRemaining = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+
+    console.log("=== DEBUG: Datas calculadas ===");
+    console.log("endDate:", endDate);
+    console.log("reminderDate:", reminderDate);
+    console.log("daysRemaining:", daysRemaining);
 
     res.status(200).json({
       success: true,
       data: {
         startDate: start,
-        endDate: endDate,
-        suggestedReminderDate: suggestedDate,
+        endDate: endDate.toISOString(),
+        suggestedDate: reminderDate.toISOString(),
+        daysRemaining: daysRemaining,
         daysOfTreatment: daysOfTreatment,
-        pillsPerDay: parseFloat(pillsPerDay),
+        dailyPills: parseFloat(dailyPills),
         totalPills: parseInt(totalPills),
-        reminderDaysBefore: parseInt(reminderDaysBefore)
+        reminderDays: parseInt(reminderDays)
       }
     });
 
@@ -369,4 +356,52 @@ exports.sendPendingReminders = async (req, res) => {
 };
 
 module.exports = exports;
+
+
+
+// @desc    Obter todos os lembretes (para admin)
+// @route   GET /api/reminders/all
+// @access  Private (Admin)
+exports.getAllReminders = async (req, res) => {
+  try {
+    const reminders = await Reminder.find({})
+      .sort({ createdAt: -1 });
+
+    console.log("=== DEBUG: Todos os lembretes encontrados ===");
+    console.log("Quantidade:", reminders.length);
+
+    // Formatar dados para o frontend
+    const formattedReminders = reminders.map(reminder => ({
+      _id: reminder._id,
+      userId: reminder.userId,
+      patientName: reminder.patientName || 'Nome não disponível',
+      patientEmail: reminder.patientEmail || 'Email não disponível',
+      medicationName: reminder.medicationName,
+      totalPills: reminder.totalPills,
+      dailyPills: reminder.dailyPills,
+      reminderDays: reminder.reminderDays,
+      reminderDate: reminder.suggestedReminderDate || reminder.calculatedEndDate || reminder.reminderDate,
+      isActive: reminder.isActive,
+      emailSent: reminder.emailSent,
+      createdAt: reminder.createdAt,
+      updatedAt: reminder.updatedAt
+    }));
+
+    console.log("=== DEBUG: Lembretes formatados ===", formattedReminders);
+
+    res.status(200).json({
+      success: true,
+      count: formattedReminders.length,
+      data: formattedReminders
+    });
+
+  } catch (error) {
+    console.error("Erro ao buscar todos os lembretes:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro interno do servidor",
+      error: error.message
+    });
+  }
+};
 
