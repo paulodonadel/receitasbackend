@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const {
   createReminder,
   getMyReminders,
+  getAllReminders,
   updateReminder,
   deleteReminder,
   calculateReminderDates,
@@ -39,34 +40,6 @@ const createReminderValidation = [
     .withMessage('Data personalizada deve estar em formato válido')
 ];
 
-// Validações para atualização de lembrete
-const updateReminderValidation = [
-  body('pillsPerDay')
-    .optional()
-    .isFloat({ min: 0.5, max: 20 })
-    .withMessage('Comprimidos por dia deve ser entre 0.5 e 20'),
-  
-  body('totalPills')
-    .optional()
-    .isInt({ min: 1, max: 1000 })
-    .withMessage('Total de comprimidos deve ser entre 1 e 1000'),
-  
-  body('reminderDaysBefore')
-    .optional()
-    .isInt({ min: 1, max: 30 })
-    .withMessage('Dias de antecedência deve ser entre 1 e 30'),
-  
-  body('customReminderDate')
-    .optional()
-    .isISO8601()
-    .withMessage('Data personalizada deve estar em formato válido'),
-  
-  body('isActive')
-    .optional()
-    .isBoolean()
-    .withMessage('Status ativo deve ser verdadeiro ou falso')
-];
-
 // Validações para cálculo de datas (compatível com frontend)
 const calculateDatesValidation = [
   body('dailyPills')
@@ -88,21 +61,20 @@ const calculateDatesValidation = [
     .withMessage('Data de início deve estar em formato válido')
 ];
 
-// Rotas para pacientes
-router.post('/', protect, authorize('patient'), createReminderValidation, createReminder);
-router.get('/', protect, authorize('patient'), getMyReminders);
-router.put('/:id', protect, authorize('patient'), updateReminderValidation, updateReminder);
-router.delete('/:id', protect, authorize('patient'), deleteReminder);
+// Rota para calcular datas (preview) - deve vir antes das rotas com parâmetros
+router.post('/calculate', protect, calculateDatesValidation, calculateReminderDates);
 
-// Rota para calcular datas (preview)
-router.post('/calculate', protect, authorize('patient'), calculateDatesValidation, calculateReminderDates);
+// Rota para admin obter todos os lembretes
+router.get('/all', protect, authorize('admin'), getAllReminders);
 
 // Rota para enviar lembretes pendentes (apenas admin)
 router.post('/send-pending', protect, authorize('admin'), sendPendingReminders);
 
+// Rotas para pacientes e admin
+router.post('/', protect, createReminderValidation, createReminder);
+router.get('/', protect, getMyReminders);
+router.put('/:id', protect, updateReminder);
+router.delete('/:id', protect, deleteReminder);
+
 module.exports = router;
-
-
-// Rota para admin obter todos os lembretes
-router.get('/all', protect, authorize('admin'), require('./reminder.controller').getAllReminders);
 
