@@ -22,22 +22,11 @@ const authRateLimiter = createRateLimiter({
 
 /**
  * Middleware para proteger rotas verificando o token JWT
- * @param {boolean} strict - Se true, verifica também o IP do usuário
  */
-exports.protect = (strict = false) => {
-  return async (req, res, next) => {
-    // Verificação de rate limiting
-    if (strict) {
-      try {
-        await authRateLimiter(req, res, () => {});
-      } catch (rateLimitError) {
-        return res.status(429).json({
-          success: false,
-          message: rateLimitError.message
-        });
-      }
-    }
-
+exports.protect = async (req, res, next) => {
+  try {
+    console.log(`🔐 [AUTH] Verificando autenticação para ${req.method} ${req.originalUrl}`);
+    
     let token;
     const authHeader = req.headers.authorization;
 
@@ -49,10 +38,7 @@ exports.protect = (strict = false) => {
     }
 
     if (!token) {
-      logSecurityEvent('AUTH_FAILURE', {
-        ip: req.ip,
-        reason: 'Token não fornecido'
-      });
+      console.log(`🔐 [AUTH] Token não fornecido para ${req.originalUrl}`);
       return res.status(401).json({
         success: false,
         code: 'MISSING_TOKEN',
@@ -71,11 +57,7 @@ exports.protect = (strict = false) => {
 
     // 2. Verificação se o token foi revogado
     if (revokedTokens.has(token)) {
-      logSecurityEvent('AUTH_FAILURE', {
-        ip: req.ip,
-        userId: req.user?._id,
-        reason: 'Token revogado'
-      });
+      console.log(`🔐 [AUTH] Token revogado para ${req.originalUrl}`);
       return res.status(401).json({
         success: false,
         code: 'REVOKED_TOKEN',
@@ -83,76 +65,42 @@ exports.protect = (strict = false) => {
       });
     }
 
-    try {
-      // 3. Verificação e decodificação do token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-        algorithms: ['HS256'],
-        maxAge: SECURITY_CONFIG.jwtExpiration
-      });
+    // 3. Verificação e decodificação do token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ['HS256']
+    });
 
-      // 4. Busca do usuário
-      const user = await User.findById(decoded.id)
-        .select("-password -resetToken -resetTokenExpire");
+    // 4. Busca do usuário
+    const user = await User.findById(decoded.id)
+      .select("-password -resetToken -resetTokenExpire");
 
-      if (!user) {
-        logSecurityEvent('AUTH_FAILURE', {
-          ip: req.ip,
-          tokenId: decoded.jti,
-          reason: 'Usuário não encontrado'
-        });
-        return res.status(401).json({
-          success: false,
-          code: 'USER_NOT_FOUND',
-          message: "Usuário associado ao token não existe."
-        });
-      }
-
-      // 5. Verificação de segurança adicional (opcional)
-      // DESATIVADO: A verificação de IP foi desativada para evitar bloqueios em ambientes cloud
-      // onde o IP pode mudar frequentemente (como no Render)
-      /*
-      if (strict && req.ip !== user.lastKnownIp) {
-        logSecurityEvent('AUTH_WARNING', {
-          ip: req.ip,
-          userId: user._id,
-          lastKnownIp: user.lastKnownIp,
-          reason: 'Mudança de IP detectada'
-        });
-      }
-      */
-      
-      // Atualiza o IP do usuário sem verificação
-      if (user.lastKnownIp !== req.ip) {
-        // Apenas registra a mudança sem bloquear
-        console.log(`IP atualizado para usuário ${user._id}: ${user.lastKnownIp} -> ${req.ip}`);
-        
-        // Atualiza o IP no banco de dados de forma assíncrona (não bloqueia a requisição)
-        User.updateOne({ _id: user._id }, { lastKnownIp: req.ip })
-          .catch(err => console.error('Erro ao atualizar IP do usuário:', err));
-      }
-
-      // 6. Anexa o usuário à requisição
-      req.user = user;
-      req.token = token;
-
-      next();
-    } catch (error) {
-      const errorType = getJwtErrorType(error);
-      logSecurityEvent('AUTH_FAILURE', {
-        ip: req.ip,
-        error: errorType,
-        reason: error.message
-      });
-
-      const response = {
+    if (!user) {
+      console.log(`🔐 [AUTH] Usuário não encontrado para token em ${req.originalUrl}`);
+      return res.status(401).json({
         success: false,
-        code: errorType,
-        message: getFriendlyErrorMessage(errorType)
-      };
-
-      return res.status(401).json(response);
+        code: 'USER_NOT_FOUND',
+        message: "Usuário associado ao token não existe."
+      });
     }
-  };
+
+    // 5. Anexa o usuário à requisição
+    req.user = user;
+    req.token = token;
+
+    console.log(`🔐 [AUTH] Autenticação bem-sucedida para usuário ${user._id} em ${req.originalUrl}`);
+    next();
+  } catch (error) {
+    console.error(`🔐 [AUTH] Erro de autenticação em ${req.originalUrl}:`, error.message);
+    
+    const errorType = getJwtErrorType(error);
+    const response = {
+      success: false,
+      code: errorType,
+      message: getFriendlyErrorMessage(errorType)
+    };
+
+    return res.status(401).json(response);
+  }
 };
 
 /**

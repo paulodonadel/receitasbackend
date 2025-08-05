@@ -10,28 +10,29 @@ const app = express();
 // ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
 app.set('trust proxy', 1);
 
-// CORS CORRETO PARA O FRONTEND NO RENDER E DOMÍNIO PERSONALIZADO
+// CORS MÁXIMO PERMISSIVO PARA RESOLVER PROBLEMAS DE ACESSO
 const corsOptions = {
-  origin: [
-    'https://sistema-receitas-frontend.onrender.com',
-    'https://www.sistema-receitas-frontend.onrender.com',
-    'https://paulodonadel.com.br',
-    'https://www.paulodonadel.com.br',
-    'https://receitas.paulodonadel.com.br',
-    'https://www.receitas.paulodonadel.com.br',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:3001',
-    'https://receitasbackend.onrender.com', // Adicionar o próprio backend para evitar problemas
-    '*' // Permitir qualquer origem temporariamente para debug
-  ],
+  origin: function (origin, callback) {
+    // Permitir qualquer origem durante debug
+    console.log(`🌐 [CORS] Origin: ${origin}`);
+    callback(null, true);
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
   allowedHeaders: [
-    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'Cache-Control',
+    'Pragma'
   ],
-  exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200 // Para compatibilidade com browsers antigos
+  exposedHeaders: ['Authorization', 'Content-Length', 'X-Foo', 'X-Bar'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 // Aplicar CORS como primeiro middleware
@@ -265,6 +266,44 @@ app.get('/debug/uploads', (req, res) => {
   }
 });
 
+// Middleware específico para debug de rotas problemáticas
+app.use('/api/reminders', (req, res, next) => {
+  console.log(`🔔 [REMINDERS-DEBUG] ${req.method} ${req.originalUrl}`);
+  console.log(`🔔 [REMINDERS-DEBUG] Origin: ${req.headers.origin}`);
+  console.log(`🔔 [REMINDERS-DEBUG] Headers:`, Object.keys(req.headers));
+  
+  // Headers CORS específicos para lembretes
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  
+  if (req.method === 'OPTIONS') {
+    console.log(`🔔 [REMINDERS-DEBUG] Respondendo OPTIONS`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+app.use('/api/reports', (req, res, next) => {
+  console.log(`📊 [REPORTS-DEBUG] ${req.method} ${req.originalUrl}`);
+  console.log(`📊 [REPORTS-DEBUG] Origin: ${req.headers.origin}`);
+  
+  // Headers CORS específicos para relatórios
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  
+  if (req.method === 'OPTIONS') {
+    console.log(`📊 [REPORTS-DEBUG] Respondendo OPTIONS`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 // Rotas
 const authRoutes = require('./auth.routes');
 const prescriptionRoutes = require('./prescription.routes');
@@ -282,6 +321,61 @@ app.use('/api/email', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
 app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
+
+// Endpoint de teste para verificar se o backend está funcionando
+app.get('/api/test', (req, res) => {
+  console.log('🧪 [TEST] Endpoint de teste acessado');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  res.json({
+    status: 'success',
+    message: 'Backend funcionando corretamente',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Endpoint específico para testar lembretes sem autenticação
+app.get('/api/test-reminders', (req, res) => {
+  console.log('🔔 [TEST-REMINDERS] Endpoint de teste de lembretes acessado');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  res.json({
+    status: 'success',
+    message: 'Rota de lembretes funcionando',
+    timestamp: new Date().toISOString(),
+    testData: {
+      medicationName: 'Teste',
+      dailyPills: 1,
+      totalPills: 30,
+      reminderDays: 7
+    }
+  });
+});
+
+// Endpoint específico para testar relatórios sem autenticação
+app.get('/api/test-reports', (req, res) => {
+  console.log('📊 [TEST-REPORTS] Endpoint de teste de relatórios acessado');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  res.json({
+    status: 'success',
+    message: 'Rota de relatórios funcionando',
+    timestamp: new Date().toISOString(),
+    testData: {
+      totalPrescriptions: 150,
+      totalPatients: 75,
+      pendingPrescriptions: 25
+    }
+  });
+});
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
