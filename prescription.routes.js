@@ -114,7 +114,7 @@ router.use(apiLimiter);
  */
 // Criar nova solicitação de receita
 router.post('/',
-  protect(false), // Removido strict mode para evitar bloqueios
+  protect, // Removido strict mode para evitar bloqueios
   authorize('patient'),
   sensitiveLimiter,
   validatePrescriptionInput,
