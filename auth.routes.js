@@ -57,17 +57,17 @@ router.post('/register', validateRegisterInput, register);
 router.post('/login', validateLoginInput, login);
 
 // Rotas protegidas
-router.get('/me', protect(), getMe);
-router.post('/logout', protect(), logout);
-router.put('/updatedetails', protect(), updateDetails);
-router.patch('/profile', protect(), upload.single('profileImage'), updateProfileWithImage); // Nova rota para atualização de perfil com imagem
-router.put('/updatepassword', protect(), updatePassword);
+router.get('/me', protect, getMe);
+router.post('/logout', protect, logout);
+router.put('/updatedetails', protect, updateDetails);
+router.patch('/profile', protect, upload.single('profileImage'), updateProfileWithImage); // Nova rota para atualização de perfil com imagem
+router.put('/updatepassword', protect, updatePassword);
 
 // Rotas de recuperação de senha
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
 // Rotas administrativas
-router.post('/admin/create', protect(), authorize('admin'), createAdminUser);
+router.post('/admin/create', protect, authorize('admin'), createAdminUser);
 
 module.exports = router;

@@ -40,17 +40,17 @@ const uploadLimiter = rateLimit({
 // @desc    Obter perfil do usuário logado
 // @route   GET /api/users/profile
 // @access  Private
-router.get('/profile', protect(), getProfile);
+router.get('/profile', protect, getProfile);
 
 // @desc    Atualizar perfil do usuário
 // @route   PUT /api/users/profile
 // @access  Private
-router.put('/profile', protect(), updateProfile);
+router.put('/profile', protect, updateProfile);
 
 // @desc    Obter estatísticas do usuário
 // @route   GET /api/users/stats
 // @access  Private
-router.get('/stats', protect(), getUserStats);
+router.get('/stats', protect, getUserStats);
 
 // ROTAS PARA GERENCIAMENTO DE SENHA
 
@@ -58,7 +58,7 @@ router.get('/stats', protect(), getUserStats);
 // @route   PUT /api/users/change-password
 // @access  Private
 router.put('/change-password', 
-  protect(), 
+  protect, 
   sensitiveOperationsLimiter, 
   changePassword
 );
@@ -69,7 +69,7 @@ router.put('/change-password',
 // @route   POST /api/users/upload-photo
 // @access  Private
 router.post('/upload-photo', 
-  protect(), 
+  protect, 
   uploadLimiter, 
   uploadProfilePhoto
 );
@@ -82,7 +82,7 @@ router.get('/photo/:filename', getProfilePhoto);
 // @desc    Remover foto do perfil
 // @route   DELETE /api/users/photo
 // @access  Private
-router.delete('/photo', protect(), removeProfilePhoto);
+router.delete('/photo', protect, removeProfilePhoto);
 
 // ROTAS PARA GERENCIAMENTO DE PACIENTES (ADMIN/SECRETARY)
 
@@ -90,7 +90,7 @@ router.delete('/photo', protect(), removeProfilePhoto);
 // @route   GET /api/users/patients
 // @access  Private/Admin-Secretary
 router.get('/patients', 
-  protect(), 
+  protect, 
   authorize('admin', 'secretary'), 
   getAllPatients
 );
@@ -99,7 +99,7 @@ router.get('/patients',
 // @route   POST /api/users/patients
 // @access  Private/Admin-Secretary
 router.post('/patients', 
-  protect(), 
+  protect, 
   authorize('admin', 'secretary'), 
   sensitiveOperationsLimiter,
   createPatient
@@ -109,7 +109,7 @@ router.post('/patients',
 // @route   GET /api/users/patients/:id
 // @access  Private/Admin-Secretary
 router.get('/patients/:id', 
-  protect(), 
+  protect, 
   authorize('admin', 'secretary'), 
   async (req, res) => {
     try {
@@ -156,7 +156,7 @@ router.get('/patients/:id',
 // @route   PUT /api/users/patients/:id
 // @access  Private/Admin-Secretary
 router.put('/patients/:id', 
-  protect(), 
+  protect, 
   authorize('admin', 'secretary'), 
   async (req, res) => {
     try {
@@ -267,7 +267,7 @@ router.put('/patients/:id',
 // @route   PATCH /api/users/patients/:id/status
 // @access  Private/Admin
 router.patch('/patients/:id/status', 
-  protect(), 
+  protect, 
   authorize('admin'), 
   async (req, res) => {
     try {

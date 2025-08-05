@@ -123,7 +123,7 @@ router.post('/',
 
 // Listar prescrições do próprio paciente
 router.get('/me',
-  protect(),
+  protect,
   authorize('patient'),
   getMyPrescriptions
 );
@@ -133,7 +133,7 @@ router.get('/me',
  */
 // Listar TODAS as prescrições (esta é a rota usada pelo dashboard admin)
 router.get('/',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   (req, res, next) => { 
     console.log(">>> GET /api/receitas FOI CHAMADO - User:", req.user?.email, "- Role:", req.user?.role); 
@@ -147,7 +147,7 @@ router.get('/',
  */
 // Buscar uma receita específica
 router.get('/:id',
-  protect(),
+  protect,
   authorize('patient', 'admin', 'secretary'),
   validateId,
   getPrescription
@@ -155,7 +155,7 @@ router.get('/:id',
 
 // Atualizar status da receita (admin/secretária)
 router.patch('/:id/status',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validateId,
@@ -164,7 +164,7 @@ router.patch('/:id/status',
 
 // Histórico de eventos da prescrição
 router.get('/:id/log',
-  protect(),
+  protect,
   authorize('patient', 'admin', 'secretary'),
   validateId,
   getPrescriptionLog
@@ -175,7 +175,7 @@ router.get('/:id/log',
  */
 // Criar receita manualmente (admin/secretária)
 router.post('/admin',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validatePrescriptionInput,
@@ -189,7 +189,7 @@ router.post('/admin',
 
 // Atualizar receita manualmente (admin/secretária)
 router.put('/admin/:id',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validateId,
@@ -199,7 +199,7 @@ router.put('/admin/:id',
 
 // Deletar receita (apenas admin)
 router.delete('/admin/:id',
-  protect(),
+  protect,
   authorize('admin'),
   sensitiveLimiter,
   validateId,
@@ -208,7 +208,7 @@ router.delete('/admin/:id',
 
 // NOVA FUNCIONALIDADE: Repetir prescrição
 router.post('/:id/repeat',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   sensitiveLimiter,
   validateId,
@@ -224,14 +224,14 @@ router.post('/:id/repeat',
  */
 // Exportar prescrições (admin/secretária)
 router.get('/export',
-  protect(),
+  protect,
   authorize('admin', 'secretary'),
   exportPrescriptions
 );
 
 // Estatísticas (apenas admin)
 router.get('/stats',
-  protect(),
+  protect,
   authorize('admin'),
   getPrescriptionStats
 );

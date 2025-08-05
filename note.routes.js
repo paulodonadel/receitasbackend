@@ -12,7 +12,7 @@ const {
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Aplicar middleware de autenticação e autorização para todas as rotas
-router.use(protect());
+router.use(protect);
 router.use(authorize('admin', 'secretary'));
 
 // Rotas CRUD para notas

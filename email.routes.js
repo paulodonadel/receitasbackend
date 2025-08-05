@@ -5,7 +5,7 @@ const Prescription = require('./models/prescription.model');
 const { protect, authorize } = require('./middlewares/auth.middleware.js');
 
 // Envia e-mail de status de prescrição manualmente
-router.post('/prescription-status', protect(), authorize('admin', 'secretary'), async (req, res) => {
+router.post('/prescription-status', protect, authorize('admin', 'secretary'), async (req, res) => {
   try {
     const { prescriptionId, status, rejectionReason } = req.body;
     const prescription = await Prescription.findById(prescriptionId).populate('patient', 'name email');

@@ -4,7 +4,7 @@ const patientController = require('../patient.controller');
 const { protect } = require('../middlewares/auth.middleware');
 
 // Aplicar middleware de autenticação a todas as rotas
-router.use(protect());
+router.use(protect);
 
 // @desc    Buscar pacientes por CPF ou nome
 // @route   GET /api/patients/search?cpf=12345678901 ou GET /api/patients/search?name=João
