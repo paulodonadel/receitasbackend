@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lembrete de Medicamento</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .title {
+            color: #2c5aa0;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .medication-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2c5aa0;
+        }
+        .info-row {
+            margin: 10px 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .alert {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ffeaa7;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+        .date {
+            color: #2c5aa0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🔔 Lembrete de Medicamento</h1>
+            <p>Sistema de Prescrições Médicas</p>
+        </div>
+
+        <p>Olá <strong>{{patientName}}</strong>,</p>
+
+        <p>Este é um lembrete automático sobre seu medicamento que está próximo do fim:</p>
+
+        <div class="medication-info">
+            <h3>📋 Informações do Medicamento</h3>
+            <div class="info-row">
+                <span class="label">Medicamento:</span> {{medicationName}}
+            </div>
+            <div class="info-row">
+                <span class="label">Comprimidos por dia:</span> {{dailyPills}}
+            </div>
+            <div class="info-row">
+                <span class="label">Total de comprimidos:</span> {{totalPills}}
+            </div>
+            <div class="info-row">
+                <span class="label">Previsão de término:</span> 
+                <span class="date">{{formatDate endDate}}</span>
+            </div>
+        </div>
+
+        <div class="alert">
+            <strong>⚠️ Ação Necessária:</strong><br>
+            Seu medicamento <strong>{{medicationName}}</strong> está próximo do fim. 
+            Recomendamos que agende uma consulta para renovar sua prescrição antes da data de término.
+        </div>
+
+        <p><strong>Dicas importantes:</strong></p>
+        <ul>
+            <li>Não interrompa o tratamento sem orientação médica</li>
+            <li>Agende sua consulta com antecedência</li>
+            <li>Mantenha sempre uma reserva de medicamentos</li>
+            <li>Em caso de dúvidas, entre em contato com seu médico</li>
+        </ul>
+
+        <div class="footer">
+            <p>Este é um e-mail automático. Não responda a esta mensagem.</p>
+            <p>Sistema de Prescrições Médicas - {{formatDate now}}</p>
+        </div>
+    </div>
+</body>
+</html>

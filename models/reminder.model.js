@@ -40,6 +40,12 @@ const ReminderSchema = new mongoose.Schema({
     default: 7 // Padrão: 7 dias antes
   },
   
+  // Data de início do tratamento
+  startDate: {
+    type: Date,
+    default: Date.now
+  },
+  
   // Datas calculadas automaticamente
   calculatedEndDate: {
     type: Date,
@@ -82,12 +88,6 @@ const ReminderSchema = new mongoose.Schema({
       },
       message: "E-mail inválido"
     }
-  },
-  
-  medicationName: {
-    type: String,
-    required: [true, "Nome do medicamento é obrigatório"],
-    trim: true
   },
   
   patientName: {
@@ -137,8 +137,8 @@ ReminderSchema.virtual('shouldSendReminder').get(function() {
 });
 
 // Método estático para calcular data de término
-ReminderSchema.statics.calculateEndDate = function(startDate, totalPills, pillsPerDay) {
-  const daysOfTreatment = Math.ceil(totalPills / pillsPerDay);
+ReminderSchema.statics.calculateEndDate = function(startDate, totalPills, dailyPills) {
+  const daysOfTreatment = Math.ceil(totalPills / dailyPills);
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + daysOfTreatment);
   return endDate;
@@ -167,18 +167,23 @@ ReminderSchema.statics.suggestReminderDate = function(endDate, daysBefore = 7) {
 
 // Middleware para calcular datas antes de salvar
 ReminderSchema.pre('save', function(next) {
-  if (this.isNew || this.isModified('totalPills') || this.isModified('pillsPerDay') || this.isModified('startDate')) {
+  if (this.isNew || this.isModified('totalPills') || this.isModified('dailyPills') || this.isModified('startDate')) {
+    // Se startDate não foi definido, usar data atual
+    if (!this.startDate) {
+      this.startDate = new Date();
+    }
+    
     // Calcular data de término
     this.calculatedEndDate = this.constructor.calculateEndDate(
       this.startDate, 
       this.totalPills, 
-      this.pillsPerDay
+      this.dailyPills
     );
     
     // Sugerir data de lembrete
     this.suggestedReminderDate = this.constructor.suggestReminderDate(
       this.calculatedEndDate, 
-      this.reminderDaysBefore
+      this.reminderDays
     );
     
     // Se não foi definida uma data de lembrete personalizada, usar a sugerida
