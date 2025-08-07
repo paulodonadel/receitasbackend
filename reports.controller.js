@@ -111,14 +111,23 @@ exports.getTopPatients = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top patients");
 
-    // Consulta real ao banco de dados
+    // Consulta real ao banco de dados com métricas adicionais
     const topPatients = await Prescription.aggregate([
       {
         $group: {
           _id: "$patient",
           prescriptionCount: { $sum: 1 },
           lastPrescription: { $max: "$createdAt" },
-          patientName: { $first: "$patientName" }
+          patientName: { $first: "$patientName" },
+          uniqueMedications: { $addToSet: "$medicationName" },
+          latestStatus: { $last: "$status" },
+          prescriptions: { 
+            $push: {
+              status: "$status",
+              createdAt: "$createdAt",
+              medicationName: "$medicationName"
+            }
+          }
         }
       },
       {
@@ -127,6 +136,22 @@ exports.getTopPatients = async (req, res) => {
           localField: "_id",
           foreignField: "_id",
           as: "patientInfo"
+        }
+      },
+      {
+        $addFields: {
+          // Encontrar o status da prescrição mais recente
+          mostRecentPrescription: {
+            $arrayElemAt: [
+              {
+                $sortArray: {
+                  input: "$prescriptions",
+                  sortBy: { createdAt: -1 }
+                }
+              },
+              0
+            ]
+          }
         }
       },
       {
@@ -139,7 +164,9 @@ exports.getTopPatients = async (req, res) => {
             }
           },
           prescriptionCount: 1,
-          lastPrescription: 1
+          lastPrescription: 1,
+          uniqueMedications: { $size: "$uniqueMedications" },
+          currentStatus: "$mostRecentPrescription.status"
         }
       },
       {
@@ -173,13 +200,24 @@ exports.getTopMedications = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top medications");
 
-    // Consulta real ao banco de dados
+    // Consulta real ao banco de dados com métricas adicionais
     const topMedications = await Prescription.aggregate([
       {
         $group: {
           _id: "$medicationName",
           prescriptionCount: { $sum: 1 },
-          lastPrescribed: { $max: "$createdAt" }
+          lastPrescribed: { $max: "$createdAt" },
+          uniquePatients: { $addToSet: "$patient" },
+          dosages: { $push: "$dosage" },
+          totalBoxes: { 
+            $sum: { 
+              $convert: { 
+                input: "$numberOfBoxes", 
+                to: "double", 
+                onError: 1 
+              } 
+            } 
+          }
         }
       },
       {
@@ -187,6 +225,15 @@ exports.getTopMedications = async (req, res) => {
           name: "$_id",
           prescriptionCount: 1,
           lastPrescribed: 1,
+          uniquePatients: { $size: "$uniquePatients" },
+          avgBoxes: { 
+            $round: [
+              { $divide: ["$totalBoxes", "$prescriptionCount"] }, 
+              1
+            ] 
+          },
+          // Para dosagem mais comum, vamos pegar a primeira por simplicidade
+          commonDosage: { $arrayElemAt: ["$dosages", 0] },
           _id: 0
         }
       },
