@@ -9,33 +9,85 @@ exports.getOverviewStats = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando overview stats");
 
-    // Resposta rápida com dados simulados para evitar timeout
+    // Consultas reais ao banco de dados
+    const totalPrescriptions = await Prescription.countDocuments();
+    const totalPatients = await User.countDocuments({ role: 'patient' });
+    const totalReminders = await Reminder.countDocuments();
+    
+    // Prescrições dos últimos 7 dias
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const recentPrescriptions = await Prescription.countDocuments({
+      createdAt: { $gte: lastWeek }
+    });
+
+    // Distribuição por status
+    const statusDistribution = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Distribuição por tipo de receituário
+    const typeDistribution = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$prescriptionType",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Distribuição por método de entrega
+    const deliveryDistribution = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$deliveryMethod",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Calcular tempo médio de processamento (em dias)
+    const processedPrescriptions = await Prescription.find({
+      status: { $in: ['pronta', 'enviada', 'entregue'] },
+      approvedAt: { $exists: true }
+    }).select('createdAt approvedAt');
+
+    let avgProcessingDays = 0;
+    if (processedPrescriptions.length > 0) {
+      const totalDays = processedPrescriptions.reduce((sum, prescription) => {
+        const diffTime = prescription.approvedAt - prescription.createdAt;
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        return sum + diffDays;
+      }, 0);
+      avgProcessingDays = Math.round((totalDays / processedPrescriptions.length) * 10) / 10;
+    }
+
+    // Formatar dados para resposta
+    const formatDistribution = (data) => {
+      return data.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {});
+    };
+
     const response = {
       success: true,
       data: {
         overview: {
-          totalPrescriptions: 150,
-          totalPatients: 75,
-          totalReminders: 25,
-          recentPrescriptions: 12,
-          avgProcessingDays: 2.5
+          totalPrescriptions,
+          totalPatients,
+          totalReminders,
+          recentPrescriptions,
+          avgProcessingDays
         },
-        statusDistribution: {
-          pendente: 45,
-          aprovada: 30,
-          pronta: 30,
-          enviada: 30,
-          entregue: 15
-        },
-        typeDistribution: {
-          branco: 90,
-          azul: 45,
-          amarelo: 15
-        },
-        deliveryDistribution: {
-          email: 90,
-          clinic: 60
-        }
+        statusDistribution: formatDistribution(statusDistribution),
+        typeDistribution: formatDistribution(typeDistribution),
+        deliveryDistribution: formatDistribution(deliveryDistribution)
       }
     };
 
@@ -59,14 +111,44 @@ exports.getTopPatients = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top patients");
 
-    // Dados simulados para evitar timeout
-    const topPatients = [
-      { name: "João Silva", prescriptionCount: 8, lastPrescription: new Date() },
-      { name: "Maria Santos", prescriptionCount: 6, lastPrescription: new Date() },
-      { name: "Pedro Costa", prescriptionCount: 5, lastPrescription: new Date() },
-      { name: "Ana Oliveira", prescriptionCount: 4, lastPrescription: new Date() },
-      { name: "Carlos Lima", prescriptionCount: 3, lastPrescription: new Date() }
-    ];
+    // Consulta real ao banco de dados
+    const topPatients = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$patient",
+          prescriptionCount: { $sum: 1 },
+          lastPrescription: { $max: "$createdAt" },
+          patientName: { $first: "$patientName" }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "patientInfo"
+        }
+      },
+      {
+        $project: {
+          name: {
+            $cond: {
+              if: { $ne: ["$patientName", null] },
+              then: "$patientName",
+              else: { $arrayElemAt: ["$patientInfo.name", 0] }
+            }
+          },
+          prescriptionCount: 1,
+          lastPrescription: 1
+        }
+      },
+      {
+        $sort: { prescriptionCount: -1 }
+      },
+      {
+        $limit: 10
+      }
+    ]);
 
     console.log("📊 [REPORTS] Top patients gerado com sucesso");
     res.status(200).json({
@@ -91,14 +173,30 @@ exports.getTopMedications = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top medications");
 
-    // Dados simulados para evitar timeout
-    const topMedications = [
-      { name: "Fluoxetina", prescriptionCount: 25, lastPrescribed: new Date() },
-      { name: "Sertralina", prescriptionCount: 20, lastPrescribed: new Date() },
-      { name: "Escitalopram", prescriptionCount: 18, lastPrescribed: new Date() },
-      { name: "Paroxetina", prescriptionCount: 15, lastPrescribed: new Date() },
-      { name: "Venlafaxina", prescriptionCount: 12, lastPrescribed: new Date() }
-    ];
+    // Consulta real ao banco de dados
+    const topMedications = await Prescription.aggregate([
+      {
+        $group: {
+          _id: "$medicationName",
+          prescriptionCount: { $sum: 1 },
+          lastPrescribed: { $max: "$createdAt" }
+        }
+      },
+      {
+        $project: {
+          name: "$_id",
+          prescriptionCount: 1,
+          lastPrescribed: 1,
+          _id: 0
+        }
+      },
+      {
+        $sort: { prescriptionCount: -1 }
+      },
+      {
+        $limit: 10
+      }
+    ]);
 
     console.log("📊 [REPORTS] Top medications gerado com sucesso");
     res.status(200).json({
@@ -123,25 +221,59 @@ exports.getVolumeReport = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando volume report");
 
-    // Dados simulados para garantir que funcione
-    const volumeData = [];
+    // Consulta real ao banco de dados para os últimos 30 dias
     const today = new Date();
-    
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const volumeData = await Prescription.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: thirtyDaysAgo, $lte: today }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt"
+            }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          date: "$_id",
+          count: 1,
+          _id: "$_id"
+        }
+      },
+      {
+        $sort: { date: 1 }
+      }
+    ]);
+
+    // Garantir que todos os dias dos últimos 30 dias estejam presentes (mesmo com count 0)
+    const completeVolumeData = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
       
-      volumeData.push({
-        date: date.toISOString().split('T')[0],
-        count: Math.floor(Math.random() * 10) + 1,
-        _id: date.toISOString().split('T')[0]
+      const existingData = volumeData.find(item => item.date === dateStr);
+      completeVolumeData.push({
+        date: dateStr,
+        count: existingData ? existingData.count : 0,
+        _id: dateStr
       });
     }
 
     console.log("📊 [REPORTS] Volume report gerado com sucesso");
     res.status(200).json({
       success: true,
-      data: volumeData
+      data: completeVolumeData
     });
 
   } catch (error) {
