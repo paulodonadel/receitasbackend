@@ -36,7 +36,8 @@ const {
   exportPrescriptions,
   getPrescriptionStats,
   getPrescriptionLog,
-  repeatPrescription
+  repeatPrescription,
+  getPatientPrescriptions
 } = require('./prescription.controller.js'); // Adicionando a extensão .js explicitamente
 const { protect, authorize } = require('./middlewares/auth.middleware.js'); // Adicionando a extensão .js explicitamente
 const rateLimit = require('express-rate-limit');
@@ -140,6 +141,14 @@ router.get('/',
     next(); 
   },
   getAllPrescriptions
+);
+
+// Histórico de prescrições de um paciente específico
+router.get('/patient/:patientId',
+  protect,
+  authorize('admin', 'secretary'),
+  validateId,
+  getPatientPrescriptions
 );
 
 /**

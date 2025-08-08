@@ -8,21 +8,49 @@ const Reminder = require('./models/reminder.model');
 exports.getOverviewStats = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando overview stats");
+    
+    // Extrair filtros de data do query
+    const { startDate, endDate } = req.query;
+    console.log("📊 [REPORTS] Filtros recebidos:", { startDate, endDate });
 
-    // Consultas reais ao banco de dados
-    const totalPrescriptions = await Prescription.countDocuments();
+    // Construir filtro de data
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+        console.log("📊 [REPORTS] Data início:", new Date(startDate));
+      }
+      if (endDate) {
+        // Adicionar 23:59:59 ao endDate para incluir todo o dia
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateTime;
+        console.log("📊 [REPORTS] Data fim:", endDateTime);
+      }
+    }
+
+    // Consultas reais ao banco de dados com filtro de data
+    const totalPrescriptions = await Prescription.countDocuments(dateFilter);
     const totalPatients = await User.countDocuments({ role: 'patient' });
     const totalReminders = await Reminder.countDocuments();
     
-    // Prescrições dos últimos 7 dias
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    const recentPrescriptions = await Prescription.countDocuments({
-      createdAt: { $gte: lastWeek }
-    });
+    // Prescrições dos últimos 7 dias (somente se não há filtro personalizado)
+    let recentPrescriptions = 0;
+    if (!startDate && !endDate) {
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      recentPrescriptions = await Prescription.countDocuments({
+        createdAt: { $gte: lastWeek }
+      });
+    } else {
+      // Se há filtro de data, mostrar total do período
+      recentPrescriptions = totalPrescriptions;
+    }
 
-    // Distribuição por status
+    // Distribuição por status com filtro de data
     const statusDistribution = await Prescription.aggregate([
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       {
         $group: {
           _id: "$status",
@@ -31,8 +59,9 @@ exports.getOverviewStats = async (req, res) => {
       }
     ]);
 
-    // Distribuição por tipo de receituário
+    // Distribuição por tipo de receituário com filtro de data
     const typeDistribution = await Prescription.aggregate([
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       {
         $group: {
           _id: "$prescriptionType",
@@ -41,8 +70,9 @@ exports.getOverviewStats = async (req, res) => {
       }
     ]);
 
-    // Distribuição por método de entrega
+    // Distribuição por método de entrega com filtro de data
     const deliveryDistribution = await Prescription.aggregate([
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       {
         $group: {
           _id: "$deliveryMethod",
@@ -51,11 +81,13 @@ exports.getOverviewStats = async (req, res) => {
       }
     ]);
 
-    // Calcular tempo médio de processamento (em dias)
-    const processedPrescriptions = await Prescription.find({
+    // Calcular tempo médio de processamento (em dias) com filtro de data
+    const processedPrescriptionsQuery = {
       status: { $in: ['pronta', 'enviada', 'entregue'] },
-      approvedAt: { $exists: true }
-    }).select('createdAt approvedAt');
+      approvedAt: { $exists: true },
+      ...dateFilter
+    };
+    const processedPrescriptions = await Prescription.find(processedPrescriptionsQuery).select('createdAt approvedAt');
 
     let avgProcessingDays = 0;
     if (processedPrescriptions.length > 0) {
@@ -110,9 +142,28 @@ exports.getOverviewStats = async (req, res) => {
 exports.getTopPatients = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top patients");
+    
+    // Extrair filtros de data do query
+    const { startDate, endDate } = req.query;
+    console.log("📊 [REPORTS] Filtros recebidos:", { startDate, endDate });
 
-    // Consulta real ao banco de dados com métricas adicionais
+    // Construir filtro de data
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Consulta real ao banco de dados com métricas adicionais e filtro de data
     const topPatients = await Prescription.aggregate([
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       {
         $group: {
           _id: "$patient",
@@ -199,9 +250,28 @@ exports.getTopPatients = async (req, res) => {
 exports.getTopMedications = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando top medications");
+    
+    // Extrair filtros de data do query
+    const { startDate, endDate } = req.query;
+    console.log("📊 [REPORTS] Filtros recebidos:", { startDate, endDate });
 
-    // Consulta real ao banco de dados com métricas adicionais
+    // Construir filtro de data
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Consulta real ao banco de dados com métricas adicionais e filtro de data
     const topMedications = await Prescription.aggregate([
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       {
         $group: {
           _id: "$medicationName",

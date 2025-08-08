@@ -1108,6 +1108,170 @@ exports.getPrescriptionLog = async (req, res) => {
   }
 };
 
+// @desc    Obter prescrições de um paciente específico
+// @route   GET /api/prescriptions/patient/:patientId
+// @access  Private (Admin, Secretary)
+exports.getPatientPrescriptions = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { 
+      page = 1, 
+      limit = 20, 
+      status, 
+      startDate, 
+      endDate,
+      medicationName 
+    } = req.query;
+
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Buscando prescrições para paciente:", patientId);
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Filtros:", { status, startDate, endDate, medicationName });
+
+    // Verificar se o paciente existe
+    const patient = await User.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Paciente não encontrado",
+        errorCode: "PATIENT_NOT_FOUND"
+      });
+    }
+
+    // Construir query de busca
+    const query = { patient: patientId };
+
+    // Filtrar por status se especificado
+    if (status && status !== 'all') {
+      if (status.includes(',')) {
+        query.status = { $in: status.split(',') };
+      } else {
+        query.status = status;
+      }
+    }
+
+    // Filtrar por medicamento se especificado
+    if (medicationName) {
+      query.medicationName = { $regex: medicationName, $options: 'i' };
+    }
+
+    // Filtrar por data se especificado
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Configuração de paginação
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await Prescription.countDocuments(query);
+
+    // Buscar prescrições do paciente
+    const prescriptions = await Prescription.find(query)
+      .populate('createdBy', 'name role')
+      .populate('updatedBy', 'name role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    // Formatar prescrições
+    const formattedPrescriptions = prescriptions.map(formatPrescription);
+
+    // Estatísticas básicas do paciente
+    const patientStats = await Prescription.aggregate([
+      { $match: { patient: new mongoose.Types.ObjectId(patientId) } },
+      {
+        $group: {
+          _id: null,
+          totalPrescriptions: { $sum: 1 },
+          uniqueMedications: { $addToSet: '$medicationName' },
+          statusBreakdown: { $push: '$status' },
+          firstPrescription: { $min: '$createdAt' },
+          lastPrescription: { $max: '$createdAt' }
+        }
+      },
+      {
+        $project: {
+          totalPrescriptions: 1,
+          uniqueMedicationsCount: { $size: '$uniqueMedications' },
+          uniqueMedications: 1,
+          firstPrescription: 1,
+          lastPrescription: 1,
+          pendingCount: {
+            $size: {
+              $filter: {
+                input: '$statusBreakdown',
+                cond: { $in: ['$$this', ['solicitada', 'solicitada_urgencia', 'em_analise']] }
+              }
+            }
+          },
+          completedCount: {
+            $size: {
+              $filter: {
+                input: '$statusBreakdown',
+                cond: { $in: ['$$this', ['entregue']] }
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Prescrições encontradas:", formattedPrescriptions.length);
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Total no banco:", total);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        patient: {
+          _id: patient._id,
+          name: patient.name,
+          email: patient.email,
+          cpf: patient.Cpf,
+          phone: patient.phone,
+          createdAt: patient.createdAt
+        },
+        prescriptions: formattedPrescriptions,
+        pagination: {
+          current: Number(page),
+          pages: Math.ceil(total / Number(limit)),
+          total,
+          count: formattedPrescriptions.length,
+          limit: Number(limit)
+        },
+        stats: patientStats.length > 0 ? patientStats[0] : {
+          totalPrescriptions: 0,
+          uniqueMedicationsCount: 0,
+          uniqueMedications: [],
+          firstPrescription: null,
+          lastPrescription: null,
+          pendingCount: 0,
+          completedCount: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("📋 [PATIENT-PRESCRIPTIONS] Erro:", error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: "ID de paciente inválido",
+        errorCode: "INVALID_PATIENT_ID"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Erro interno do servidor ao buscar prescrições do paciente",
+      errorCode: "GET_PATIENT_PRESCRIPTIONS_ERROR"
+    });
+  }
+};
+
 // Função utilitária para garantir que numberOfBoxes seja string
 function formatPrescription(prescription) {
   if (!prescription) return prescription;
