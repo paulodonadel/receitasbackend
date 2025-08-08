@@ -315,6 +315,7 @@ const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
+app.use('/api/prescriptions', prescriptionRoutes); // Alias para compatibilidade com frontend
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/email', emailRoutes);

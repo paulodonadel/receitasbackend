@@ -107,6 +107,18 @@ const validateId = (req, res, next) => {
   next();
 };
 
+// Middleware para validar Patient ID
+const validatePatientId = (req, res, next) => {
+  if (!req.params.patientId || !mongoose.Types.ObjectId.isValid(req.params.patientId)) {
+    return res.status(400).json({
+      success: false,
+      errorCode: "INVALID_PATIENT_ID",
+      message: "ID do paciente inválido"
+    });
+  }
+  next();
+};
+
 // Aplica rate limiting global com limite mais generoso
 router.use(apiLimiter);
 
@@ -147,7 +159,14 @@ router.get('/',
 router.get('/patient/:patientId',
   protect,
   authorize('admin', 'secretary'),
-  validateId,
+  (req, res, next) => {
+    console.log("🔍 [PATIENT-HISTORY] Rota acessada - PatientID:", req.params.patientId);
+    console.log("🔍 [PATIENT-HISTORY] User role:", req.user?.role);
+    console.log("🔍 [PATIENT-HISTORY] User email:", req.user?.email);
+    console.log("🔍 [PATIENT-HISTORY] Query params:", req.query);
+    next();
+  },
+  validatePatientId,
   getPatientPrescriptions
 );
 
