@@ -157,10 +157,17 @@ router.get('/',
 
 // Histórico de prescrições de um paciente específico
 router.get('/patient/:patientId',
+  (req, res, next) => {
+    console.log("🚨 [PATIENT-HISTORY] ROTA ACESSADA - PatientID:", req.params.patientId);
+    console.log("🚨 [PATIENT-HISTORY] URL completa:", req.originalUrl);
+    console.log("🚨 [PATIENT-HISTORY] Method:", req.method);
+    console.log("🚨 [PATIENT-HISTORY] Headers:", JSON.stringify(req.headers, null, 2));
+    next();
+  },
   protect,
   authorize('admin', 'secretary'),
   (req, res, next) => {
-    console.log("🔍 [PATIENT-HISTORY] Rota acessada - PatientID:", req.params.patientId);
+    console.log("🔍 [PATIENT-HISTORY] Passou pela autenticação - PatientID:", req.params.patientId);
     console.log("🔍 [PATIENT-HISTORY] User role:", req.user?.role);
     console.log("🔍 [PATIENT-HISTORY] User email:", req.user?.email);
     console.log("🔍 [PATIENT-HISTORY] Query params:", req.query);
