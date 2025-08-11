@@ -1125,6 +1125,7 @@ exports.getPatientPrescriptions = async (req, res) => {
 
     console.log("📋 [PATIENT-PRESCRIPTIONS] Buscando prescrições para paciente:", patientId);
     console.log("📋 [PATIENT-PRESCRIPTIONS] Filtros:", { status, startDate, endDate, medicationName });
+    console.log("📋 [PATIENT-PRESCRIPTIONS] MongoDB connection state:", mongoose.connection.readyState);
 
     // SIMULAÇÃO DE DADOS PARA TESTE (quando MongoDB não conecta)
     if (mongoose.connection.readyState !== 1) {
@@ -1178,7 +1179,10 @@ exports.getPatientPrescriptions = async (req, res) => {
         }
       ];
 
-      return res.status(200).json({
+      console.log("📋 [PATIENT-PRESCRIPTIONS] Retornando dados simulados, count:", simulatedPrescriptions.length);
+      console.log("📋 [PATIENT-PRESCRIPTIONS] Primeira prescrição simulada:", simulatedPrescriptions[0].medicationName);
+
+      const responseData = {
         success: true,
         data: {
           prescriptions: simulatedPrescriptions,
@@ -1207,7 +1211,16 @@ exports.getPatientPrescriptions = async (req, res) => {
             completedCount: 1
           }
         }
+      };
+
+      console.log("📋 [PATIENT-PRESCRIPTIONS] Response structure:", {
+        success: responseData.success,
+        dataExists: !!responseData.data,
+        prescriptionsExists: !!responseData.data.prescriptions,
+        prescriptionsCount: responseData.data.prescriptions ? responseData.data.prescriptions.length : 0
       });
+
+      return res.status(200).json(responseData);
     }
 
     // Verificar se o paciente existe
