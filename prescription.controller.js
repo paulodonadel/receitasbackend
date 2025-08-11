@@ -1188,7 +1188,7 @@ exports.getPatientPrescriptions = async (req, res) => {
 
     // Calcular estatísticas do paciente
     const patientStats = await Prescription.aggregate([
-      { $match: { patient: mongoose.Types.ObjectId(patientId) } },
+      { $match: { patient: new mongoose.Types.ObjectId(patientId) } },
       {
         $group: {
           _id: null,
