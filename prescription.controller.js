@@ -1127,86 +1127,133 @@ exports.getPatientPrescriptions = async (req, res) => {
     console.log("📋 [PATIENT-PRESCRIPTIONS] Buscando prescrições para paciente:", patientId);
     console.log("📋 [PATIENT-PRESCRIPTIONS] Filtros:", { status, startDate, endDate, medicationName });
 
-    // SEMPRE RETORNAR DADOS SIMULADOS PARA DEBUG
-    console.log("📋 [PATIENT-PRESCRIPTIONS] Retornando dados simulados para debug");
-    
-    const simulatedPrescriptions = [
-      {
-        _id: "66b4f1a1234567890abcdef1",
-        medicationName: "Ezonia",
-        dosage: "2mg",
-        numberOfBoxes: "2", 
-        status: "pronta",
-        prescriptionType: "receituario_comum",
-        deliveryMethod: "retirada",
-        observations: "Tomar conforme orientação médica",
-        createdAt: new Date("2025-08-08T14:13:33.006Z"),
-        updatedAt: new Date("2025-08-08T14:13:33.006Z"),
-        patientName: "Cristiane abascal zago",
-        patientEmail: "cristiane@email.com",
-        patientCpf: "123.456.789-00"
-      },
-      {
-        _id: "66b4f1a1234567890abcdef2", 
-        medicationName: "Rivotril",
-        dosage: "1mg",
-        numberOfBoxes: "1",
-        status: "entregue",
-        prescriptionType: "receituario_controlado",
-        deliveryMethod: "email", 
-        observations: "Medicamento controlado",
-        createdAt: new Date("2025-08-06T10:30:00.000Z"),
-        updatedAt: new Date("2025-08-06T10:30:00.000Z"),
-        patientName: "Cristiane abascal zago",
-        patientEmail: "cristiane@email.com",
-        patientCpf: "123.456.789-00"
-      },
-      {
-        _id: "66b4f1a1234567890abcdef3",
-        medicationName: "Dipirona",
-        dosage: "500mg", 
-        numberOfBoxes: "3",
-        status: "aprovada",
-        prescriptionType: "receituario_comum",
-        deliveryMethod: "retirada",
-        observations: "Para dor e febre",
-        createdAt: new Date("2025-08-01T08:15:00.000Z"),
-        updatedAt: new Date("2025-08-01T08:15:00.000Z"),
-        patientName: "Cristiane abascal zago",
-        patientEmail: "cristiane@email.com", 
-        patientCpf: "123.456.789-00"
+    // Verificar se o paciente existe
+    const patient = await User.findById(patientId);
+    if (!patient) {
+      console.log("📋 [PATIENT-PRESCRIPTIONS] Paciente não encontrado:", patientId);
+      return res.status(404).json({
+        success: false,
+        message: "Paciente não encontrado",
+        errorCode: "PATIENT_NOT_FOUND"
+      });
+    }
+
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Paciente encontrado:", patient.name);
+
+    // Construir filtros para busca
+    const filters = { patient: patientId };
+
+    // Filtro por status
+    if (status) {
+      filters.status = status;
+    }
+
+    // Filtro por data
+    if (startDate || endDate) {
+      filters.createdAt = {};
+      if (startDate) {
+        filters.createdAt.$gte = new Date(startDate);
       }
-    ];
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        filters.createdAt.$lte = endDateTime;
+      }
+    }
 
-    console.log("📋 [PATIENT-PRESCRIPTIONS] Dados simulados preparados, count:", simulatedPrescriptions.length);
+    // Filtro por nome do medicamento
+    if (medicationName) {
+      filters.medicationName = { $regex: medicationName, $options: 'i' };
+    }
 
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Filtros aplicados:", filters);
+
+    // Buscar prescrições no banco de dados
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    const [prescriptions, total] = await Promise.all([
+      Prescription.find(filters)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Prescription.countDocuments(filters)
+    ]);
+
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Prescrições encontradas:", prescriptions.length);
+    console.log("📋 [PATIENT-PRESCRIPTIONS] Total no banco:", total);
+
+    // Formatar prescrições
+    const formattedPrescriptions = prescriptions.map(formatPrescription);
+
+    // Calcular estatísticas do paciente
+    const patientStats = await Prescription.aggregate([
+      { $match: { patient: mongoose.Types.ObjectId(patientId) } },
+      {
+        $group: {
+          _id: null,
+          totalPrescriptions: { $sum: 1 },
+          uniqueMedications: { $addToSet: "$medicationName" },
+          firstPrescription: { $min: "$createdAt" },
+          lastPrescription: { $max: "$createdAt" },
+          statusBreakdown: { $push: "$status" }
+        }
+      },
+      {
+        $project: {
+          totalPrescriptions: 1,
+          uniqueMedicationsCount: { $size: '$uniqueMedications' },
+          uniqueMedications: 1,
+          firstPrescription: 1,
+          lastPrescription: 1,
+          pendingCount: {
+            $size: {
+              $filter: {
+                input: '$statusBreakdown',
+                cond: { $in: ['$$this', ['solicitada', 'solicitada_urgencia', 'em_analise']] }
+              }
+            }
+          },
+          completedCount: {
+            $size: {
+              $filter: {
+                input: '$statusBreakdown',
+                cond: { $in: ['$$this', ['entregue']] }
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    // Resposta compatível com o frontend que espera data.prescriptions
     const responseData = {
       success: true,
       data: {
-        prescriptions: simulatedPrescriptions,
+        prescriptions: formattedPrescriptions,
         patient: {
-          _id: patientId,
-          name: "Cristiane abascal zago",
-          email: "cristiane@email.com",
-          cpf: "123.456.789-00",
-          phone: "(11) 99999-9999",
-          createdAt: new Date("2025-01-01T00:00:00.000Z")
+          _id: patient._id,
+          name: patient.name,
+          email: patient.email,
+          cpf: patient.Cpf,
+          phone: patient.phone,
+          createdAt: patient.createdAt
         },
         pagination: {
-          current: 1,
-          pages: 1,
-          total: 3,
-          count: 3,
-          limit: 20
+          current: Number(page),
+          pages: Math.ceil(total / Number(limit)),
+          total,
+          count: formattedPrescriptions.length,
+          limit: Number(limit)
         },
-        stats: {
-          totalPrescriptions: 3,
-          uniqueMedicationsCount: 3,
-          uniqueMedications: ["Ezonia", "Rivotril", "Dipirona"],
-          firstPrescription: new Date("2025-08-01T08:15:00.000Z"),
-          lastPrescription: new Date("2025-08-08T14:13:33.006Z"),
-          pendingCount: 1,
-          completedCount: 1
+        stats: patientStats.length > 0 ? patientStats[0] : {
+          totalPrescriptions: 0,
+          uniqueMedicationsCount: 0,
+          uniqueMedications: [],
+          firstPrescription: null,
+          lastPrescription: null,
+          pendingCount: 0,
+          completedCount: 0
         }
       }
     };
@@ -1225,6 +1272,14 @@ exports.getPatientPrescriptions = async (req, res) => {
   } catch (error) {
     console.error("📋 [PATIENT-PRESCRIPTIONS] === ERRO NA FUNCAO ===");
     console.error("📋 [PATIENT-PRESCRIPTIONS] Erro:", error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: "ID de paciente inválido",
+        errorCode: "INVALID_PATIENT_ID"
+      });
+    }
     
     res.status(500).json({
       success: false,
