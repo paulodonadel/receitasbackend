@@ -12,9 +12,8 @@ router.use(protect);
 router.get('/search', async (req, res) => {
   try {
     const { cpf, name } = req.query;
-    const requestId = Math.random().toString(36).substring(7);
     
-    console.log(`🔍 [PATIENT-SEARCH-${requestId}] Iniciando busca - CPF: ${cpf}, Nome: ${name}, Timestamp: ${new Date().toISOString()}`);
+    console.log(`🔍 [PATIENT-SEARCH] Iniciando busca - CPF: ${cpf}, Nome: ${name}`);
     
     if (!cpf && !name) {
       return res.status(400).json({
@@ -38,44 +37,41 @@ router.get('/search', async (req, res) => {
       }
       
       searchQuery.Cpf = cpfClean;
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Buscando por CPF: ${cpfClean}`);
+      console.log(`🔍 [PATIENT-SEARCH] Buscando por CPF: ${cpfClean}`);
     } else if (name) {
       // Busca por nome (case insensitive, busca parcial)
       searchQuery.name = { $regex: name, $options: 'i' };
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Buscando por nome: ${name}`);
+      console.log(`🔍 [PATIENT-SEARCH] Buscando por nome: ${name}`);
     }
 
-    console.log(`🔍 [PATIENT-SEARCH-${requestId}] Query MongoDB: ${JSON.stringify(searchQuery)}`);
-
-    // Buscar usuários com .lean() para melhor performance e consistência
+    // Buscar usuários com log detalhado
+    console.log(`🔍 [PATIENT-SEARCH] Query MongoDB: ${JSON.stringify(searchQuery)}`);
+    
     const patients = await User.find(searchQuery)
       .select('-password -resetPasswordToken -resetPasswordExpires')
-      .lean() // Adicionar .lean() para evitar problemas de hidratação do Mongoose
-      .limit(10); // Limitar a 10 resultados
+      .lean() // Usar lean() para melhor performance e evitar inconsistências
+      .limit(10);
 
-    console.log(`🔍 [PATIENT-SEARCH-${requestId}] Encontrados ${patients?.length || 0} pacientes`);
+    console.log(`🔍 [PATIENT-SEARCH] Encontrados ${patients?.length || 0} pacientes`);
 
     if (!patients || patients.length === 0) {
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Nenhum paciente encontrado`);
+      console.log(`🔍 [PATIENT-SEARCH] Nenhum paciente encontrado`);
       return res.status(404).json({
         success: false,
         message: 'Nenhum paciente encontrado'
       });
     }
 
-    // Normalização MELHORADA para garantir consistência
+    // Normalização SEGURA E CONSISTENTE dos dados
     const results = patients.map((patient, index) => {
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Processando paciente ${index + 1}/${patients.length} - ID: ${patient._id}`);
-      
-      // Log dos dados brutos do endereço
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Endereco bruto:`, JSON.stringify(patient.endereco));
+      console.log(`🔍 [PATIENT-SEARCH] Processando paciente ${index + 1}/${patients.length}`);
+      console.log(`🔍 [PATIENT-SEARCH] Dados brutos do endereço:`, patient.endereco);
       
       // Garantir que endereco é sempre um objeto válido
       let endereco = {};
       let cep = '';
       
-      if (patient.endereco && typeof patient.endereco === 'object' && patient.endereco !== null) {
-        // Normalizar todos os campos do endereço
+      if (patient.endereco && typeof patient.endereco === 'object') {
         endereco = {
           street: patient.endereco.street || '',
           number: patient.endereco.number || '',
@@ -86,14 +82,12 @@ router.get('/search', async (req, res) => {
           cep: patient.endereco.cep || ''
         };
         cep = endereco.cep;
-      } else {
-        console.log(`⚠️ [PATIENT-SEARCH-${requestId}] Endereco inválido ou inexistente para paciente ${patient._id}`);
       }
       
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Endereco normalizado:`, JSON.stringify(endereco));
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] CEP: "${cep}"`);
+      console.log(`🔍 [PATIENT-SEARCH] Endereço normalizado:`, endereco);
+      console.log(`🔍 [PATIENT-SEARCH] CEP extraído: ${cep}`);
       
-      return {
+      const result = {
         _id: patient._id,
         id: patient._id,
         name: patient.name || '',
@@ -106,22 +100,32 @@ router.get('/search', async (req, res) => {
         createdAt: patient.createdAt,
         updatedAt: patient.updatedAt
       };
+      
+      console.log(`🔍 [PATIENT-SEARCH] Resultado final para paciente ${index + 1}:`, {
+        id: result.id,
+        name: result.name,
+        hasEndereco: !!Object.keys(result.endereco).some(key => result.endereco[key]),
+        hasCep: !!result.cep
+      });
+      
+      return result;
     });
 
-    console.log(`🔍 [PATIENT-SEARCH-${requestId}] Retornando ${results.length} resultados processados`);
-    
-    // Log resumido dos resultados
-    results.forEach((result, index) => {
-      const hasEndereco = Object.keys(result.endereco).some(key => result.endereco[key]);
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Resultado ${index + 1}: ID=${result.id}, Nome="${result.name}", TemEndereco=${hasEndereco}, CEP="${result.cep}"`);
-    });
+    console.log(`🔍 [PATIENT-SEARCH] Retornando ${results.length} resultados`);
+    console.log(`🔍 [PATIENT-SEARCH] Resumo dos resultados:`, results.map(r => ({
+      id: r.id,
+      name: r.name,
+      hasEndereco: !!Object.keys(r.endereco).some(key => r.endereco[key]),
+      hasCep: !!r.cep
+    })));
 
     res.status(200).json(results);
   } catch (error) {
-    console.error('Erro ao buscar pacientes:', error);
+    console.error('❌ [PATIENT-SEARCH] Erro ao buscar pacientes:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: 'Erro interno do servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -147,4 +151,3 @@ router.patch('/:id', patientController.updatePatient);
 router.delete('/:id', patientController.deletePatient);
 
 module.exports = router;
-
