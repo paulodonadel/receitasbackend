@@ -228,8 +228,7 @@ exports.login = async (req, res, next) => {
       email: user.email,
       Cpf: user.Cpf,
       phone: user.phone,
-      address: user.address,
-      endereco: user.endereco, // Adicionar campo endereco
+      address: user.endereco, // 🚨 CORREÇÃO: Mapear endereco para address
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
@@ -275,8 +274,7 @@ exports.getMe = async (req, res, next) => {
       email: user.email,
       Cpf: user.Cpf,
       phone: user.phone,
-      address: user.address,
-      endereco: user.endereco, // Adicionar campo endereco
+      address: user.endereco, // 🚨 CORREÇÃO: Mapear endereco para address
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
@@ -575,6 +573,7 @@ exports.updateProfile = async (req, res, next) => {
     const {
       name,
       email,
+      Cpf,
       phone,
       address,
       dateOfBirth,
@@ -584,6 +583,10 @@ exports.updateProfile = async (req, res, next) => {
       medicalInfo,
       preferences
     } = req.body;
+
+    console.log('📥 [PROFILE UPDATE] Dados recebidos:', {
+      name, email, Cpf, phone, address, dateOfBirth, gender, profession
+    });
 
     // Campos que podem ser atualizados
     const updateFields = {};
@@ -601,14 +604,23 @@ exports.updateProfile = async (req, res, next) => {
       }
       updateFields.email = email;
     }
+    if (Cpf !== undefined) updateFields.Cpf = Cpf;
     if (phone !== undefined) updateFields.phone = phone;
-    if (address !== undefined) updateFields.address = address;
+    
+    // 🚨 CORREÇÃO CRÍTICA: Mapear address para endereco
+    if (address !== undefined) {
+      console.log('📥 [PROFILE UPDATE] Campo address recebido:', address);
+      updateFields.endereco = address; // Mapear para o campo correto do schema
+    }
+    
     if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
     if (gender !== undefined) updateFields.gender = gender;
     if (profession !== undefined) updateFields.profession = profession;
     if (emergencyContact !== undefined) updateFields.emergencyContact = emergencyContact;
     if (medicalInfo !== undefined) updateFields.medicalInfo = medicalInfo;
     if (preferences !== undefined) updateFields.preferences = preferences;
+
+    console.log('💾 [PROFILE UPDATE] Campos para atualizar:', updateFields);
 
     // Atualizar o usuário
     const user = await User.findByIdAndUpdate(
@@ -627,6 +639,11 @@ exports.updateProfile = async (req, res, next) => {
       });
     }
 
+    console.log('✅ [PROFILE UPDATE] Usuário atualizado:', {
+      id: user._id,
+      endereco: user.endereco
+    });
+
     // Retornar dados do usuário sem campos sensíveis
     const userResponse = {
       id: user._id,
@@ -634,19 +651,23 @@ exports.updateProfile = async (req, res, next) => {
       email: user.email,
       Cpf: user.Cpf,
       phone: user.phone,
-      address: user.address,
-      endereco: user.endereco, // Adicionar campo endereco
+      address: user.endereco, // 🚨 CORREÇÃO: Retornar endereco como address para o frontend
       dateOfBirth: user.dateOfBirth,
       gender: user.gender,
       profession: user.profession,
       emergencyContact: user.emergencyContact,
       medicalInfo: user.medicalInfo,
       preferences: user.preferences,
+      profileImage: user.profileImage,
+      profileImageAPI: user.profileImageAPI,
+      profilePhoto: user.profilePhoto,
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
+
+    console.log('📤 [PROFILE UPDATE] Resposta enviada com address:', userResponse.address);
 
     res.status(200).json({
       success: true,
