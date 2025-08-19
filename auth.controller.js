@@ -576,17 +576,24 @@ exports.updateProfile = async (req, res, next) => {
       Cpf,
       phone,
       address,
+      endereco,
       dateOfBirth,
       gender,
       profession,
       emergencyContact,
       medicalInfo,
-      preferences
+      preferences,
+      // Campos diretos de endereço (para compatibilidade)
+      cep,
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      state
     } = req.body;
 
-    console.log('📥 [PROFILE UPDATE] Dados recebidos:', {
-      name, email, Cpf, phone, address, dateOfBirth, gender, profession
-    });
+    console.log('📥 [PROFILE UPDATE] Dados recebidos COMPLETOS:', JSON.stringify(req.body, null, 2));
 
     // Campos que podem ser atualizados
     const updateFields = {};
@@ -607,10 +614,36 @@ exports.updateProfile = async (req, res, next) => {
     if (Cpf !== undefined) updateFields.Cpf = Cpf;
     if (phone !== undefined) updateFields.phone = phone;
     
-    // 🚨 CORREÇÃO CRÍTICA: Mapear address para endereco
-    if (address !== undefined) {
-      console.log('📥 [PROFILE UPDATE] Campo address recebido:', address);
-      updateFields.endereco = address; // Mapear para o campo correto do schema
+    // 🚨 CORREÇÃO CRÍTICA: Processar endereço de múltiplas formas
+    let addressData = null;
+    
+    // Prioridade 1: Campo 'address' como objeto
+    if (address && typeof address === 'object') {
+      console.log('📥 [ADDRESS] Usando campo address:', address);
+      addressData = address;
+    }
+    // Prioridade 2: Campo 'endereco' como objeto  
+    else if (endereco && typeof endereco === 'object') {
+      console.log('📥 [ADDRESS] Usando campo endereco:', endereco);
+      addressData = endereco;
+    }
+    // Prioridade 3: Campos diretos de endereço
+    else if (cep || street || city || state) {
+      console.log('📥 [ADDRESS] Usando campos diretos de endereço');
+      addressData = {
+        cep: cep || '',
+        street: street || '',
+        number: number || '',
+        complement: complement || '',
+        neighborhood: neighborhood || '',
+        city: city || '',
+        state: state || ''
+      };
+    }
+    
+    if (addressData) {
+      console.log('💾 [ADDRESS] Dados de endereço a serem salvos:', addressData);
+      updateFields.endereco = addressData; // Salvar no campo correto do schema
     }
     
     if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
@@ -620,7 +653,7 @@ exports.updateProfile = async (req, res, next) => {
     if (medicalInfo !== undefined) updateFields.medicalInfo = medicalInfo;
     if (preferences !== undefined) updateFields.preferences = preferences;
 
-    console.log('💾 [PROFILE UPDATE] Campos para atualizar:', updateFields);
+    console.log('💾 [PROFILE UPDATE] Campos finais para atualizar:', JSON.stringify(updateFields, null, 2));
 
     // Atualizar o usuário
     const user = await User.findByIdAndUpdate(
@@ -639,10 +672,10 @@ exports.updateProfile = async (req, res, next) => {
       });
     }
 
-    console.log('✅ [PROFILE UPDATE] Usuário atualizado:', {
-      id: user._id,
-      endereco: user.endereco
-    });
+    console.log('✅ [PROFILE UPDATE] Usuário atualizado com sucesso!');
+    console.log('📋 [PROFILE UPDATE] ID do usuário:', user._id);
+    console.log('📍 [PROFILE UPDATE] Endereço salvo no banco:', user.endereco);
+    console.log('📍 [PROFILE UPDATE] Todos os campos do usuário:', Object.keys(user.toObject()));
 
     // Retornar dados do usuário sem campos sensíveis
     const userResponse = {
