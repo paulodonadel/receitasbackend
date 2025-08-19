@@ -200,6 +200,25 @@ exports.createPrescription = async (req, res, next) => {
         prescriptionType: prescription.prescriptionType,
         deliveryMethod: prescription.deliveryMethod,
         status: prescription.status,
+        numberOfBoxes: prescription.numberOfBoxes,
+        // ✅ DADOS DO PACIENTE COMPLETOS para o resumo
+        patientName: patient.name,
+        patientCpf: prescription.patientCpf || patient.Cpf,
+        patientEmail: prescription.patientEmail || patient.email,
+        patientPhone: prescription.patientPhone || patient.phone,
+        patientCEP: prescription.patientCEP || patientCEP,
+        patientAddress: prescription.patientAddress || patientAddress,
+        // ✅ ENDEREÇO FORMATADO do perfil do usuário
+        endereco: patient.endereco ? {
+          street: patient.endereco.street,
+          number: patient.endereco.number,
+          complement: patient.endereco.complement,
+          neighborhood: patient.endereco.neighborhood,
+          city: patient.endereco.city,
+          state: patient.endereco.state,
+          cep: patient.endereco.cep
+        } : null,
+        observations: prescription.observations,
         createdAt: prescription.createdAt
       },
       message: "Solicitação de receita criada com sucesso"

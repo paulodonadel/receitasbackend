@@ -619,22 +619,41 @@ exports.updateProfile = async (req, res, next) => {
     
     // Prioridade 1: Campo 'address' como objeto
     if (address && typeof address === 'object') {
-      console.log('📥 [ADDRESS] Usando campo address:', address);
-      addressData = address;
+      console.log('📥 [ADDRESS] Usando campo address:', JSON.stringify(address, null, 2));
+      console.log('📥 [ADDRESS] Campos específicos - number:', address.number, 'complement:', address.complement);
+      addressData = {
+        cep: address.cep || '',
+        street: address.street || '',
+        number: address.number || '', // ✅ GARANTIR que number seja preservado
+        complement: address.complement || '', // ✅ GARANTIR que complement seja preservado
+        neighborhood: address.neighborhood || '',
+        city: address.city || '',
+        state: address.state || ''
+      };
     }
     // Prioridade 2: Campo 'endereco' como objeto  
     else if (endereco && typeof endereco === 'object') {
-      console.log('📥 [ADDRESS] Usando campo endereco:', endereco);
-      addressData = endereco;
+      console.log('📥 [ADDRESS] Usando campo endereco:', JSON.stringify(endereco, null, 2));
+      console.log('📥 [ADDRESS] Campos específicos - number:', endereco.number, 'complement:', endereco.complement);
+      addressData = {
+        cep: endereco.cep || '',
+        street: endereco.street || '',
+        number: endereco.number || '', // ✅ GARANTIR que number seja preservado
+        complement: endereco.complement || '', // ✅ GARANTIR que complement seja preservado
+        neighborhood: endereco.neighborhood || '',
+        city: endereco.city || '',
+        state: endereco.state || ''
+      };
     }
     // Prioridade 3: Campos diretos de endereço
-    else if (cep || street || city || state) {
+    else if (cep || street || city || state || number || complement) {
       console.log('📥 [ADDRESS] Usando campos diretos de endereço');
+      console.log('📥 [ADDRESS] Campos diretos - number:', number, 'complement:', complement);
       addressData = {
         cep: cep || '',
         street: street || '',
-        number: number || '',
-        complement: complement || '',
+        number: number || '', // ✅ GARANTIR que number seja preservado
+        complement: complement || '', // ✅ GARANTIR que complement seja preservado
         neighborhood: neighborhood || '',
         city: city || '',
         state: state || ''
@@ -642,7 +661,8 @@ exports.updateProfile = async (req, res, next) => {
     }
     
     if (addressData) {
-      console.log('💾 [ADDRESS] Dados de endereço a serem salvos:', addressData);
+      console.log('💾 [ADDRESS] Dados FINAIS de endereço a serem salvos:', JSON.stringify(addressData, null, 2));
+      console.log('💾 [ADDRESS] Verificação number:', addressData.number, 'complement:', addressData.complement);
       updateFields.endereco = addressData; // Salvar no campo correto do schema
     }
     
