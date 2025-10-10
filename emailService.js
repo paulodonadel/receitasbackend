@@ -46,7 +46,7 @@ exports.sendEmail = async (to, subject, text, html) => {
 
   // Configurar opções do e-mail
   const mailOptions = {
-    from: process.env.EMAIL_FROM, // Usa diretamente a string configurada no .env (ex: "'Nome Clínica' <email@example.com>")
+    from: process.env.EMAIL_FROM, // Usa diretamente a string configurada no .env - Atualizado 10/10/2025
     to, // Destinatário(s)
     subject, // Assunto
     text, // Corpo em texto plano
