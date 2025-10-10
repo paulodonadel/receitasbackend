@@ -319,7 +319,7 @@ app.use('/api/receitas', prescriptionRoutes);
 app.use('/api/prescriptions', prescriptionRoutes); // Alias para compatibilidade com frontend
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
-app.use('/api/email', emailRoutes);
+app.use('/api/emails', emailRoutes);
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
 app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios

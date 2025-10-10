@@ -619,3 +619,47 @@ exports.createPatient = async (req, res) => {
     }
 }
 
+// @desc    Obter todos os usuários (para admin)
+// @route   GET /api/users
+// @access  Private (Admin only)
+exports.getAllUsers = async (req, res) => {
+  try {
+    console.log(`👥 [USER] Listando todos os usuários - Admin: ${req.user._id}`);
+
+    // Buscar todos os usuários, excluindo senhas
+    const users = await User.find()
+      .select('-password -__v')
+      .sort({ name: 1 }); // Ordenar alfabeticamente por nome
+
+    console.log(`👥 [USER] ${users.length} usuários encontrados`);
+
+    // Formatar resposta para compatibilidade com frontend
+    const formattedUsers = users.map(user => {
+      const obj = user.toObject();
+      return {
+        id: obj._id,
+        _id: obj._id,
+        name: obj.name || '',
+        email: obj.email || '',
+        userType: obj.role || 'patient', // Mapear role para userType conforme esperado pelo frontend
+        role: obj.role || 'patient',
+        phone: obj.phone || '',
+        createdAt: obj.createdAt
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: formattedUsers
+    });
+
+  } catch (error) {
+    console.error('👥 [USER] Erro ao listar usuários:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor ao listar usuários',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+

@@ -9,7 +9,8 @@ const {
   removeProfilePhoto,
   getUserStats,
   getAllPatients,
-  createPatient
+  createPatient,
+  getAllUsers
 } = require('../user.controller');
 const { protect, authorize } = require('../middlewares/auth.middleware');
 const rateLimit = require('express-rate-limit');
@@ -83,6 +84,17 @@ router.get('/photo/:filename', getProfilePhoto);
 // @route   DELETE /api/users/photo
 // @access  Private
 router.delete('/photo', protect, removeProfilePhoto);
+
+// ROTAS PARA GERENCIAMENTO DE USUÁRIOS (ADMIN)
+
+// @desc    Listar todos os usuários
+// @route   GET /api/users
+// @access  Private/Admin
+router.get('/', 
+  protect, 
+  authorize('admin'), 
+  getAllUsers
+);
 
 // ROTAS PARA GERENCIAMENTO DE PACIENTES (ADMIN/SECRETARY)
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const emailService = require('./emailService');
 const Prescription = require('./models/prescription.model');
 const { protect, authorize } = require('./middlewares/auth.middleware.js');
+const { sendBulkEmails, validateBulkEmail } = require('./email.controller');
 
 // Envia e-mail de status de prescrição manualmente
 router.post('/prescription-status', protect, authorize('admin', 'secretary'), async (req, res) => {
@@ -32,5 +33,15 @@ router.post('/prescription-status', protect, authorize('admin', 'secretary'), as
     res.status(500).json({ success: false, message: 'Erro ao enviar e-mail de status' });
   }
 });
+
+// @desc    Enviar emails em massa
+// @route   POST /api/emails/send-bulk
+// @access  Private (Admin only)
+router.post('/send-bulk', 
+  protect, 
+  authorize('admin'),
+  validateBulkEmail,
+  sendBulkEmails
+);
 
 module.exports = router;
