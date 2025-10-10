@@ -83,6 +83,13 @@ const documentSchema = new mongoose.Schema({
     maxlength: [500, 'Notas administrativas não podem exceder 500 caracteres']
   },
   
+  response: {
+    type: String,
+    default: null,
+    trim: true,
+    maxlength: [1000, 'Resposta/Observações não podem exceder 1000 caracteres']
+  },
+  
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

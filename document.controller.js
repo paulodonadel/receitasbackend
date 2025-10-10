@@ -30,7 +30,8 @@ exports.createDocument = async (req, res) => {
       documentType,
       description,
       priority,
-      adminNotes
+      adminNotes,
+      response
     } = req.body;
 
     // Criar novo documento
@@ -43,6 +44,7 @@ exports.createDocument = async (req, res) => {
       description,
       priority: priority || 'media',
       adminNotes,
+      response,
       createdBy: req.user._id,
       status: 'solicitado'
     });
@@ -67,6 +69,7 @@ exports.createDocument = async (req, res) => {
         status: savedDocument.status,
         priority: savedDocument.priority,
         adminNotes: savedDocument.adminNotes,
+        response: savedDocument.response,
         createdBy: savedDocument.createdBy,
         createdAt: savedDocument.createdAt,
         updatedAt: savedDocument.updatedAt
@@ -249,13 +252,35 @@ exports.updateDocument = async (req, res) => {
       });
     }
 
-    const updateData = { ...req.body };
-    updateData.updatedBy = req.user._id;
-    updateData.updatedAt = new Date();
+    // Definir campos permitidos para atualização
+    const allowedFields = [
+      'patientName',
+      'patientCpf', 
+      'patientEmail',
+      'patientPhone',
+      'documentType',
+      'description', 
+      'status',
+      'priority',
+      'adminNotes',
+      'response'
+    ];
+    
+    // Filtrar apenas campos permitidos
+    const filteredData = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        filteredData[field] = req.body[field];
+      }
+    });
+    
+    // Adicionar campos de auditoria
+    filteredData.updatedBy = req.user._id;
+    filteredData.updatedAt = new Date();
 
     const document = await Document.findByIdAndUpdate(
       id,
-      updateData,
+      filteredData,
       { 
         new: true, 
         runValidators: true 

@@ -61,6 +61,12 @@ exports.validateCreateDocument = [
     .optional()
     .isLength({ max: 500 })
     .withMessage('Notas administrativas não podem exceder 500 caracteres')
+    .trim(),
+
+  body('response')
+    .optional()
+    .isLength({ max: 1000 })
+    .withMessage('Resposta/Observações não podem exceder 1000 caracteres')
     .trim()
 ];
 
@@ -127,6 +133,12 @@ exports.validateUpdateDocument = [
     .optional()
     .isLength({ max: 500 })
     .withMessage('Notas administrativas não podem exceder 500 caracteres')
+    .trim(),
+
+  body('response')
+    .optional()
+    .isLength({ max: 1000 })
+    .withMessage('Resposta/Observações não podem exceder 1000 caracteres')
     .trim()
 ];
 
