@@ -220,9 +220,9 @@ Adicione as seguintes variáveis ao arquivo `.env`:
 # Configurações de Email
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-EMAIL_USER=seu-email@gmail.com
-EMAIL_PASS=sua-senha-app
-EMAIL_FROM="Sistema de Receitas <noreply@sistema-receitas.com>"
+EMAIL_USER=paulodonadel@gmail.com
+EMAIL_PASS=sua-senha-app-gmail
+EMAIL_FROM="Dr. Paulo Donadel <paulodonadel@gmail.com>"
 ```
 
 ## 🧪 COMO TESTAR
