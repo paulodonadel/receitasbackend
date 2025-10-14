@@ -58,6 +58,15 @@ exports.sendBulkEmails = async (req, res) => {
     console.log('  logoUrl (compatibilidade):', logoUrl);
     console.log('📄 [EMAIL-DEBUG] Papel timbrado ativo:', !!watermarkImageUrl);
     console.log('🖼️ [EMAIL-DEBUG] URL do papel:', watermarkImageUrl || 'NENHUMA');
+    
+    // Validação da URL
+    if (watermarkImageUrl) {
+        console.log('🔍 [EMAIL-DEBUG] Validação da URL:');
+        console.log('  - Comprimento:', watermarkImageUrl.length);
+        console.log('  - Contém espaços:', watermarkImageUrl.includes(' '));
+        console.log('  - Protocolo HTTPS:', watermarkImageUrl.startsWith('https://'));
+        console.log('  - URL completa:', `"${watermarkImageUrl}"`);
+    }
     console.log('🖼️ [EMAIL-DEBUG] =====================================');
 
     const emailResults = [];
@@ -94,23 +103,25 @@ exports.sendBulkEmails = async (req, res) => {
     
     <!-- CONTEÚDO COM PAPEL TIMBRADO DE FUNDO -->
     <div style="
-        ${watermarkImageUrl ? `
-        background-image: url('${watermarkImageUrl}');
+        background: ${watermarkImageUrl ? `
+            linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+            url('${watermarkImageUrl}')
+        ` : '#f9f9f9'};
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        ` : 'background: #f9f9f9;'}
         padding: 30px;
         border-radius: 8px;
         margin-bottom: 20px;
         min-height: 400px;
         position: relative;
         border: 1px solid #ddd;
+        ${!watermarkImageUrl ? 'background-color: #f0f0f0 !important;' : ''}
     ">
-        <!-- Overlay semi-transparente SEMPRE para legibilidade -->
+        <!-- Overlay para legibilidade -->
         <div style="
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, ${watermarkImageUrl ? '0.85' : '0.0'});
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
