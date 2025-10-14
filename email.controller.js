@@ -114,27 +114,26 @@ exports.sendBulkEmails = async (req, res) => {
     <!-- CONTEÚDO COM PAPEL TIMBRADO DE FUNDO -->
     <div style="
         background: ${watermarkImageUrl ? `
-            linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
             url('${watermarkImageUrl}')
         ` : '#f9f9f9'};
-        background-size: cover;
-        background-position: center;
+        background-size: contain;
+        background-position: center top;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        padding: 30px;
+        padding: 40px;
         border-radius: 8px;
         margin-bottom: 20px;
-        min-height: 400px;
+        min-height: 500px;
         position: relative;
         border: 1px solid #ddd;
         ${!watermarkImageUrl ? 'background-color: #f0f0f0 !important;' : ''}
     ">
-        <!-- Overlay para legibilidade -->
+        <!-- Overlay sutil para legibilidade sem apagar o texto -->
         <div style="
-            background: rgba(255, 255, 255, ${watermarkImageUrl ? '0.85' : '0.0'});
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, ${watermarkImageUrl ? '0.15' : '0.0'});
+            padding: 30px;
+            border-radius: 6px;
+            ${watermarkImageUrl ? 'backdrop-filter: blur(0.5px);' : ''}
         ">
             ${content}
         </div>
