@@ -49,21 +49,21 @@ const createProfessionalEmailTemplate = (options) => {
     <!-- CONTEÚDO PRINCIPAL COM PAPEL TIMBRADO -->
     <div style="
         background: url('${watermarkImageUrl}');
-        background-size: cover;
-        background-position: center center;
+        background-size: 100% auto;
+        background-position: center top;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        padding: 80px 50px 60px 50px;
+        padding: 120px 50px 80px 50px;
         border-radius: 12px;
         margin-bottom: 25px;
-        min-height: 600px;
+        min-height: 650px;
         position: relative;
         border: 1px solid #e1e5e9;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         background-color: #ffffff;
     ">
         <!-- Container do conteúdo com espaçamento para o logo do papel timbrado -->
-        <div style="padding: 0; position: relative; z-index: 2; margin-top: 40px;">
+        <div style="padding: 0; position: relative; z-index: 2;">
             ${content}
         </div>
     </div>
