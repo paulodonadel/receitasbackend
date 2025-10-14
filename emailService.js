@@ -49,14 +49,14 @@ const createProfessionalEmailTemplate = (options) => {
     <!-- CONTEÚDO PRINCIPAL COM PAPEL TIMBRADO -->
     <div style="
         background: url('${watermarkImageUrl}');
-        background-size: 100% auto;
-        background-position: center top;
+        background-size: contain;
+        background-position: center center;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        padding: 120px 50px 80px 50px;
+        padding: 140px 50px 100px 50px;
         border-radius: 12px;
         margin-bottom: 25px;
-        min-height: 650px;
+        min-height: 750px;
         position: relative;
         border: 1px solid #e1e5e9;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
