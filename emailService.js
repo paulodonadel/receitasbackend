@@ -6,6 +6,100 @@ if (!process.env.EMAIL_HOST || !process.env.EMAIL_PORT || !process.env.EMAIL_USE
   console.warn("O envio de emails pode não funcionar. Verifique EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM.\n");
 }
 
+/**
+ * 🎨 TEMPLATE PROFISSIONAL UNIFICADO PARA TODOS OS EMAILS
+ * Layout com papel timbrado de fundo e design elegante
+ * @param {object} options - Opções do template
+ * @param {string} options.content - Conteúdo HTML principal
+ * @param {string} options.subject - Assunto do email  
+ * @param {boolean} [options.useHeaderImage=false] - Se deve mostrar imagem do Dr. Paulo no cabeçalho
+ * @param {string} [options.footerText] - Texto adicional no rodapé
+ * @param {string} [options.emailType='notification'] - Tipo do email para personalização
+ */
+const createProfessionalEmailTemplate = (options) => {
+  const {
+    content,
+    subject,
+    useHeaderImage = false,
+    footerText = '',
+    emailType = 'notification'
+  } = options;
+
+  // URLs das imagens (mesmas do sistema de email em massa)
+  const headerImageUrl = 'https://sistema-receitas-frontend.onrender.com/images/dr-paulo-profile.jpg';
+  const watermarkImageUrl = 'https://sistema-receitas-frontend.onrender.com/images/marcadagua.jpg';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${subject}</title>
+</head>
+<body style="font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+    
+    ${useHeaderImage ? `
+    <!-- CABEÇALHO COM IMAGEM DO DR. PAULO -->
+    <div style="text-align: center; margin-bottom: 30px;">
+        <img src="${headerImageUrl}" alt="Dr. Paulo Donadel" style="max-width: 180px; height: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    </div>
+    ` : ''}
+    
+    <!-- CONTEÚDO PRINCIPAL COM PAPEL TIMBRADO -->
+    <div style="
+        background: url('${watermarkImageUrl}');
+        background-size: contain;
+        background-position: center top;
+        background-repeat: no-repeat;
+        background-attachment: scroll;
+        padding: 45px 40px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        min-height: 450px;
+        position: relative;
+        border: 1px solid #e1e5e9;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        background-color: #ffffff;
+    ">
+        <!-- Overlay sutil para legibilidade -->
+        <div style="
+            background: rgba(255, 255, 255, 0.12);
+            padding: 35px;
+            border-radius: 8px;
+            backdrop-filter: blur(0.5px);
+        ">
+            ${content}
+        </div>
+    </div>
+    
+    <!-- RODAPÉ PROFISSIONAL -->
+    <div style="
+        text-align: center; 
+        color: #6c757d; 
+        font-size: 13px; 
+        margin-top: 30px;
+        padding: 20px;
+        border-top: 1px solid #e9ecef;
+        background-color: #ffffff;
+        border-radius: 8px;
+    ">
+        <div style="margin-bottom: 10px;">
+            <strong style="color: #2c5aa0;">Dr. Paulo Donadel</strong><br>
+            <span style="font-size: 12px;">CRM/RS 12345 • Médico Psiquiatra</span>
+        </div>
+        
+        ${footerText ? `<p style="margin: 10px 0; color: #495057;">${footerText}</p>` : ''}
+        
+        <div style="margin-top: 15px; font-size: 11px; color: #6c757d;">
+            <p>📧 Sistema de Receitas Médicas - Clinipampa</p>
+            <p>🔒 Este e-mail é confidencial e destinado apenas ao destinatário indicado</p>
+        </div>
+    </div>
+</body>
+</html>`;
+};
+
 // Criar transporter reutilizável usando SMTP
 // A configuração `secure` é geralmente `true` para a porta 465 e `false` para 587 (que usa STARTTLS)
 const transporter = nodemailer.createTransport({
@@ -156,23 +250,51 @@ Atenciosamente,
 Equipe Dr. Paulo Donadel
   `.trim();
 
-  const htmlBody = `
-    <h2>Confirmação de Solicitação de Receita</h2>
-    <p>Olá <strong>${patientName}</strong>,</p>
-    <p>Sua solicitação de receita foi recebida com sucesso!</p>
+  // Conteúdo HTML profissional
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">✅ Confirmação de Solicitação</h2>
+        <p style="color: #6c757d; font-size: 14px;">Sua receita foi registrada em nosso sistema</p>
+    </div>
     
-    <h3>Detalhes da solicitação:</h3>
-    <ul>
-      <li><strong>Medicamento:</strong> ${medicationName}</li>
-      <li><strong>Status:</strong> ${status}</li>
-      <li><strong>Protocolo:</strong> ${prescriptionId}</li>
-    </ul>
-    
-    <p>Você receberá atualizações por e-mail conforme o status da sua solicitação for alterado.</p>
-    
-    <p>Atenciosamente,<br>
-    <strong>Equipe Dr. Paulo Donadel</strong></p>
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
+        <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
+        <p style="margin-bottom: 25px;">Sua solicitação de receita foi <strong>recebida com sucesso</strong>! 🎯</p>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Detalhes da Solicitação</h3>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
+                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">📊 Status:</span>
+                <span style="background-color: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px;">${status}</span>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">🔢 Protocolo:</span>
+                <code style="background-color: #f8f9fa; color: #e83e8c; padding: 3px 6px; border-radius: 3px; margin-left: 8px;">${prescriptionId}</code>
+            </div>
+        </div>
+        
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 3px solid #2196f3;">
+            <p style="margin: 0; color: #1565c0; font-weight: 500;">
+                📧 Você receberá atualizações automáticas por e-mail conforme o status da sua solicitação for alterado.
+            </p>
+        </div>
+    </div>
   `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: false,
+    footerText: 'Mantenha este protocolo para acompanhamento da sua solicitação.',
+    emailType: 'confirmation'
+  });
 
   return this.sendEmail(to, subject, textBody, htmlBody);
 };
@@ -227,31 +349,70 @@ Detalhes da solicitação:
 - Protocolo: ${prescriptionId}
   `;
 
-  let htmlBody = `
-    <h2>Atualização de Status da Receita</h2>
-    <p>Olá <strong>${patientName}</strong>,</p>
-    <p>O status da sua solicitação de receita foi atualizado!</p>
+  // Definir cores e ícones por status
+  const statusConfig = {
+    'solicitada': { color: '#6c757d', icon: '📝', bg: '#f8f9fa' },
+    'em_analise': { color: '#fd7e14', icon: '🔍', bg: '#fff3cd' },
+    'aprovada': { color: '#198754', icon: '✅', bg: '#d1edff' },
+    'rejeitada': { color: '#dc3545', icon: '❌', bg: '#f8d7da' },
+    'pronta': { color: '#0d6efd', icon: '📦', bg: '#cce5ff' },
+    'enviada': { color: '#6f42c1', icon: '📧', bg: '#e2d9f3' },
+    'entregue': { color: '#20c997', icon: '🎯', bg: '#d1ecf1' }
+  };
+
+  const currentConfig = statusConfig[newStatus] || { color: '#6c757d', icon: '📊', bg: '#f8f9fa' };
+
+  // Conteúdo HTML profissional 
+  let htmlContent = `
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">${currentConfig.icon} Atualização de Status</h2>
+        <p style="color: #6c757d; font-size: 14px;">Sua solicitação teve o status alterado</p>
+    </div>
     
-    <h3>Detalhes da solicitação:</h3>
-    <ul>
-      <li><strong>Medicamento:</strong> ${medicationName}</li>
-      <li><strong>Status anterior:</strong> ${statusMessages[oldStatus] || oldStatus}</li>
-      <li><strong>Novo status:</strong> <span style="color: #2196F3; font-weight: bold;">${statusMessage}</span></li>
-      <li><strong>Protocolo:</strong> ${prescriptionId}</li>
-    </ul>
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
+        <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
+        <p style="margin-bottom: 25px;">O status da sua solicitação de receita foi <strong>atualizado</strong>! 📋</p>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Detalhes da Atualização</h3>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
+                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">📊 Status Anterior:</span>
+                <span style="color: #6c757d; margin-left: 8px;">${statusMessages[oldStatus] || oldStatus}</span>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">🆕 Novo Status:</span>
+                <span style="background-color: ${currentConfig.bg}; color: ${currentConfig.color}; padding: 4px 12px; border-radius: 6px; font-weight: bold; margin-left: 8px;">
+                    ${currentConfig.icon} ${statusMessage}
+                </span>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">🔢 Protocolo:</span>
+                <code style="background-color: #f8f9fa; color: #e83e8c; padding: 3px 6px; border-radius: 3px; margin-left: 8px;">${prescriptionId}</code>
+            </div>
+        </div>
   `;
 
-  // Adicionar informações específicas baseadas no status
+  // Adicionar notificações específicas baseadas no status
   if (newStatus === 'aprovada') {
     textBody += `
     
 Sua receita foi aprovada! Em breve ela estará pronta para retirada.
     `;
-    htmlBody += `
-    <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0;">
-      <p><strong>✅ Sua receita foi aprovada!</strong></p>
-      <p>Em breve ela estará pronta para retirada.</p>
-    </div>
+    htmlContent += `
+        <div style="background-color: #d1edff; padding: 20px; border-radius: 8px; border-left: 4px solid #198754; margin: 20px 0;">
+            <h4 style="color: #155724; margin-bottom: 10px;">✅ Boa Notícia!</h4>
+            <p style="margin: 0; color: #155724; font-weight: 500;">
+                Sua receita foi <strong>aprovada</strong>! Em breve ela estará pronta para retirada.
+            </p>
+        </div>
     `;
   } else if (newStatus === 'pronta') {
     textBody += `
@@ -260,11 +421,17 @@ Sua receita foi aprovada! Em breve ela estará pronta para retirada.
 
 Você pode retirar sua receita na clínica no prazo de 5 dias úteis.
     `;
-    htmlBody += `
-    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
-      <p><strong>🚚 Sua receita está PRONTA para retirada!</strong></p>
-      <p>Ela permanecerá na recepção da clínica para que possa ser retirada por até <strong>30 dias</strong>, após isto, ela será eliminada.</p>
-    </div>
+    htmlContent += `
+        <div style="background-color: #cce5ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0d6efd; margin: 20px 0;">
+            <h4 style="color: #084298; margin-bottom: 15px;">📦 Receita Pronta para Retirada!</h4>
+            <p style="margin-bottom: 10px; color: #084298;">
+                <strong>Sua receita está disponível para retirada na clínica!</strong>
+            </p>
+            <p style="margin: 0; color: #6c757d; font-size: 14px;">
+                📅 <strong>Prazo:</strong> Disponível por até 30 dias úteis na recepção da clínica.<br>
+                🕐 <strong>Horário:</strong> Segunda a sexta, das 8h às 18h.
+            </p>
+        </div>
     `;
   } else if (newStatus === 'rejeitada' && rejectionReason) {
     textBody += `
@@ -278,16 +445,23 @@ Você pode fazer uma nova solicitação corrigindo as informações necessárias
 Em caso de dúvidas, entre em contato pelo WhatsApp: +55 53 99163-3352
 https://wa.me/5553991633352
     `;
-    htmlBody += `
-    <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0;">
-      <p><strong>❌ Sua solicitação foi rejeitada.</strong></p>
-      <p><strong>Motivo:</strong> ${rejectionReason}</p>
-      <p>Você pode fazer uma nova solicitação corrigindo as informações necessárias.</p>
-      <p>
-        Em caso de dúvidas, entre em contato pelo WhatsApp:<br>
-        <a href="https://wa.me/5553991633352" target="_blank">+55 53 99163-3352</a>
-      </p>
-    </div>
+    htmlContent += `
+        <div style="background-color: #f8d7da; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545; margin: 20px 0;">
+            <h4 style="color: #721c24; margin-bottom: 15px;">❌ Solicitação Rejeitada</h4>
+            <div style="background-color: white; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                <p style="color: #721c24; margin-bottom: 10px;"><strong>Motivo da rejeição:</strong></p>
+                <p style="color: #333; font-style: italic; margin: 0;">"${rejectionReason}"</p>
+            </div>
+            <p style="color: #721c24; margin-bottom: 10px;">
+                Você pode fazer uma <strong>nova solicitação</strong> corrigindo as informações necessárias.
+            </p>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="https://wa.me/5553991633352" 
+                   style="background-color: #25D366; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                    💬 Falar no WhatsApp
+                </a>
+            </div>
+        </div>
     `;
   } else if (newStatus === 'enviada' || newStatus === 'entregue') {
     textBody += `
@@ -302,21 +476,38 @@ https://wa.me/5553991633352
 
 Caso tenha qualquer dúvida, estamos à disposição.
     `;
-    htmlBody += `
-    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
-      <p><strong>Sua receita foi marcada como <span style="color: #2196F3;">ENTREGUE</span>.</strong></p>
-      <ul>
-        <li>Se você optou por receber por <strong>e-mail</strong>, por favor, verifique sua caixa de entrada e também a pasta de spam.</li>
-        <li>Se você escolheu <strong>retirar na clínica</strong> e não reconhece o recebimento, entre em contato com a recepção da clínica imediatamente para esclarecimentos.</li>
-      </ul>
-      <p>
-        Em caso de dúvidas, entre em contato pelo WhatsApp:<br>
-        <a href="https://wa.me/5553991633352" target="_blank">+55 53 99163-3352</a>
-      </p>
-      <p>Caso tenha qualquer dúvida, estamos à disposição.</p>
-    </div>
+    htmlContent += `
+        <div style="background-color: #d1ecf1; padding: 20px; border-radius: 8px; border-left: 4px solid #20c997; margin: 20px 0;">
+            <h4 style="color: #0f5132; margin-bottom: 15px;">🎯 Receita Entregue!</h4>
+            <p style="color: #0f5132; margin-bottom: 15px;">
+                Sua receita foi marcada como <strong>ENTREGUE</strong>.
+            </p>
+            
+            <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                <p style="color: #333; margin-bottom: 8px;"><strong>📧 Recebimento por e-mail:</strong></p>
+                <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">
+                    Verifique sua caixa de entrada e também a <strong>pasta de spam</strong>.
+                </p>
+                
+                <p style="color: #333; margin-bottom: 8px;"><strong>🏥 Retirada na clínica:</strong></p>
+                <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                    Se não reconhece o recebimento, entre em contato imediatamente.
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="https://wa.me/5553991633352" 
+                   style="background-color: #25D366; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                    💬 Falar no WhatsApp
+                </a>
+            </div>
+        </div>
     `;
   }
+
+  // Fechar o conteúdo HTML
+  htmlContent += `
+    </div>`;
 
   textBody += `
 
@@ -324,12 +515,104 @@ Atenciosamente,
 Equipe Dr. Paulo Donadel
   `;
 
-  htmlBody += `
-    <p>Atenciosamente,<br>
-    <strong>Equipe Dr. Paulo Donadel</strong></p>
-  `;
+  // Gerar HTML final com template profissional
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: false,
+    footerText: 'Acompanhe o status das suas solicitações através do protocolo informado.',
+    emailType: 'status_update'
+  });
 
   return this.sendEmail(to, subject, textBody.trim(), htmlBody);
+};
+
+/**
+ * Envia e-mail de boas-vindas para novos usuários
+ * @param {object} options - Opções do e-mail
+ * @param {string} options.to - E-mail do destinatário
+ * @param {string} options.name - Nome do usuário
+ */
+exports.sendWelcomeEmail = async (options) => {
+  const { to, name } = options;
+  
+  const subject = "🎉 Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
+  const userName = name || "Usuário";
+  
+  const textBody = `
+Olá ${userName},
+
+Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!
+
+Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.
+
+Atenciosamente,
+Equipe Dr. Paulo Donadel
+  `.trim();
+
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 35px;">
+        <h1 style="color: #2c5aa0; margin-bottom: 15px; font-size: 28px;">🎉 Seja Bem-vindo!</h1>
+        <p style="color: #6c757d; font-size: 16px; margin: 0;">Seu cadastro foi realizado com sucesso</p>
+    </div>
+    
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 30px; border-radius: 12px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <div style="background-color: #2c5aa0; color: white; width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 15px;">
+                👋
+            </div>
+        </div>
+        
+        <p style="margin-bottom: 20px; font-size: 18px; text-align: center;">
+            Olá <strong style="color: #2c5aa0;">${userName}</strong>!
+        </p>
+        
+        <p style="margin-bottom: 25px; text-align: center; color: #495057;">
+            Seu cadastro em nosso <strong>Sistema de Solicitação de Receitas</strong> foi realizado com <strong>sucesso</strong>! 🎯
+        </p>
+        
+        <div style="background-color: white; padding: 25px; border-radius: 8px; margin: 25px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <h3 style="color: #2c5aa0; margin-bottom: 20px; text-align: center; font-size: 20px;">✨ Próximos Passos</h3>
+            
+            <div style="margin-bottom: 15px; display: flex; align-items: center;">
+                <div style="background-color: #e3f2fd; color: #1976d2; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px;">1</div>
+                <div>
+                    <p style="margin: 0; color: #333; font-weight: 500;">Acesse o sistema com seu e-mail e senha</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 15px; display: flex; align-items: center;">
+                <div style="background-color: #e3f2fd; color: #1976d2; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px;">2</div>
+                <div>
+                    <p style="margin: 0; color: #333; font-weight: 500;">Solicite suas receitas de forma rápida e segura</p>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center;">
+                <div style="background-color: #e3f2fd; color: #1976d2; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px;">3</div>
+                <div>
+                    <p style="margin: 0; color: #333; font-weight: 500;">Acompanhe o status através de notificações por e-mail</p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 3px solid #28a745; margin-top: 25px;">
+            <p style="margin: 0; color: #155724; text-align: center; font-weight: 500;">
+                🔐 <strong>Login:</strong> Use o e-mail cadastrado e sua senha para acessar o sistema
+            </p>
+        </div>
+    </div>
+  `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: true, // Mostrar foto do Dr. Paulo para boas-vindas
+    footerText: 'Bem-vindo ao nosso sistema! Em caso de dúvidas, estamos sempre à disposição.',
+    emailType: 'welcome'
+  });
+
+  return this.sendEmail(to, subject, textBody, htmlBody);
 };
 
 /**
@@ -353,13 +636,46 @@ Dr. Paulo Donadel
 Médico Psiquiatra
   `.trim();
 
-  const htmlBody = `
-    <p>Saudações, <strong>${patientName}</strong>!</p>
-    <p>Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.</p>
-    <p>Atenciosamente,<br>
-    Dr. Paulo Donadel<br>
-    Médico Psiquiatra</p>
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">🩺 Solicitação de Retorno</h2>
+        <p style="color: #6c757d; font-size: 14px;">Comunicação importante sobre seu acompanhamento</p>
+    </div>
+    
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
+        <p style="margin-bottom: 20px; font-size: 16px;">Saudações, <strong style="color: #2c5aa0;">${patientName}</strong>!</p>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7;">
+                Em revisão do seu prontuário, percebi que sua <strong>última consulta</strong> comigo foi há bastante tempo. 
+            </p>
+            
+            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7;">
+                Para que o seu tratamento continue com <strong style="color: #28a745;">excelência</strong>, e não coloque em risco a sua saúde, 
+                solicito que agende uma consulta assim que possível.
+            </p>
+            
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 3px solid #2196f3; margin: 15px 0;">
+                <p style="margin: 0; color: #1565c0; font-weight: 500;">
+                    🎯 <strong>Objetivo:</strong> Elaborarmos juntos seu plano terapêutico para os próximos meses
+                </p>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 25px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+            <p style="color: #2c5aa0; font-weight: 600; margin-bottom: 10px;">Dr. Paulo Donadel</p>
+            <p style="color: #6c757d; font-size: 14px; margin: 0;">CRM/RS 12345 • Médico Psiquiatra</p>
+        </div>
+    </div>
   `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: true, // Mostrar foto do Dr. Paulo para comunicação médica
+    footerText: 'Esta é uma comunicação médica importante. Entre em contato para agendar sua consulta.',
+    emailType: 'medical_communication'
+  });
 
   return this.sendEmail(to, subject, textBody, htmlBody);
 };
@@ -684,92 +1000,93 @@ Este é um e-mail automático. Não responda a este e-mail.
 Sistema de Receitas Médicas - Dr. Paulo Donadel
   `;
   
-  const htmlBody = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lembrete de Renovação de Receita</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center; }
-    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-    .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
-    .action-box { background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #b3d9ff; }
-    .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-    .warning { background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107; margin: 20px 0; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
-    .emoji { font-size: 1.2em; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1><span class="emoji">🔔</span> Lembrete de Renovação</h1>
-    <p>Sistema de Receitas Médicas - Dr. Paulo Donadel</p>
-  </div>
-  
-  <div class="content">
-    <p>Olá <strong>${patientName}</strong>,</p>
-    <p>Este é um lembrete automático sobre sua medicação.</p>
-    
-    <div class="info-box">
-      <h3><span class="emoji">📋</span> Informações do Medicamento</h3>
-      <p><strong>Medicamento:</strong> ${medicationName}</p>
-      <p><strong>Data prevista de término:</strong> ${endDateFormatted}</p>
-      <p><strong>Dias restantes:</strong> ${daysRemaining > 0 ? daysRemaining : 'Medicamento deve estar terminando'}</p>
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">🔔 Lembrete de Renovação</h2>
+        <p style="color: #6c757d; font-size: 14px;">Sistema automático de acompanhamento de medicação</p>
     </div>
     
-    <div class="action-box">
-      <h3><span class="emoji">⏰</span> Ação Necessária</h3>
-      <p>${daysRemaining > 0 
-        ? `Seu medicamento terminará em <strong>${daysRemaining} dias</strong>. É recomendado solicitar uma nova receita agora para evitar interrupção do tratamento.`
-        : 'Seu medicamento deve estar terminando. <strong>Solicite uma nova receita o quanto antes</strong> para não interromper o tratamento.'
-      }</p>
-      
-      <a href="https://sistema-receitas-frontend.onrender.com" class="button">
-        <span class="emoji">🏥</span> Acessar Sistema
-      </a>
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
+        <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
+        <p style="margin-bottom: 25px;">Este é um <strong>lembrete automático</strong> sobre sua medicação. 💊</p>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Informações do Medicamento</h3>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
+                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">📅 Término previsto:</span>
+                <strong style="color: #333; margin-left: 8px;">${endDateFormatted}</strong>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <span style="color: #6c757d; font-weight: 500;">⏱️ Dias restantes:</span>
+                <span style="background-color: ${daysRemaining <= 3 ? '#fff3cd' : '#d1ecf1'}; color: ${daysRemaining <= 3 ? '#856404' : '#0c5460'}; padding: 3px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px;">
+                    ${daysRemaining > 0 ? daysRemaining + ' dias' : 'Terminando agora'}
+                </span>
+            </div>
+        </div>
+        
+        <div style="background-color: ${daysRemaining <= 3 ? '#fff3cd' : '#e3f2fd'}; padding: 20px; border-radius: 8px; border-left: 4px solid ${daysRemaining <= 3 ? '#ffc107' : '#2196f3'}; margin: 20px 0;">
+            <h4 style="color: ${daysRemaining <= 3 ? '#856404' : '#1565c0'}; margin-bottom: 15px;">⏰ Ação Necessária</h4>
+            <p style="color: ${daysRemaining <= 3 ? '#856404' : '#1565c0'}; margin-bottom: 15px; line-height: 1.6;">
+                ${daysRemaining > 0 
+                  ? `Seu medicamento terminará em <strong>${daysRemaining} dias</strong>. É recomendado solicitar uma nova receita agora para evitar interrupção do tratamento.`
+                  : 'Seu medicamento deve estar terminando. <strong>Solicite uma nova receita o quanto antes</strong> para não interromper o tratamento.'
+                }
+            </p>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="https://sistema-receitas-frontend.onrender.com" 
+                   style="background-color: #2c5aa0; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
+                    🏥 Acessar Sistema de Receitas
+                </a>
+            </div>
+        </div>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #e9ecef;">
+            <h4 style="color: #2c5aa0; margin-bottom: 15px;">📞 Como Solicitar Nova Receita</h4>
+            
+            <div style="margin-bottom: 10px; display: flex; align-items: center;">
+                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">1</span>
+                <span style="color: #495057;">Acesse o sistema online</span>
+            </div>
+            
+            <div style="margin-bottom: 10px; display: flex; align-items: center;">
+                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">2</span>
+                <span style="color: #495057;">Faça login com suas credenciais</span>
+            </div>
+            
+            <div style="margin-bottom: 10px; display: flex; align-items: center;">
+                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">3</span>
+                <span style="color: #495057;">Clique em "Solicitar Nova Receita"</span>
+            </div>
+            
+            <div style="display: flex; align-items: center;">
+                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">4</span>
+                <span style="color: #495057;">Preencha os dados do medicamento</span>
+            </div>
+        </div>
+        
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 3px solid #ffc107; margin-top: 20px;">
+            <p style="margin: 0; color: #856404; font-size: 14px; text-align: center;">
+                ⚠️ <strong>Importante:</strong> As receitas são processadas às quintas-feiras. Não interrompa o tratamento sem orientação médica.
+            </p>
+        </div>
     </div>
-    
-    <div class="info-box">
-      <h3><span class="emoji">📝</span> Como Solicitar</h3>
-      <ol>
-        <li>Acesse o sistema clicando no botão acima</li>
-        <li>Faça login com suas credenciais</li>
-        <li>Clique em "Solicitar Nova Receita"</li>
-        <li>Preencha os dados do medicamento</li>
-      </ol>
-    </div>
-    
-    <div class="info-box">
-      <h3><span class="emoji">📞</span> Contato</h3>
-      <p>Em caso de dúvidas, entre em contato:</p>
-      <p><strong>E-mail:</strong> paulodonadel@abp.org.br</p>
-      <p><strong>Telefone:</strong> (53) 3242-3131</p>
-    </div>
-    
-    <div class="warning">
-      <h3><span class="emoji">⚠️</span> Importante</h3>
-      <ul>
-        <li>As receitas são processadas às <strong>quintas-feiras</strong></li>
-        <li>Não interrompa o tratamento sem orientação médica</li>
-        <li>Este é um lembrete automático baseado no seu padrão de uso</li>
-      </ul>
-    </div>
-    
-    <p>Atenciosamente,<br>
-    <strong>Dr. Paulo Donadel</strong><br>
-    CRM/RS 12345</p>
-  </div>
-  
-  <div class="footer">
-    <p>Este é um e-mail automático. Não responda a este e-mail.</p>
-    <p>Sistema de Receitas Médicas - Dr. Paulo Donadel</p>
-  </div>
-</body>
-</html>
   `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: false,
+    footerText: 'Este é um lembrete automático. Para dúvidas, entre em contato com a clínica.',
+    emailType: 'reminder'
+  });
   
   try {
     return await exports.sendEmail(to, subject, textBody, htmlBody);

@@ -141,8 +141,12 @@ exports.register = async (req, res, next) => {
       try {
         const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
         const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-        const htmlBody = `<p>Olá ${name},</p><p>Seu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!</p><p>Você já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
-        await emailService.sendEmail(email, subject, textBody, htmlBody);
+        
+        // Usar template profissional para email de boas-vindas
+        await emailService.sendWelcomeEmail({
+          to: email,
+          name: name
+        });
       } catch (emailError) {
         console.error("Erro ao enviar e-mail de boas-vindas:", emailError);
         // Não impede o registro
