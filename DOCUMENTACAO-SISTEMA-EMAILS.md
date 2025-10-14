@@ -134,6 +134,14 @@ O sistema completo de envio de e-mails para administradores foi implementado com
 
 ## 📧 TEMPLATE DE EMAIL IMPLEMENTADO
 
+### 🎯 **URLs RECOMENDADAS (SEM ESPAÇOS):**
+```javascript
+{
+  "headerImageUrl": "https://sistema-receitas-frontend.onrender.com/images/33058_Paulo.png",
+  "watermarkImageUrl": "https://sistema-receitas-frontend.onrender.com/images/marcadagua.jpg"
+}
+```
+
 O sistema usa um template HTML responsivo:
 
 ```html

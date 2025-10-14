@@ -67,11 +67,14 @@ exports.sendBulkEmails = async (req, res) => {
         console.log('  - Protocolo HTTPS:', watermarkImageUrl.startsWith('https://'));
         console.log('  - URL original:', `"${watermarkImageUrl}"`);
         
-        // Corrigir espaços na URL
+        // Corrigir espaços na URL e sugerir URL recomendada
         if (watermarkImageUrl.includes(' ')) {
             const urlCorrigida = watermarkImageUrl.replace(/ /g, '%20');
             console.log('  - URL corrigida:', `"${urlCorrigida}"`);
+            console.log('  💡 [SUGESTÃO] URL recomendada: "https://sistema-receitas-frontend.onrender.com/images/marcadagua.jpg"');
             watermarkImageUrl = urlCorrigida;
+        } else if (watermarkImageUrl.includes('marca%20dagua')) {
+            console.log('  💡 [SUGESTÃO] Considere usar: "https://sistema-receitas-frontend.onrender.com/images/marcadagua.jpg"');
         }
     }
     console.log('🖼️ [EMAIL-DEBUG] =====================================');
