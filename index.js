@@ -310,6 +310,7 @@ const prescriptionRoutes = require('./prescription.routes');
 const noteRoutes = require('./note.routes');
 const encaixePacienteRoutes = require('./encaixePaciente.routes');
 const emailRoutes = require('./email.routes');
+const userRoutes = require('./routes/user.routes'); // Rotas de usuários
 const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
 const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
 const documentRoutes = require('./document.routes'); // Rotas de documentos/atestados
@@ -320,6 +321,7 @@ app.use('/api/prescriptions', prescriptionRoutes); // Alias para compatibilidade
 app.use('/api/notes', noteRoutes);
 app.use('/api', encaixePacienteRoutes);
 app.use('/api/emails', emailRoutes);
+app.use('/api/users', userRoutes); // Rotas de usuários - ESSENCIAL PARA /api/users
 app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
 app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
