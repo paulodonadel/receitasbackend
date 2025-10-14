@@ -53,9 +53,10 @@ exports.sendBulkEmails = async (req, res) => {
     console.log('🖼️ [EMAIL-DEBUG] Campos de imagem recebidos:');
     console.log('  useHeaderImage:', useHeaderImage);
     console.log('  headerImageUrl:', headerImageUrl);
-    console.log('  useWatermark:', useWatermark);
-    console.log('  watermarkImageUrl:', watermarkImageUrl);
+    console.log('  useWatermark (papel timbrado):', useWatermark);
+    console.log('  watermarkImageUrl (papel timbrado):', watermarkImageUrl);
     console.log('  logoUrl (compatibilidade):', logoUrl);
+    console.log('📄 [EMAIL-DEBUG] Papel timbrado será usado como fundo completo');
 
     const emailResults = [];
     const failedEmails = [];
@@ -64,7 +65,7 @@ exports.sendBulkEmails = async (req, res) => {
     // Nome do remetente (usar o nome do admin logado se não fornecido)
     const fromName = senderName || req.user.name || 'Sistema de Receitas';
 
-    // Template HTML do email com suporte a imagens
+    // Template HTML com papel timbrado como fundo
     const emailTemplate = `
 <!DOCTYPE html>
 <html>
@@ -89,16 +90,29 @@ exports.sendBulkEmails = async (req, res) => {
     </div>
     ` : ''}
     
-    <!-- CONTEÚDO PRINCIPAL -->
-    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; position: relative;">
-        ${content}
-        
-        <!-- MARCA D'ÁGUA (LOGO) -->
+    <!-- CONTEÚDO COM PAPEL TIMBRADO DE FUNDO -->
+    <div style="
         ${(useWatermark && watermarkImageUrl) ? `
-        <div style="position: absolute; bottom: 10px; right: 10px; opacity: 0.3;">
-            <img src="${watermarkImageUrl}" alt="Logo" style="max-width: 80px; height: auto;">
+        background-image: url('${watermarkImageUrl}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        ` : 'background: #f9f9f9;'}
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        min-height: 300px;
+        position: relative;
+    ">
+        <!-- Overlay semi-transparente para melhor legibilidade -->
+        <div style="
+            background: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 5px;
+            backdrop-filter: blur(1px);
+        ">
+            ${content}
         </div>
-        ` : ''}
     </div>
     
     <!-- RODAPÉ -->
