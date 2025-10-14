@@ -23,7 +23,17 @@ exports.sendBulkEmails = async (req, res) => {
       });
     }
 
-    const { recipients, subject, content, logoUrl, senderName } = req.body;
+    const { 
+      recipients, 
+      subject, 
+      content, 
+      logoUrl, // Manter para compatibilidade
+      senderName,
+      useHeaderImage,
+      useWatermark,
+      headerImageUrl,
+      watermarkImageUrl
+    } = req.body;
     
     // Buscar informações dos usuários destinatários
     const users = await User.find({
@@ -38,6 +48,14 @@ exports.sendBulkEmails = async (req, res) => {
     }
 
     console.log(`📧 [EMAIL] Enviando para ${users.length} usuários`);
+    
+    // Debug das imagens recebidas
+    console.log('🖼️ [EMAIL-DEBUG] Campos de imagem recebidos:');
+    console.log('  useHeaderImage:', useHeaderImage);
+    console.log('  headerImageUrl:', headerImageUrl);
+    console.log('  useWatermark:', useWatermark);
+    console.log('  watermarkImageUrl:', watermarkImageUrl);
+    console.log('  logoUrl (compatibilidade):', logoUrl);
 
     const emailResults = [];
     const failedEmails = [];
@@ -46,7 +64,7 @@ exports.sendBulkEmails = async (req, res) => {
     // Nome do remetente (usar o nome do admin logado se não fornecido)
     const fromName = senderName || req.user.name || 'Sistema de Receitas';
 
-    // Template HTML do email
+    // Template HTML do email com suporte a imagens
     const emailTemplate = `
 <!DOCTYPE html>
 <html>
@@ -56,19 +74,37 @@ exports.sendBulkEmails = async (req, res) => {
     <title>${subject}</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    ${logoUrl ? `
+    
+    <!-- CABEÇALHO COM IMAGEM DO DR. PAULO -->
+    ${(useHeaderImage && headerImageUrl) ? `
+    <div style="text-align: center; margin-bottom: 30px;">
+        <img src="${headerImageUrl}" alt="Dr. Paulo Donadel" style="max-width: 200px; height: auto; display: block; margin: 0 auto;">
+    </div>
+    ` : ''}
+    
+    <!-- COMPATIBILIDADE: Logo antigo (se headerImage não estiver sendo usado) -->
+    ${(!useHeaderImage && logoUrl) ? `
     <div style="text-align: center; margin-bottom: 30px;">
         <img src="${logoUrl}" alt="Logo" style="max-width: 200px; height: auto;">
     </div>
     ` : ''}
     
-    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; position: relative;">
         ${content}
+        
+        <!-- MARCA D'ÁGUA (LOGO) -->
+        ${(useWatermark && watermarkImageUrl) ? `
+        <div style="position: absolute; bottom: 10px; right: 10px; opacity: 0.3;">
+            <img src="${watermarkImageUrl}" alt="Logo" style="max-width: 80px; height: auto;">
+        </div>
+        ` : ''}
     </div>
     
+    <!-- RODAPÉ -->
     <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
         <p>Enviado por: ${fromName}</p>
-        <p>Sistema de Receitas Médicas</p>
+        <p>Sistema de Receitas Médicas - Clinipampa</p>
     </div>
 </body>
 </html>`;
