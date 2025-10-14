@@ -49,26 +49,21 @@ const createProfessionalEmailTemplate = (options) => {
     <!-- CONTEÚDO PRINCIPAL COM PAPEL TIMBRADO -->
     <div style="
         background: url('${watermarkImageUrl}');
-        background-size: contain;
-        background-position: center top;
+        background-size: cover;
+        background-position: center center;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        padding: 45px 40px;
+        padding: 80px 50px 60px 50px;
         border-radius: 12px;
         margin-bottom: 25px;
-        min-height: 450px;
+        min-height: 600px;
         position: relative;
         border: 1px solid #e1e5e9;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         background-color: #ffffff;
     ">
-        <!-- Overlay sutil para legibilidade -->
-        <div style="
-            background: rgba(255, 255, 255, 0.12);
-            padding: 35px;
-            border-radius: 8px;
-            backdrop-filter: blur(0.5px);
-        ">
+        <!-- Container do conteúdo com espaçamento para o logo do papel timbrado -->
+        <div style="padding: 0; position: relative; z-index: 2; margin-top: 40px;">
             ${content}
         </div>
     </div>
@@ -261,22 +256,22 @@ Equipe Dr. Paulo Donadel
         <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
         <p style="margin-bottom: 25px;">Sua solicitação de receita foi <strong>recebida com sucesso</strong>! 🎯</p>
         
-        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
             <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Detalhes da Solicitação</h3>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
-                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+                <span style="color: #495057; font-weight: 600;">💊 Medicamento:</span>
+                <strong style="color: #212529; margin-left: 8px;">${medicationName}</strong>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">📊 Status:</span>
-                <span style="background-color: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px;">${status}</span>
+                <span style="color: #495057; font-weight: 600;">📊 Status:</span>
+                <span style="background-color: rgba(255, 243, 205, 0.9); color: #856404; padding: 4px 10px; border-radius: 5px; font-weight: 600; margin-left: 8px;">${status}</span>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">🔢 Protocolo:</span>
-                <code style="background-color: #f8f9fa; color: #e83e8c; padding: 3px 6px; border-radius: 3px; margin-left: 8px;">${prescriptionId}</code>
+                <span style="color: #495057; font-weight: 600;">🔢 Protocolo:</span>
+                <code style="background-color: rgba(248, 249, 250, 0.9); color: #e83e8c; padding: 4px 8px; border-radius: 4px; margin-left: 8px; font-weight: bold;">${prescriptionId}</code>
             </div>
         </div>
         
@@ -373,29 +368,29 @@ Detalhes da solicitação:
         <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
         <p style="margin-bottom: 25px;">O status da sua solicitação de receita foi <strong>atualizado</strong>! 📋</p>
         
-        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
             <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Detalhes da Atualização</h3>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
-                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+                <span style="color: #495057; font-weight: 600;">💊 Medicamento:</span>
+                <strong style="color: #212529; margin-left: 8px;">${medicationName}</strong>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">📊 Status Anterior:</span>
-                <span style="color: #6c757d; margin-left: 8px;">${statusMessages[oldStatus] || oldStatus}</span>
+                <span style="color: #495057; font-weight: 600;">📊 Status Anterior:</span>
+                <span style="color: #6c757d; margin-left: 8px; font-weight: 500;">${statusMessages[oldStatus] || oldStatus}</span>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">🆕 Novo Status:</span>
-                <span style="background-color: ${currentConfig.bg}; color: ${currentConfig.color}; padding: 4px 12px; border-radius: 6px; font-weight: bold; margin-left: 8px;">
+                <span style="color: #495057; font-weight: 600;">🆕 Novo Status:</span>
+                <span style="background-color: ${currentConfig.bg}; color: ${currentConfig.color}; padding: 5px 14px; border-radius: 6px; font-weight: bold; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
                     ${currentConfig.icon} ${statusMessage}
                 </span>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">🔢 Protocolo:</span>
-                <code style="background-color: #f8f9fa; color: #e83e8c; padding: 3px 6px; border-radius: 3px; margin-left: 8px;">${prescriptionId}</code>
+                <span style="color: #495057; font-weight: 600;">🔢 Protocolo:</span>
+                <code style="background-color: rgba(248, 249, 250, 0.9); color: #e83e8c; padding: 4px 8px; border-radius: 4px; margin-left: 8px; font-weight: bold;">${prescriptionId}</code>
             </div>
         </div>
   `;
@@ -448,9 +443,9 @@ https://wa.me/5553991633352
     htmlContent += `
         <div style="background-color: #f8d7da; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545; margin: 20px 0;">
             <h4 style="color: #721c24; margin-bottom: 15px;">❌ Solicitação Rejeitada</h4>
-            <div style="background-color: white; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                <p style="color: #721c24; margin-bottom: 10px;"><strong>Motivo da rejeição:</strong></p>
-                <p style="color: #333; font-style: italic; margin: 0;">"${rejectionReason}"</p>
+            <div style="background-color: rgba(255, 255, 255, 0.8); padding: 16px; border-radius: 6px; margin-bottom: 15px; border: 1px solid rgba(220, 53, 69, 0.2);">
+                <p style="color: #721c24; margin-bottom: 10px; font-weight: 600;"><strong>Motivo da rejeição:</strong></p>
+                <p style="color: #495057; font-style: italic; margin: 0; font-weight: 500;">"${rejectionReason}"</p>
             </div>
             <p style="color: #721c24; margin-bottom: 10px;">
                 Você pode fazer uma <strong>nova solicitação</strong> corrigindo as informações necessárias.
@@ -483,14 +478,14 @@ Caso tenha qualquer dúvida, estamos à disposição.
                 Sua receita foi marcada como <strong>ENTREGUE</strong>.
             </p>
             
-            <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
-                <p style="color: #333; margin-bottom: 8px;"><strong>📧 Recebimento por e-mail:</strong></p>
-                <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">
+            <div style="background-color: rgba(255, 255, 255, 0.8); padding: 16px; border-radius: 6px; margin: 15px 0; border: 1px solid rgba(32, 201, 151, 0.2);">
+                <p style="color: #495057; margin-bottom: 8px; font-weight: 600;"><strong>📧 Recebimento por e-mail:</strong></p>
+                <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px; font-weight: 500;">
                     Verifique sua caixa de entrada e também a <strong>pasta de spam</strong>.
                 </p>
                 
-                <p style="color: #333; margin-bottom: 8px;"><strong>🏥 Retirada na clínica:</strong></p>
-                <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                <p style="color: #495057; margin-bottom: 8px; font-weight: 600;"><strong>🏥 Retirada na clínica:</strong></p>
+                <p style="color: #6c757d; margin: 0; font-size: 14px; font-weight: 500;">
                     Se não reconhece o recebimento, entre em contato imediatamente.
                 </p>
             </div>
@@ -571,7 +566,7 @@ Equipe Dr. Paulo Donadel
             Seu cadastro em nosso <strong>Sistema de Solicitação de Receitas</strong> foi realizado com <strong>sucesso</strong>! 🎯
         </p>
         
-        <div style="background-color: white; padding: 25px; border-radius: 8px; margin: 25px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <div style="background-color: rgba(255, 255, 255, 0.8); padding: 25px; border-radius: 10px; margin: 25px 0; border: 2px solid rgba(44, 90, 160, 0.2);">
             <h3 style="color: #2c5aa0; margin-bottom: 20px; text-align: center; font-size: 20px;">✨ Próximos Passos</h3>
             
             <div style="margin-bottom: 15px; display: flex; align-items: center;">
@@ -645,18 +640,18 @@ Médico Psiquiatra
     <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
         <p style="margin-bottom: 20px; font-size: 16px;">Saudações, <strong style="color: #2c5aa0;">${patientName}</strong>!</p>
         
-        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
-            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7;">
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
+            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7; font-weight: 500;">
                 Em revisão do seu prontuário, percebi que sua <strong>última consulta</strong> comigo foi há bastante tempo. 
             </p>
             
-            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7;">
+            <p style="color: #495057; margin-bottom: 15px; line-height: 1.7; font-weight: 500;">
                 Para que o seu tratamento continue com <strong style="color: #28a745;">excelência</strong>, e não coloque em risco a sua saúde, 
                 solicito que agende uma consulta assim que possível.
             </p>
             
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 3px solid #2196f3; margin: 15px 0;">
-                <p style="margin: 0; color: #1565c0; font-weight: 500;">
+            <div style="background-color: rgba(227, 242, 253, 0.8); padding: 16px; border-radius: 6px; border-left: 3px solid #2196f3; margin: 15px 0;">
+                <p style="margin: 0; color: #1565c0; font-weight: 600;">
                     🎯 <strong>Objetivo:</strong> Elaborarmos juntos seu plano terapêutico para os próximos meses
                 </p>
             </div>
@@ -1010,22 +1005,22 @@ Sistema de Receitas Médicas - Dr. Paulo Donadel
         <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong>,</p>
         <p style="margin-bottom: 25px;">Este é um <strong>lembrete automático</strong> sobre sua medicação. 💊</p>
         
-        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
             <h3 style="color: #2c5aa0; margin-bottom: 15px; font-size: 18px;">📋 Informações do Medicamento</h3>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">💊 Medicamento:</span>
-                <strong style="color: #333; margin-left: 8px;">${medicationName}</strong>
+                <span style="color: #495057; font-weight: 600;">💊 Medicamento:</span>
+                <strong style="color: #212529; margin-left: 8px;">${medicationName}</strong>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">📅 Término previsto:</span>
-                <strong style="color: #333; margin-left: 8px;">${endDateFormatted}</strong>
+                <span style="color: #495057; font-weight: 600;">📅 Término previsto:</span>
+                <strong style="color: #212529; margin-left: 8px;">${endDateFormatted}</strong>
             </div>
             
             <div style="margin-bottom: 12px;">
-                <span style="color: #6c757d; font-weight: 500;">⏱️ Dias restantes:</span>
-                <span style="background-color: ${daysRemaining <= 3 ? '#fff3cd' : '#d1ecf1'}; color: ${daysRemaining <= 3 ? '#856404' : '#0c5460'}; padding: 3px 8px; border-radius: 4px; font-weight: 500; margin-left: 8px;">
+                <span style="color: #495057; font-weight: 600;">⏱️ Dias restantes:</span>
+                <span style="background-color: ${daysRemaining <= 3 ? 'rgba(255, 243, 205, 0.9)' : 'rgba(209, 236, 241, 0.9)'}; color: ${daysRemaining <= 3 ? '#856404' : '#0c5460'}; padding: 4px 10px; border-radius: 5px; font-weight: 600; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
                     ${daysRemaining > 0 ? daysRemaining + ' dias' : 'Terminando agora'}
                 </span>
             </div>
@@ -1048,27 +1043,27 @@ Sistema de Receitas Médicas - Dr. Paulo Donadel
             </div>
         </div>
         
-        <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #e9ecef;">
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
             <h4 style="color: #2c5aa0; margin-bottom: 15px;">📞 Como Solicitar Nova Receita</h4>
             
             <div style="margin-bottom: 10px; display: flex; align-items: center;">
-                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">1</span>
-                <span style="color: #495057;">Acesse o sistema online</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1976d2; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 12px; border: 1px solid rgba(25, 118, 210, 0.3);">1</span>
+                <span style="color: #495057; font-weight: 500;">Acesse o sistema online</span>
             </div>
             
             <div style="margin-bottom: 10px; display: flex; align-items: center;">
-                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">2</span>
-                <span style="color: #495057;">Faça login com suas credenciais</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1976d2; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 12px; border: 1px solid rgba(25, 118, 210, 0.3);">2</span>
+                <span style="color: #495057; font-weight: 500;">Faça login com suas credenciais</span>
             </div>
             
             <div style="margin-bottom: 10px; display: flex; align-items: center;">
-                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">3</span>
-                <span style="color: #495057;">Clique em "Solicitar Nova Receita"</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1976d2; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 12px; border: 1px solid rgba(25, 118, 210, 0.3);">3</span>
+                <span style="color: #495057; font-weight: 500;">Clique em "Solicitar Nova Receita"</span>
             </div>
             
             <div style="display: flex; align-items: center;">
-                <span style="background-color: #e3f2fd; color: #1976d2; width: 25px; height: 25px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 12px;">4</span>
-                <span style="color: #495057;">Preencha os dados do medicamento</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1976d2; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 12px; border: 1px solid rgba(25, 118, 210, 0.3);">4</span>
+                <span style="color: #495057; font-weight: 500;">Preencha os dados do medicamento</span>
             </div>
         </div>
         
