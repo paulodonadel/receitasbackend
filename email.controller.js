@@ -50,13 +50,15 @@ exports.sendBulkEmails = async (req, res) => {
     console.log(`📧 [EMAIL] Enviando para ${users.length} usuários`);
     
     // Debug das imagens recebidas
-    console.log('🖼️ [EMAIL-DEBUG] Campos de imagem recebidos:');
-    console.log('  useHeaderImage:', useHeaderImage);
+    console.log('🖼️ [EMAIL-DEBUG] ===== CAMPOS DE IMAGEM RECEBIDOS =====');
+    console.log('  useHeaderImage:', useHeaderImage, '(tipo:', typeof useHeaderImage, ')');
     console.log('  headerImageUrl:', headerImageUrl);
-    console.log('  useWatermark (papel timbrado):', useWatermark);
-    console.log('  watermarkImageUrl (papel timbrado):', watermarkImageUrl);
+    console.log('  useWatermark:', useWatermark, '(tipo:', typeof useWatermark, ')');
+    console.log('  watermarkImageUrl:', watermarkImageUrl);
     console.log('  logoUrl (compatibilidade):', logoUrl);
-    console.log('📄 [EMAIL-DEBUG] Papel timbrado será usado como fundo completo');
+    console.log('📄 [EMAIL-DEBUG] Papel timbrado ativo:', !!watermarkImageUrl);
+    console.log('🖼️ [EMAIL-DEBUG] URL do papel:', watermarkImageUrl || 'NENHUMA');
+    console.log('🖼️ [EMAIL-DEBUG] =====================================');
 
     const emailResults = [];
     const failedEmails = [];
@@ -92,24 +94,26 @@ exports.sendBulkEmails = async (req, res) => {
     
     <!-- CONTEÚDO COM PAPEL TIMBRADO DE FUNDO -->
     <div style="
-        ${(useWatermark && watermarkImageUrl) ? `
+        ${watermarkImageUrl ? `
         background-image: url('${watermarkImageUrl}');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
+        background-attachment: scroll;
         ` : 'background: #f9f9f9;'}
         padding: 30px;
         border-radius: 8px;
         margin-bottom: 20px;
-        min-height: 300px;
+        min-height: 400px;
         position: relative;
+        border: 1px solid #ddd;
     ">
-        <!-- Overlay semi-transparente para melhor legibilidade -->
+        <!-- Overlay semi-transparente SEMPRE para legibilidade -->
         <div style="
-            background: rgba(255, 255, 255, 0.85);
-            padding: 20px;
-            border-radius: 5px;
-            backdrop-filter: blur(1px);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         ">
             ${content}
         </div>
