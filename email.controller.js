@@ -59,13 +59,20 @@ exports.sendBulkEmails = async (req, res) => {
     console.log('📄 [EMAIL-DEBUG] Papel timbrado ativo:', !!watermarkImageUrl);
     console.log('🖼️ [EMAIL-DEBUG] URL do papel:', watermarkImageUrl || 'NENHUMA');
     
-    // Validação da URL
+    // Validação e correção da URL
     if (watermarkImageUrl) {
         console.log('🔍 [EMAIL-DEBUG] Validação da URL:');
         console.log('  - Comprimento:', watermarkImageUrl.length);
         console.log('  - Contém espaços:', watermarkImageUrl.includes(' '));
         console.log('  - Protocolo HTTPS:', watermarkImageUrl.startsWith('https://'));
-        console.log('  - URL completa:', `"${watermarkImageUrl}"`);
+        console.log('  - URL original:', `"${watermarkImageUrl}"`);
+        
+        // Corrigir espaços na URL
+        if (watermarkImageUrl.includes(' ')) {
+            const urlCorrigida = watermarkImageUrl.replace(/ /g, '%20');
+            console.log('  - URL corrigida:', `"${urlCorrigida}"`);
+            watermarkImageUrl = urlCorrigida;
+        }
     }
     console.log('🖼️ [EMAIL-DEBUG] =====================================');
 
