@@ -36,6 +36,25 @@ const createProfessionalEmailTemplate = (options) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${subject}</title>
+    <style>
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                padding: 80px 10px 60px 10px !important;
+                min-height: 500px !important;
+            }
+            .content-wrapper {
+                background-color: rgba(255, 255, 255, 0.95) !important;
+                padding: 20px !important;
+                border-radius: 12px !important;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+                margin: 20px 0 !important;
+            }
+            .mobile-text {
+                font-size: 16px !important;
+                line-height: 1.5 !important;
+            }
+        }
+    </style>
 </head>
 <body style="font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
     
@@ -47,13 +66,13 @@ const createProfessionalEmailTemplate = (options) => {
     ` : ''}
     
     <!-- CONTEÚDO PRINCIPAL COM PAPEL TIMBRADO -->
-    <div style="
+    <div class="email-container" style="
         background: url('${watermarkImageUrl}');
         background-size: contain;
         background-position: center center;
         background-repeat: no-repeat;
         background-attachment: scroll;
-        padding: 140px 50px 100px 50px;
+        padding: 140px 20px 100px 20px;
         border-radius: 12px;
         margin-bottom: 25px;
         min-height: 750px;
@@ -61,9 +80,18 @@ const createProfessionalEmailTemplate = (options) => {
         border: 1px solid #e1e5e9;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         background-color: #ffffff;
+        max-width: 100%;
+        box-sizing: border-box;
     ">
         <!-- Container do conteúdo com espaçamento para o logo do papel timbrado -->
-        <div style="padding: 0; position: relative; z-index: 2;">
+        <div class="content-wrapper mobile-text" style="
+            padding: 0; 
+            position: relative; 
+            z-index: 2;
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        ">
             ${content}
         </div>
     </div>
@@ -81,7 +109,7 @@ const createProfessionalEmailTemplate = (options) => {
     ">
         <div style="margin-bottom: 10px;">
             <strong style="color: #2c5aa0;">Dr. Paulo Donadel</strong><br>
-            <span style="font-size: 12px;">CRM/RS 12345 • Médico Psiquiatra</span>
+            <span style="font-size: 12px;">CRM/RS 37848 • RQE 32527 • Médico Psiquiatra</span>
         </div>
         
         ${footerText ? `<p style="margin: 10px 0; color: #495057;">${footerText}</p>` : ''}
@@ -659,7 +687,7 @@ Médico Psiquiatra
         
         <div style="text-align: center; margin-top: 25px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
             <p style="color: #2c5aa0; font-weight: 600; margin-bottom: 10px;">Dr. Paulo Donadel</p>
-            <p style="color: #6c757d; font-size: 14px; margin: 0;">CRM/RS 12345 • Médico Psiquiatra</p>
+            <p style="color: #6c757d; font-size: 14px; margin: 0;">CRM/RS 37848 • RQE 32527 • Médico Psiquiatra</p>
         </div>
     </div>
   `;
