@@ -1,6 +1,7 @@
 const Prescription = require('./models/prescription.model');
 const User = require('./models/user.model');
 const Reminder = require('./models/reminder.model');
+const { identifyActiveIngredient, groupByActiveIngredient } = require('./utils/medicationDatabase');
 
 // @desc    Obter estatísticas gerais do sistema
 // @route   GET /api/reports/overview
@@ -407,3 +408,126 @@ exports.getVolumeReport = async (req, res) => {
   }
 };
 
+// @desc    Obter estatísticas por princípio ativo
+// @route   GET /api/reports/medications
+// @access  Private (Admin)
+exports.getMedicationStats = async (req, res) => {
+  try {
+    console.log("💊 [REPORTS] Iniciando medication stats");
+    
+    // Extrair filtros de data
+    const { startDate, endDate } = req.query;
+    
+    // Construir filtro de data
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Buscar todas as prescrições com filtro de data
+    const prescriptions = await Prescription.find(dateFilter).select('medications');
+    
+    // Extrair todos os medicamentos
+    const allMedications = [];
+    for (const prescription of prescriptions) {
+      if (prescription.medications && Array.isArray(prescription.medications)) {
+        for (const med of prescription.medications) {
+          if (med.name) {
+            allMedications.push(med.name);
+          }
+        }
+      }
+    }
+
+    console.log(`💊 [REPORTS] Total de medicamentos encontrados: ${allMedications.length}`);
+
+    // Agrupar por princípio ativo
+    const grouped = groupByActiveIngredient(allMedications);
+    
+    // Calcular percentuais
+    const total = allMedications.length;
+    const byActiveIngredient = grouped.byActiveIngredient.map(item => ({
+      ...item,
+      percentage: total > 0 ? ((item.count / total) * 100).toFixed(2) : 0
+    }));
+
+    // Agrupar por classe terapêutica
+    const byClass = {};
+    for (const item of grouped.byActiveIngredient) {
+      if (!byClass[item.class]) {
+        byClass[item.class] = {
+          class: item.class,
+          count: 0,
+          activeIngredients: []
+        };
+      }
+      byClass[item.class].count += item.count;
+      byClass[item.class].activeIngredients.push({
+        name: item.activeIngredient,
+        count: item.count
+      });
+    }
+
+    const byClassArray = Object.values(byClass)
+      .sort((a, b) => b.count - a.count)
+      .map(item => ({
+        ...item,
+        percentage: total > 0 ? ((item.count / total) * 100).toFixed(2) : 0
+      }));
+
+    // Top 10 medicamentos mais prescritos (nome original)
+    const medicationCounts = {};
+    for (const med of allMedications) {
+      const info = identifyActiveIngredient(med);
+      const key = info.input; // Usar nome original
+      medicationCounts[key] = (medicationCounts[key] || 0) + 1;
+    }
+
+    const topMedications = Object.entries(medicationCounts)
+      .map(([name, count]) => {
+        const info = identifyActiveIngredient(name);
+        return {
+          name,
+          activeIngredient: info.activeIngredient,
+          class: info.class,
+          count,
+          percentage: total > 0 ? ((count / total) * 100).toFixed(2) : 0
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    console.log(`💊 [REPORTS] Princípios ativos identificados: ${byActiveIngredient.length}`);
+    console.log(`💊 [REPORTS] Medicamentos não identificados: ${grouped.unidentified.length}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: total,
+        byActiveIngredient: byActiveIngredient,
+        byClass: byClassArray,
+        topMedications: topMedications,
+        unidentified: {
+          count: grouped.unidentified.length,
+          list: [...new Set(grouped.unidentified)].slice(0, 20) // Primeiros 20 únicos
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("💊 [REPORTS] Erro ao gerar medication stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro interno do servidor",
+      error: error.message
+    });
+  }
+};

@@ -4,7 +4,8 @@ const {
   getOverviewStats,
   getVolumeReport,
   getTopPatients,
-  getTopMedications
+  getTopMedications,
+  getMedicationStats
 } = require('./reports.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
@@ -79,6 +80,13 @@ router.get('/top-medications',
   adminOnly, 
   [...periodValidation, ...limitValidation], 
   getTopMedications
+);
+
+// Estatísticas por princípio ativo e classe terapêutica
+router.get('/medications', 
+  adminOnly, 
+  [...dateRangeValidation], 
+  getMedicationStats
 );
 
 module.exports = router;
