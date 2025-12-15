@@ -433,20 +433,15 @@ exports.getMedicationStats = async (req, res) => {
     }
 
     // Buscar todas as prescrições com filtro de data
-    const prescriptions = await Prescription.find(dateFilter).select('medications');
+    const prescriptions = await Prescription.find(dateFilter).select('medicationName');
     
     // Extrair todos os medicamentos
     const allMedications = [];
-    for (const prescription of prescriptions) {
-      if (prescription.medications && Array.isArray(prescription.medications)) {
-        for (const med of prescription.medications) {
-          if (med.name) {
-            allMedications.push(med.name);
-          }
+      for (const prescription of prescriptions) {
+        if (prescription.medicationName) {
+          allMedications.push(prescription.medicationName);
         }
       }
-    }
-
     console.log(`💊 [REPORTS] Total de medicamentos encontrados: ${allMedications.length}`);
 
     // Agrupar por princípio ativo
@@ -531,3 +526,4 @@ exports.getMedicationStats = async (req, res) => {
     });
   }
 };
+
