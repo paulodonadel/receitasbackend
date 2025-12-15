@@ -3,15 +3,21 @@ const User = require('./models/user.model');
 // Listar todos os pacientes
 exports.getAllPatients = async (req, res) => {
   try {
-    const patients = await User.find({ role: 'patient' }).select('-password -resetPasswordToken -resetPasswordExpires');
+    // Retorna todos os usuários (não filtra por role) para permitir gerenciar admins também
+    const patients = await User.find({}).select('-password -resetPasswordToken -resetPasswordExpires');
     // Normaliza resposta para frontend
     const result = patients.map(p => ({
+      _id: p._id, // Mantém _id para compatibilidade
       id: p._id,
       name: p.name,
       email: p.email,
       Cpf: p.Cpf,
+      cpf: p.Cpf, // Duplicado para compatibilidade com frontend
       phone: p.phone,
+      role: p.role, // Inclui role para frontend saber se é admin ou patient
+      createdAt: p.createdAt,
       endereco: p.endereco && typeof p.endereco === 'object' ? p.endereco : {},
+      address: p.address, // Inclui address também
       // outros campos relevantes podem ser adicionados aqui
     }));
     res.status(200).json(result);
@@ -23,16 +29,21 @@ exports.getAllPatients = async (req, res) => {
 // Buscar paciente por ID
 exports.getPatientById = async (req, res) => {
   try {
-    const patient = await User.findOne({ _id: req.params.id, role: 'patient' }).select('-password -resetPasswordToken -resetPasswordExpires');
+    const patient = await User.findOne({ _id: req.params.id }).select('-password -resetPasswordToken -resetPasswordExpires');
     if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });
     // Normaliza resposta para frontend
     const result = {
+      _id: patient._id,
       id: patient._id,
       name: patient.name,
       email: patient.email,
       Cpf: patient.Cpf,
+      cpf: patient.Cpf,
       phone: patient.phone,
+      role: patient.role,
+      createdAt: patient.createdAt,
       endereco: patient.endereco && typeof patient.endereco === 'object' ? patient.endereco : {},
+      address: patient.address,
       // outros campos relevantes podem ser adicionados aqui
     };
     res.status(200).json({ success: true, data: result });
@@ -93,7 +104,7 @@ exports.updatePatient = async (req, res) => {
       updateData.address.state = state;
     }
     const patient = await User.findOneAndUpdate(
-      { _id: req.params.id, role: 'patient' },
+      { _id: req.params.id }, // Removido filtro de role para permitir atualizar admins também
       updateData,
       { new: true, runValidators: true }
     ).select('-password -resetPasswordToken -resetPasswordExpires');
@@ -107,7 +118,7 @@ exports.updatePatient = async (req, res) => {
 // Deletar paciente
 exports.deletePatient = async (req, res) => {
   try {
-    const patient = await User.findOneAndDelete({ _id: req.params.id, role: 'patient' });
+    const patient = await User.findOneAndDelete({ _id: req.params.id }); // Removido filtro de role
     if (!patient) return res.status(404).json({ success: false, message: 'Paciente não encontrado.' });
     res.status(200).json({ success: true, message: 'Paciente removido com sucesso.' });
   } catch (error) {
