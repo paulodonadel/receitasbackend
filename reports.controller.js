@@ -32,7 +32,11 @@ exports.getOverviewStats = async (req, res) => {
 
     // Consultas reais ao banco de dados com filtro de data
     const totalPrescriptions = await Prescription.countDocuments(dateFilter);
-    const totalPatients = await User.countDocuments({ role: 'patient' });
+    
+    // Contar pacientes únicos que têm prescrições (não todos os usuários cadastrados)
+    const uniquePatients = await Prescription.distinct('patientCpf', dateFilter);
+    const totalPatients = uniquePatients.length;
+    
     const totalReminders = await Reminder.countDocuments();
     
     // Prescrições dos últimos 7 dias (somente se não há filtro personalizado)
