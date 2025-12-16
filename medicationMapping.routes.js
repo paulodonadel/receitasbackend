@@ -18,10 +18,7 @@ router.use(protect);
 // @access  Admin, Secretary
 router.post('/', authorize('admin', 'secretary'), createMapping);
 
-// @route   GET /api/medication-mappings
-// @desc    Listar todos os mapeamentos
-// @access  Admin, Secretary
-router.get('/', authorize('admin', 'secretary'), getAllMappings);
+// IMPORTANTE: Rotas específicas devem vir ANTES de rotas genéricas!
 
 // @route   GET /api/medication-mappings/all
 // @desc    Listar TODOS os medicamentos (hardcoded + customizados)
@@ -32,6 +29,11 @@ router.get('/all', authorize('admin', 'secretary'), require('./medicationMapping
 // @desc    Buscar medicamentos não identificados
 // @access  Admin, Secretary
 router.get('/unidentified', authorize('admin', 'secretary'), getUnidentifiedMedications);
+
+// @route   GET /api/medication-mappings
+// @desc    Listar todos os mapeamentos
+// @access  Admin, Secretary
+router.get('/', authorize('admin', 'secretary'), getAllMappings);
 
 // @route   GET /api/medication-mappings/search/:name
 // @desc    Buscar mapeamento por nome de medicamento
