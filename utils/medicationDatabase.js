@@ -147,17 +147,25 @@ const medicationDatabase = {
 
 /**
  * Normaliza o nome de um medicamento removendo acentos, 
- * convertendo para minúsculas e removendo caracteres especiais
+ * convertendo para minúsculas, removendo caracteres especiais e dosagens
  */
 function normalizeMedicationName(name) {
   if (!name || typeof name !== 'string') return '';
   
-  return name
+  let normalized = name
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+  
+  // Remove dosagens comuns (ex: 20mg, 100mg, 1.5g, 500ml, etc)
+  // Padrões: número + unidade (mg, g, ml, mcg, ui, %, etc)
+  normalized = normalized
+    .replace(/\d+(\.\d+)?\s*(mg|g|ml|mcg|ug|ui|u|%|cp|comprimido|capsula|gotas)/gi, '')
     .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
+    .replace(/\s+/g, ' ') // Normaliza espaços múltiplos
     .trim();
+  
+  return normalized;
 }
 
 /**
