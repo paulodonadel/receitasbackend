@@ -161,6 +161,30 @@ function normalizeMedicationName(name) {
 }
 
 /**
+ * Tenta quebrar um nome de medicamento composto em partes
+ * Ex: "DESDUO 100MG, DONAREN 50MG" -> ["DESDUO 100MG", "DONAREN 50MG"]
+ */
+function splitCompoundMedication(medicationName) {
+  // Separadores comuns: vírgula, " e ", " E ", "+"
+  const separators = [',', ' e ', ' E ', '+', ' mais ', ' MAIS '];
+  let parts = [medicationName];
+  
+  for (const sep of separators) {
+    const newParts = [];
+    for (const part of parts) {
+      if (part.includes(sep)) {
+        newParts.push(...part.split(sep).map(p => p.trim()).filter(p => p.length > 0));
+      } else {
+        newParts.push(part);
+      }
+    }
+    parts = newParts;
+  }
+  
+  return parts.filter(p => p.length > 2); // Filtrar partes muito curtas
+}
+
+/**
  * Identifica o princípio ativo de um medicamento
  * Retorna objeto com informações do medicamento ou null se não encontrado
  * NOTA: Esta função pode ser async quando chamada com customMappingsCache
@@ -208,6 +232,39 @@ function identifyActiveIngredient(medicationName, customMappingsCache = null) {
           matchType: 'variation'
         };
       }
+    }
+  }
+  
+  // 4. NOVO: Tentar quebrar em partes e identificar cada uma
+  const parts = splitCompoundMedication(medicationName);
+  if (parts.length > 1) {
+    const identifiedParts = [];
+    let allIdentified = true;
+    
+    for (const part of parts) {
+      const partInfo = identifyActiveIngredient(part, customMappingsCache);
+      if (partInfo.matchType === 'not_found') {
+        allIdentified = false;
+        break;
+      }
+      identifiedParts.push({
+        name: part,
+        activeIngredient: partInfo.activeIngredient,
+        class: partInfo.class
+      });
+    }
+    
+    // Se todas as partes foram identificadas, retornar como múltiplo
+    if (allIdentified && identifiedParts.length > 0) {
+      return {
+        input: medicationName,
+        normalized: normalized,
+        activeIngredient: 'Múltiplos',
+        class: 'Múltiplos',
+        matchType: 'auto_split',
+        isMultiple: true,
+        medications: identifiedParts
+      };
     }
   }
   
@@ -282,5 +339,6 @@ module.exports = {
   medicationDatabase,
   normalizeMedicationName,
   identifyActiveIngredient,
-  groupByActiveIngredient
+  groupByActiveIngredient,
+  splitCompoundMedication
 };
