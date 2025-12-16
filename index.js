@@ -314,6 +314,7 @@ const userRoutes = require('./routes/user.routes'); // Rotas de usuários
 const patientRoutes = require('./routes/patient.routes'); // ADICIONE ESTA LINHA
 const reportsRoutes = require('./reports.routes'); // Rotas de relatórios
 const documentRoutes = require('./document.routes'); // Rotas de documentos/atestados
+const medicationMappingRoutes = require('./medicationMapping.routes'); // Rotas de mapeamento de medicamentos
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -326,6 +327,7 @@ app.use('/api/patients', patientRoutes); // ADICIONE ESTA LINHA
 app.use('/api/reminders', require('./reminder.routes')); // Rotas de lembretes
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 app.use('/api/documentos', documentRoutes); // Rotas de documentos/atestados
+app.use('/api/medication-mappings', medicationMappingRoutes); // Rotas de mapeamento de medicamentos
 
 // Endpoint de teste para verificar se o backend está funcionando
 app.get('/api/test', (req, res) => {

@@ -432,6 +432,17 @@ exports.getMedicationStats = async (req, res) => {
       }
     }
 
+    // Carregar mapeamentos customizados ativos
+    const MedicationMapping = require('./models/medicationMapping.model');
+    const customMappings = await MedicationMapping.find({ isActive: true }).lean();
+    
+    // Criar cache de mapeamentos (normalizedName -> mapping)
+    const customMappingsCache = new Map();
+    for (const mapping of customMappings) {
+      customMappingsCache.set(mapping.normalizedName, mapping);
+    }
+    console.log(`💊 [REPORTS] Carregados ${customMappings.length} mapeamentos customizados`);
+
     // Buscar todas as prescrições com filtro de data
     const prescriptions = await Prescription.find(dateFilter).select('medicationName');
     
@@ -444,8 +455,8 @@ exports.getMedicationStats = async (req, res) => {
       }
     console.log(`💊 [REPORTS] Total de medicamentos encontrados: ${allMedications.length}`);
 
-    // Agrupar por princípio ativo
-    const grouped = groupByActiveIngredient(allMedications);
+    // Agrupar por princípio ativo (passando cache de mapeamentos)
+    const grouped = groupByActiveIngredient(allMedications, customMappingsCache);
     
     // Calcular percentuais
     const total = allMedications.length;
@@ -481,14 +492,14 @@ exports.getMedicationStats = async (req, res) => {
     // Top 10 medicamentos mais prescritos (nome original)
     const medicationCounts = {};
     for (const med of allMedications) {
-      const info = identifyActiveIngredient(med);
+      const info = identifyActiveIngredient(med, customMappingsCache);
       const key = info.input; // Usar nome original
       medicationCounts[key] = (medicationCounts[key] || 0) + 1;
     }
 
     const topMedications = Object.entries(medicationCounts)
       .map(([name, count]) => {
-        const info = identifyActiveIngredient(name);
+        const info = identifyActiveIngredient(name, customMappingsCache);
         return {
           name,
           activeIngredient: info.activeIngredient,

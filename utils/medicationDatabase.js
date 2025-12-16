@@ -163,11 +163,26 @@ function normalizeMedicationName(name) {
 /**
  * Identifica o princípio ativo de um medicamento
  * Retorna objeto com informações do medicamento ou null se não encontrado
+ * NOTA: Esta função pode ser async quando chamada com customMappingsCache
  */
-function identifyActiveIngredient(medicationName) {
+function identifyActiveIngredient(medicationName, customMappingsCache = null) {
   const normalized = normalizeMedicationName(medicationName);
   
-  // Buscar correspondência exata com princípio ativo
+  // 1. PRIORIDADE: Buscar em mapeamentos customizados (se fornecido)
+  if (customMappingsCache && customMappingsCache.has(normalized)) {
+    const customMapping = customMappingsCache.get(normalized);
+    return {
+      input: medicationName,
+      normalized: normalized,
+      activeIngredient: customMapping.activeIngredient,
+      class: customMapping.class,
+      matchType: 'custom',
+      isMultiple: customMapping.isMultiple,
+      medications: customMapping.medications
+    };
+  }
+  
+  // 2. Buscar correspondência exata com princípio ativo no banco padrão
   for (const [key, data] of Object.entries(medicationDatabase)) {
     if (normalizeMedicationName(key) === normalized) {
       return {
@@ -180,7 +195,7 @@ function identifyActiveIngredient(medicationName) {
     }
   }
   
-  // Buscar correspondência nas variações/nomes comerciais
+  // 3. Buscar correspondência nas variações/nomes comerciais
   for (const [key, data] of Object.entries(medicationDatabase)) {
     const variations = data.variations || [];
     for (const variation of variations) {
@@ -210,28 +225,49 @@ function identifyActiveIngredient(medicationName) {
  * Agrupa medicamentos por princípio ativo
  * Recebe array de strings (nomes de medicamentos)
  * Retorna objeto com contagem por princípio ativo
+ * @param {Array<string>} medications - Array de nomes de medicamentos
+ * @param {Map} customMappingsCache - Cache opcional de mapeamentos customizados
  */
-function groupByActiveIngredient(medications) {
+function groupByActiveIngredient(medications, customMappingsCache = null) {
   const grouped = {};
   const unidentified = [];
   
   for (const med of medications) {
-    const info = identifyActiveIngredient(med);
+    const info = identifyActiveIngredient(med, customMappingsCache);
     
     if (info.matchType === 'not_found') {
       unidentified.push(med);
     } else {
-      if (!grouped[info.activeIngredient]) {
-        grouped[info.activeIngredient] = {
-          activeIngredient: info.activeIngredient,
-          class: info.class,
-          count: 0,
-          variations: []
-        };
-      }
-      grouped[info.activeIngredient].count++;
-      if (!grouped[info.activeIngredient].variations.includes(info.input)) {
-        grouped[info.activeIngredient].variations.push(info.input);
+      // Se for múltiplo, conta cada medicamento separadamente
+      if (info.isMultiple && info.medications && info.medications.length > 0) {
+        for (const subMed of info.medications) {
+          if (!grouped[subMed.activeIngredient]) {
+            grouped[subMed.activeIngredient] = {
+              activeIngredient: subMed.activeIngredient,
+              class: subMed.class,
+              count: 0,
+              variations: []
+            };
+          }
+          grouped[subMed.activeIngredient].count++;
+          if (!grouped[subMed.activeIngredient].variations.includes(subMed.name)) {
+            grouped[subMed.activeIngredient].variations.push(subMed.name);
+          }
+        }
+      } else {
+        // Medicamento único
+        if (!grouped[info.activeIngredient]) {
+          grouped[info.activeIngredient] = {
+            activeIngredient: info.activeIngredient,
+            class: info.class,
+            count: 0,
+            variations: []
+          };
+        }
+        grouped[info.activeIngredient].count++;
+        if (!grouped[info.activeIngredient].variations.includes(info.input)) {
+          grouped[info.activeIngredient].variations.push(info.input);
+        }
       }
     }
   }
