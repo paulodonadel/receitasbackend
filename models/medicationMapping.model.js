@@ -84,16 +84,24 @@ const medicationMappingSchema = new mongoose.Schema({
 // Índice composto para busca rápida por nome normalizado
 medicationMappingSchema.index({ normalizedName: 1, isActive: 1 });
 
-// Método para normalizar nome de medicamento
+// Método para normalizar nome de medicamento (sincronizado com medicationDatabase.js)
 medicationMappingSchema.statics.normalizeName = function(name) {
   if (!name) return '';
-  return name
+  
+  let normalized = name
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-    .replace(/[^\w\s]/g, ' ') // Remove caracteres especiais
-    .replace(/\s+/g, ' ') // Normaliza espaços
+    .replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+  
+  // Remove dosagens comuns (ex: 20mg, 100mg, 1.5g, 500ml, etc)
+  // Padrões: número + unidade (mg, g, ml, mcg, ui, %, etc)
+  normalized = normalized
+    .replace(/\d+(\.\d+)?\s*(mg|g|ml|mcg|ug|ui|u|%|cp|comprimido|capsula|gotas)/gi, '')
+    .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
+    .replace(/\s+/g, ' ') // Normaliza espaços múltiplos
     .trim();
+  
+  return normalized;
 };
 
 // Método para buscar mapeamento
