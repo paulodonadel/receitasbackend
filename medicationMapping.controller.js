@@ -319,3 +319,87 @@ exports.getUnidentifiedMedications = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Listar TODOS os medicamentos (hardcoded + customizados)
+ * @route   GET /api/medication-mappings/all
+ * @access  Private (Admin, Secretary)
+ */
+exports.getAllMedications = async (req, res) => {
+  try {
+    const medicationDatabase = require('./utils/medicationDatabase');
+    
+    // 1. Buscar medicamentos customizados do MongoDB
+    const customMappings = await MedicationMapping.find({ isActive: true })
+      .select('medicationName activeIngredient class usageCount createdAt')
+      .sort({ usageCount: -1, medicationName: 1 });
+
+    // 2. Converter medicamentos hardcoded para formato uniforme
+    const hardcodedMeds = [];
+    for (const [key, value] of Object.entries(medicationDatabase)) {
+      // Adicionar o medicamento principal
+      hardcodedMeds.push({
+        medicationName: value.activeIngredient,
+        activeIngredient: value.activeIngredient,
+        class: value.class,
+        usageCount: 0,
+        source: 'hardcoded',
+        isActive: true
+      });
+
+      // Adicionar nomes comerciais
+      if (value.commercialNames) {
+        value.commercialNames.forEach(commercialName => {
+          hardcodedMeds.push({
+            medicationName: commercialName,
+            activeIngredient: value.activeIngredient,
+            class: value.class,
+            usageCount: 0,
+            source: 'hardcoded',
+            isActive: true
+          });
+        });
+      }
+    }
+
+    // 3. Combinar e formatar
+    const allMedications = [
+      ...customMappings.map(m => ({
+        _id: m._id,
+        medicationName: m.medicationName,
+        activeIngredient: m.activeIngredient,
+        class: m.class,
+        usageCount: m.usageCount,
+        createdAt: m.createdAt,
+        source: 'custom',
+        isActive: m.isActive
+      })),
+      ...hardcodedMeds
+    ];
+
+    // 4. Ordenar: custom primeiro, depois por nome
+    allMedications.sort((a, b) => {
+      if (a.source === 'custom' && b.source === 'hardcoded') return -1;
+      if (a.source === 'hardcoded' && b.source === 'custom') return 1;
+      return a.medicationName.localeCompare(b.medicationName);
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: allMedications.length,
+        custom: customMappings.length,
+        hardcoded: hardcodedMeds.length,
+        medications: allMedications
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [MEDICATION-MAPPING] Erro ao buscar todos os medicamentos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar medicamentos',
+      error: error.message
+    });
+  }
+};
