@@ -381,7 +381,11 @@ exports.getAllMedications = async (req, res) => {
     allMedications.sort((a, b) => {
       if (a.source === 'custom' && b.source === 'hardcoded') return -1;
       if (a.source === 'hardcoded' && b.source === 'custom') return 1;
-      return a.medicationName.localeCompare(b.medicationName);
+      
+      // Garantir que medicationName existe antes de comparar
+      const nameA = a.medicationName || '';
+      const nameB = b.medicationName || '';
+      return nameA.localeCompare(nameB);
     });
 
     res.status(200).json({
