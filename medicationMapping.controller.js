@@ -327,12 +327,17 @@ exports.getUnidentifiedMedications = async (req, res) => {
  */
 exports.getAllMedications = async (req, res) => {
   try {
-    const medicationDatabase = require('./utils/medicationDatabase');
+    const { medicationDatabase } = require('./utils/medicationDatabase');
+    
+    console.log('📚 [MEDICATION-MAPPING] Buscando todos os medicamentos...');
+    console.log('📦 Medicamentos hardcoded no banco:', Object.keys(medicationDatabase).length);
     
     // 1. Buscar medicamentos customizados do MongoDB
     const customMappings = await MedicationMapping.find({ isActive: true })
       .select('medicationName activeIngredient class usageCount createdAt')
       .sort({ usageCount: -1, medicationName: 1 });
+
+    console.log('✏️ Medicamentos customizados:', customMappings.length);
 
     // 2. Converter medicamentos hardcoded para formato uniforme
     const hardcodedMeds = [];
