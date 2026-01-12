@@ -6,12 +6,13 @@ const {
   validateUpdateWhatsAppMessage,
   validateWhatsAppQueryParams
 } = require('./whatsappMessage.validator');
-const auth = require('./middleware/auth');
-const adminAuth = require('./middleware/adminAuth');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
-// Todas as rotas requerem autenticação de admin
-router.use(auth);
-router.use(adminAuth);
+// Todas as rotas requerem autenticação
+router.use(protect);
+
+// Aplicar autorização para admin e secretary em todas as rotas
+router.use(authorize('admin', 'secretary'));
 
 /**
  * @route   GET /api/whatsapp-messages/stats
