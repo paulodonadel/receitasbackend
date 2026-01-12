@@ -121,8 +121,8 @@ exports.validateUpdateDocument = [
 
   body('status')
     .optional()
-    .isIn(['solicitado', 'em_preparacao', 'pronto', 'entregue', 'cancelado'])
-    .withMessage('Status deve ser: solicitado, em_preparacao, pronto, entregue ou cancelado'),
+    .isIn(['solicitado', 'em_preparacao', 'pronto', 'entregue', 'negado', 'cancelado'])
+    .withMessage('Status deve ser: solicitado, em_preparacao, pronto, entregue, negado ou cancelado'),
 
   body('priority')
     .optional()
@@ -158,8 +158,8 @@ exports.validateQueryParams = [
 
   body('status')
     .optional()
-    .isIn(['solicitado', 'em_preparacao', 'pronto', 'entregue', 'cancelado'])
-    .withMessage('Status deve ser: solicitado, em_preparacao, pronto, entregue ou cancelado'),
+    .isIn(['solicitado', 'em_preparacao', 'pronto', 'entregue', 'negado', 'cancelado'])
+    .withMessage('Status deve ser: solicitado, em_preparacao, pronto, entregue, negado ou cancelado'),
 
   body('documentType')
     .optional()

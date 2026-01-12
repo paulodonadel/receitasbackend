@@ -62,8 +62,8 @@ const documentSchema = new mongoose.Schema({
     type: String,
     default: 'solicitado',
     enum: {
-      values: ['solicitado', 'em_preparacao', 'pronto', 'entregue', 'cancelado'],
-      message: 'Status deve ser: solicitado, em_preparacao, pronto, entregue ou cancelado'
+      values: ['solicitado', 'em_preparacao', 'pronto', 'entregue', 'negado', 'cancelado'],
+      message: 'Status deve ser: solicitado, em_preparacao, pronto, entregue, negado ou cancelado'
     }
   },
   
