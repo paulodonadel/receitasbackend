@@ -123,6 +123,85 @@ async function sendPendingReminders() {
 }
 
 /**
+ * Envia lembretes de visitas de representantes
+ */
+async function sendRepVisitReminders() {
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const endOfTomorrow = new Date(tomorrow);
+    endOfTomorrow.setHours(23, 59, 59, 999);
+
+    console.log(`🏢 Buscando visitas agendadas para ${tomorrow.toLocaleDateString('pt-BR')}...`);
+
+    // Buscar visitas pré-reservadas para amanhã
+    const visits = await RepVisit.find({
+      visitType: 'pre_reserva',
+      status: { $in: ['aguardando', 'confirmado'] },
+      scheduledDate: {
+        $gte: tomorrow,
+        $lte: endOfTomorrow
+      }
+    })
+    .populate('representativeId', 'name laboratory')
+    .populate('doctorId', 'name');
+
+    console.log(`📊 Encontradas ${visits.length} visitas para notificar`);
+
+    if (visits.length === 0) {
+      console.log('✅ Nenhuma visita para notificar hoje');
+      return;
+    }
+
+    let sentCount = 0;
+    let errorCount = 0;
+
+    for (const visit of visits) {
+      try {
+        if (!visit.representativeId?.email) {
+          console.warn(`⚠️ Visita ${visit._id} sem email do representante`);
+          errorCount++;
+          continue;
+        }
+
+        await emailService.sendRepVisitReminder({
+          to: visit.representativeId.email,
+          repName: visit.representativeId.name,
+          laboratory: visit.representativeId.laboratory,
+          doctorName: visit.doctorId?.name || 'Médico',
+          visitDate: visit.scheduledDate
+        });
+
+        sentCount++;
+        console.log(`✅ Lembrete enviado para ${visit.representativeId.name}`);
+      } catch (emailError) {
+        errorCount++;
+        console.error(`❌ Erro ao enviar lembrete para visita ${visit._id}:`, emailError.message);
+      }
+    }
+
+    console.log(`📊 Processamento de lembretes de visitas concluído:`);
+    console.log(`   ✅ Enviados: ${sentCount}`);
+    console.log(`   ❌ Erros: ${errorCount}`);
+    console.log(`   📧 Total processados: ${visits.length}`);
+
+    if (sentCount > 0) {
+      console.log(`🎉 ${sentCount} lembretes de visitas enviados com sucesso!`);
+    }
+    
+    if (errorCount > 0) {
+      console.warn(`⚠️ ${errorCount} lembretes falharam no envio`);
+    }
+
+  } catch (error) {
+    console.error('❌ Erro crítico no job de lembretes de visitas:', error);
+    console.error('Stack trace:', error.stack);
+  }
+}
+
+/**
  * Limpa lembretes antigos (mais de 6 meses)
  */
 async function cleanupOldReminders() {
