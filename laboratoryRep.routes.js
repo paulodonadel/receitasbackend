@@ -9,7 +9,7 @@ const {
   deleteRep,
   getSuggestions
 } = require('./laboratoryRep.controller');
-const { protect, authorize } = require('./middleware/auth');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Rotas públicas (nenhuma)
 

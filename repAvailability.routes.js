@@ -11,7 +11,7 @@ const {
   checkAvailability,
   getAvailableSlots
 } = require('./repAvailability.controller');
-const { protect, authorize } = require('./middleware/auth');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Todas as rotas são protegidas
 router.use(protect);
