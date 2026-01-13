@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const Reminder = require('./models/reminder.model');
+const RepVisit = require('./models/repVisit.model');
 const emailService = require('./emailService');
 
 /**
@@ -26,8 +27,18 @@ function initializeCronJobs() {
     timezone: "America/Sao_Paulo"
   });
 
+  // Job para enviar lembretes de visitas de representantes - executa todos os dias às 8:00
+  cron.schedule('0 8 * * *', async () => {
+    console.log('🏢 Executando job de lembretes de visitas de representantes...');
+    await sendRepVisitReminders();
+  }, {
+    scheduled: true,
+    timezone: "America/Sao_Paulo"
+  });
+
   console.log('✅ Cron jobs inicializados com sucesso!');
   console.log('📅 Lembretes serão enviados diariamente às 9:00');
+  console.log('🏢 Lembretes de visitas de representantes às 8:00');
   console.log('🧹 Limpeza será executada aos domingos às 2:00');
 }
 
@@ -203,6 +214,7 @@ module.exports = {
   initializeCronJobs,
   sendPendingReminders,
   cleanupOldReminders,
+  sendRepVisitReminders,
   runReminderJobManually,
   runCleanupJobManually,
   stopAllCronJobs,

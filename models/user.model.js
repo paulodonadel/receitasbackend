@@ -100,7 +100,7 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['patient', 'secretary', 'admin'],
+    enum: ['patient', 'secretary', 'admin', 'representante'],
     default: 'patient'
   },
   // CAMPOS DE CONTROLE

@@ -1119,3 +1119,123 @@ Sistema de Receitas Médicas - Dr. Paulo Donadel
   }
 };
 
+/**
+ * Envia e-mail de lembrete de visita de representante
+ * @param {Object} params - Parâmetros do lembrete
+ * @param {string} params.to - E-mail do representante
+ * @param {string} params.repName - Nome do representante
+ * @param {string} params.laboratory - Nome do laboratório
+ * @param {string} params.doctorName - Nome do médico
+ * @param {Date} params.visitDate - Data da visita
+ */
+exports.sendRepVisitReminder = async ({ to, repName, laboratory, doctorName, visitDate }) => {
+  const subject = '🗓️ Lembrete: Visita Agendada para Amanhã';
+  
+  const visitDateFormatted = new Date(visitDate).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const visitTimeFormatted = new Date(visitDate).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const textBody = `
+Olá ${repName},
+
+Este é um lembrete da sua visita agendada para amanhã:
+
+📅 Data: ${visitDateFormatted}
+⏰ Horário: ${visitTimeFormatted}
+🏥 Médico: ${doctorName}
+🏢 Laboratório: ${laboratory}
+
+Por favor, confirme sua presença e chegue com alguns minutos de antecedência.
+
+Caso precise cancelar ou reagendar, entre em contato o quanto antes.
+
+Atenciosamente,
+Equipe ${doctorName}
+  `;
+
+  const htmlContent = `
+    <div style="background-color: rgba(255, 255, 255, 0.85); padding: 30px; border-radius: 10px; border: 1px solid rgba(44, 90, 160, 0.15);">
+        <h2 style="color: #2c5aa0; margin-bottom: 20px; text-align: center;">🗓️ Lembrete de Visita Agendada</h2>
+        
+        <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 4px solid #2196f3; margin: 20px 0;">
+            <p style="color: #1565c0; margin-bottom: 15px; font-size: 16px;">
+                Olá <strong>${repName}</strong>,
+            </p>
+            <p style="color: #1565c0; line-height: 1.6;">
+                Lembramos que você tem uma visita agendada para <strong>amanhã</strong>:
+            </p>
+        </div>
+        
+        <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
+            <h3 style="color: #2c5aa0; margin-bottom: 20px; text-align: center;">📋 Detalhes da Visita</h3>
+            
+            <div style="margin-bottom: 15px; padding-left: 20px;">
+                <span style="color: #495057; font-weight: 600;">📅 Data:</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1565c0; padding: 6px 12px; border-radius: 5px; font-weight: 600; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                    ${visitDateFormatted}
+                </span>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding-left: 20px;">
+                <span style="color: #495057; font-weight: 600;">⏰ Horário:</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1565c0; padding: 6px 12px; border-radius: 5px; font-weight: 600; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                    ${visitTimeFormatted}
+                </span>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding-left: 20px;">
+                <span style="color: #495057; font-weight: 600;">🏥 Médico:</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1565c0; padding: 6px 12px; border-radius: 5px; font-weight: 600; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                    ${doctorName}
+                </span>
+            </div>
+            
+            <div style="padding-left: 20px;">
+                <span style="color: #495057; font-weight: 600;">🏢 Laboratório:</span>
+                <span style="background-color: rgba(227, 242, 253, 0.9); color: #1565c0; padding: 6px 12px; border-radius: 5px; font-weight: 600; margin-left: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                    ${laboratory}
+                </span>
+            </div>
+        </div>
+        
+        <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <h4 style="color: #856404; margin-bottom: 15px;">⚠️ Importante</h4>
+            <ul style="color: #856404; line-height: 1.8; padding-left: 20px; margin: 0;">
+                <li>Chegue com alguns minutos de antecedência</li>
+                <li>Traga seus materiais de apresentação preparados</li>
+                <li>Caso precise cancelar, avise com antecedência</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 25px;">
+            <p style="color: #495057; margin-bottom: 15px;">
+                Caso precise reagendar ou cancelar, entre em contato o quanto antes.
+            </p>
+        </div>
+    </div>
+  `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject: subject,
+    useHeaderImage: false,
+    footerText: 'Este é um lembrete automático da sua visita agendada.',
+    emailType: 'notification'
+  });
+  
+  try {
+    return await exports.sendEmail(to, subject, textBody, htmlBody);
+  } catch (error) {
+    console.error('Erro ao enviar e-mail de lembrete de visita:', error);
+    throw error;
+  }
+};
+
