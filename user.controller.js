@@ -702,21 +702,24 @@ exports.updateUserRole = async (req, res) => {
       });
     }
 
-    // Atualizar role
+    // Atualizar role usando findByIdAndUpdate para evitar re-hash da senha
     const oldRole = user.role;
-    user.role = role;
-    await user.save();
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { role: role },
+      { new: true, runValidators: true }
+    ).select('-password');
 
-    console.log(`✅ [USER] Role do usuário ${user.name} alterada de ${oldRole} para ${role}`);
+    console.log(`✅ [USER] Role do usuário ${updatedUser.name} alterada de ${oldRole} para ${role}`);
 
     res.status(200).json({
       success: true,
       data: {
-        id: user._id,
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        id: updatedUser._id,
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
         oldRole: oldRole
       },
       message: `Role atualizada de ${oldRole} para ${role} com sucesso`
