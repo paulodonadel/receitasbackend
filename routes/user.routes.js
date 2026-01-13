@@ -10,7 +10,8 @@ const {
   getUserStats,
   getAllPatients,
   createPatient,
-  getAllUsers
+  getAllUsers,
+  updateUserRole
 } = require('../user.controller');
 const { protect, authorize } = require('../middlewares/auth.middleware');
 const rateLimit = require('express-rate-limit');
@@ -94,6 +95,15 @@ router.get('/',
   protect, 
   authorize('admin'), 
   getAllUsers
+);
+
+// @desc    Atualizar role de um usuário
+// @route   PATCH /api/users/:id/role
+// @access  Private/Admin
+router.patch('/:id/role',
+  protect,
+  authorize('admin'),
+  updateUserRole
 );
 
 // ROTAS PARA GERENCIAMENTO DE PACIENTES (ADMIN/SECRETARY)

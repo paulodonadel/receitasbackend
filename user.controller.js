@@ -663,3 +663,72 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// @desc    Atualizar role de um usuário
+// @route   PATCH /api/users/:id/role
+// @access  Private (Admin only)
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    console.log(`👤 [USER] Admin ${req.user._id} atualizando role do usuário ${id} para ${role}`);
+
+    // Validar role
+    const validRoles = ['patient', 'secretary', 'admin', 'representante'];
+    if (!role || !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Role inválida. Valores permitidos: ${validRoles.join(', ')}`,
+        errorCode: 'INVALID_ROLE'
+      });
+    }
+
+    // Buscar usuário
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado',
+        errorCode: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Prevenir que o admin remova seu próprio privilégio de admin
+    if (user._id.toString() === req.user._id.toString() && role !== 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Você não pode remover seu próprio privilégio de administrador',
+        errorCode: 'CANNOT_REMOVE_OWN_ADMIN'
+      });
+    }
+
+    // Atualizar role
+    const oldRole = user.role;
+    user.role = role;
+    await user.save();
+
+    console.log(`✅ [USER] Role do usuário ${user.name} alterada de ${oldRole} para ${role}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        oldRole: oldRole
+      },
+      message: `Role atualizada de ${oldRole} para ${role} com sucesso`
+    });
+
+  } catch (error) {
+    console.error('❌ [USER] Erro ao atualizar role:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar role do usuário',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
