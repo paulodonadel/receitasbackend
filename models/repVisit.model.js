@@ -5,7 +5,7 @@ const RepVisitSchema = new mongoose.Schema({
   repId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'LaboratoryRep',
-    required: true
+    required: false // Opcional para permitir "representante aguardando"
   },
   doctorId: {
     type: mongoose.Schema.Types.ObjectId,
