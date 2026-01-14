@@ -10,10 +10,19 @@ exports.createVisit = async (req, res) => {
   try {
     const { repId, doctorId, visitDate, visitType, notes, products } = req.body;
 
-    // Verificar se o representante existe
-    const rep = await LaboratoryRep.findById(repId).populate('userId', 'name');
-    if (!rep) {
-      return res.status(404).json({ success: false, error: 'Representante não encontrado' });
+    let repName = 'Representante';
+    let laboratory = 'Laboratório não informado';
+    let laboratoryLogo = null;
+
+    // Se repId foi fornecido, verificar se existe
+    if (repId) {
+      const rep = await LaboratoryRep.findById(repId).populate('userId', 'name');
+      if (!rep) {
+        return res.status(404).json({ success: false, error: 'Representante não encontrado' });
+      }
+      repName = rep.userId.name;
+      laboratory = rep.laboratory;
+      laboratoryLogo = rep.laboratoryLogo;
     }
 
     // Verificar disponibilidade do médico
@@ -27,28 +36,33 @@ exports.createVisit = async (req, res) => {
 
     // Criar visita
     const visit = await RepVisit.create({
-      repId,
+      repId: repId || null,
       doctorId,
       visitDate: visitDate || new Date(),
       visitType: visitType || 'encaixe',
       status: visitType === 'pre_reserva' ? 'aguardando' : 'aguardando',
       notes,
       products,
-      repName: rep.userId.name,
-      laboratory: rep.laboratory,
-      laboratoryLogo: rep.laboratoryLogo
+      repName,
+      laboratory,
+      laboratoryLogo
     });
 
     // Popular e retornar
-    const populatedVisit = await RepVisit.findById(visit._id)
-      .populate('repId')
-      .populate({
-        path: 'repId',
-        populate: {
-          path: 'userId',
-          select: 'name email phone profileImage'
-        }
-      });
+    let populatedVisit = visit;
+    if (repId) {
+      populatedVisit = await RepVisit.findById(visit._id)
+        .populate('repId')
+        .populate({
+          path: 'repId',
+          populate: {
+            path: 'userId',
+            select: 'name email phone profileImage'
+          }
+        });
+    } else {
+      populatedVisit = await RepVisit.findById(visit._id);
+    }
 
     res.status(201).json({
       success: true,
