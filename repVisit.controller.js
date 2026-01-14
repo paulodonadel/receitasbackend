@@ -235,10 +235,14 @@ exports.getTodayVisits = async (req, res) => {
   try {
     const { doctorId } = req.params;
     
+    console.log('🔍 getTodayVisits - doctorId:', doctorId);
+    
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
+    
+    console.log('📅 Buscando visitas entre:', todayStart, 'e', todayEnd);
     
     const visits = await RepVisit.find({
       doctorId,
@@ -254,13 +258,16 @@ exports.getTodayVisits = async (req, res) => {
     })
     .sort({ visitDate: 1 });
     
+    console.log('✅ Visitas encontradas:', visits.length);
+    console.log('📋 Dados:', JSON.stringify(visits, null, 2));
+    
     res.status(200).json({
       success: true,
       count: visits.length,
       data: visits
     });
   } catch (error) {
-    console.error('Erro ao buscar visitas de hoje:', error);
+    console.error('❌ Erro ao buscar visitas de hoje:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
