@@ -120,10 +120,21 @@ exports.getRepById = async (req, res) => {
 // @access  Admin/Secretary/Representante
 exports.getRepByUserId = async (req, res) => {
   try {
-    const rep = await LaboratoryRep.findOne({ userId: req.params.userId })
+    const userId = req.params.userId;
+    console.log('🔍 getRepByUserId - buscando userId:', userId);
+    console.log('🔍 userId length:', userId?.length);
+    
+    const rep = await LaboratoryRep.findOne({ userId: userId })
       .populate('userId', 'name email phone profileImage');
     
+    console.log('📋 Representante encontrado:', rep ? 'SIM' : 'NÃO');
+    if (rep) {
+      console.log('📋 Rep userId:', rep.userId._id);
+      console.log('📋 Rep dados:', JSON.stringify(rep, null, 2));
+    }
+    
     if (!rep) {
+      console.log('❌ Representante não encontrado para userId:', userId);
       return res.status(404).json({ success: false, error: 'Representante não encontrado' });
     }
     
@@ -132,7 +143,7 @@ exports.getRepByUserId = async (req, res) => {
       data: rep
     });
   } catch (error) {
-    console.error('Erro ao buscar representante:', error);
+    console.error('❌ Erro ao buscar representante:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
