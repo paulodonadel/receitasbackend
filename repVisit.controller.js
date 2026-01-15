@@ -235,7 +235,10 @@ exports.getTodayVisits = async (req, res) => {
   try {
     const { doctorId } = req.params;
     
+    console.log('🔍 getTodayVisits - URL completa:', req.originalUrl);
+    console.log('🔍 getTodayVisits - req.params:', req.params);
     console.log('🔍 getTodayVisits - doctorId:', doctorId);
+    console.log('🔍 doctorId length:', doctorId?.length);
     
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -259,7 +262,9 @@ exports.getTodayVisits = async (req, res) => {
     .sort({ visitDate: 1 });
     
     console.log('✅ Visitas encontradas:', visits.length);
-    console.log('📋 Dados:', JSON.stringify(visits, null, 2));
+    if (visits.length > 0) {
+      console.log('📋 Primeira visita:', JSON.stringify(visits[0], null, 2));
+    }
     
     res.status(200).json({
       success: true,
