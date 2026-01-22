@@ -349,7 +349,8 @@ exports.getAvailableSlots = async (req, res) => {
     
     const availability = await RepAvailability.findOne({ doctorId });
     
-    if (!availability || !availability.isAvailable) {
+    // Permitir visualização de slots mesmo com médico indisponível (melhoria #2)
+    if (!availability) {
       return res.status(200).json({
         success: true,
         data: []
