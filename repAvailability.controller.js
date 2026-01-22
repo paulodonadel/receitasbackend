@@ -347,10 +347,30 @@ exports.getAvailableSlots = async (req, res) => {
     const { doctorId } = req.params;
     const { startDate, endDate } = req.query;
     
+    console.log('🔍 getAvailableSlots chamado:');
+    console.log('   doctorId:', doctorId);
+    console.log('   startDate:', startDate);
+    console.log('   endDate:', endDate);
+    
     const availability = await RepAvailability.findOne({ doctorId });
+    
+    console.log('📋 Availability encontrado:', availability ? 'SIM' : 'NÃO');
+    if (availability) {
+      console.log('   isAvailable:', availability.isAvailable);
+      console.log('   weeklyPatterns:', availability.weeklyPatterns?.length || 0);
+      console.log('   exceptions:', availability.exceptions?.length || 0);
+      if (availability.weeklyPatterns?.length > 0) {
+        console.log('   Padrões:', availability.weeklyPatterns.map(p => ({
+          day: p.dayOfWeek,
+          available: p.isAvailable,
+          slots: p.timeSlots?.length
+        })));
+      }
+    }
     
     // Permitir visualização de slots mesmo com médico indisponível (melhoria #2)
     if (!availability) {
+      console.log('❌ Nenhum availability encontrado');
       return res.status(200).json({
         success: true,
         data: []
@@ -361,10 +381,14 @@ exports.getAvailableSlots = async (req, res) => {
     const end = new Date(endDate);
     const slots = [];
     
+    console.log('🗓️ Iterando de', start.toISOString(), 'até', end.toISOString());
+    
     // Iterar por cada dia no período
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dayOfWeek = d.getDay();
       const dateStr = d.toISOString().split('T')[0];
+      
+      console.log(`   Dia ${dateStr} (${dayOfWeek})`);
       
       // Verificar exceção para este dia
       const exception = availability.exceptions.find(exc => {
@@ -373,19 +397,24 @@ exports.getAvailableSlots = async (req, res) => {
       });
       
       if (exception) {
+        console.log(`      ✨ Exceção encontrada:`, exception.isAvailable ? 'Disponível' : 'Indisponível');
         if (exception.isAvailable && exception.timeSlots) {
           slots.push({
             date: dateStr,
             timeSlots: exception.timeSlots,
             reason: exception.reason
           });
+          console.log(`      ✅ Adicionado com ${exception.timeSlots.length} slots`);
         }
         continue;
       }
       
       // Verificar padrão semanal
       const weeklyPattern = availability.weeklyPatterns.find(p => p.dayOfWeek === dayOfWeek);
+      console.log(`      Padrão semanal:`, weeklyPattern ? 'Encontrado' : 'Não encontrado');
+      
       if (weeklyPattern && weeklyPattern.isAvailable && weeklyPattern.timeSlots) {
+        console.log(`      ✅ Padrão disponível com ${weeklyPattern.timeSlots.length} slots`);
         slots.push({
           date: dateStr,
           timeSlots: weeklyPattern.timeSlots
@@ -393,12 +422,14 @@ exports.getAvailableSlots = async (req, res) => {
       }
     }
     
+    console.log('📊 Total de slots encontrados:', slots.length);
+    
     res.status(200).json({
       success: true,
       data: slots
     });
   } catch (error) {
-    console.error('Erro ao obter horários disponíveis:', error);
+    console.error('❌ Erro ao obter horários disponíveis:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
