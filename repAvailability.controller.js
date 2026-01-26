@@ -114,6 +114,7 @@ exports.addWeeklyPattern = async (req, res) => {
     
     console.log('🔵 addWeeklyPattern recebido:');
     console.log('   doctorId:', doctorId);
+    console.log('   doctorId type:', typeof doctorId);
     console.log('   dayOfWeek:', dayOfWeek);
     console.log('   isAvailable:', isAvailable);
     console.log('   timeSlots:', JSON.stringify(timeSlots));
@@ -126,6 +127,7 @@ exports.addWeeklyPattern = async (req, res) => {
       console.log('   Criando novo documento...');
       availability = await RepAvailability.create({ doctorId });
       console.log('   Documento criado:', availability._id);
+      console.log('   Documento criado com doctorId:', availability.doctorId);
     }
     
     // Remover padrão existente para o mesmo dia
@@ -151,6 +153,17 @@ exports.addWeeklyPattern = async (req, res) => {
     await availability.save();
     
     console.log('✅ Padrão semanal salvo com sucesso');
+    console.log('   ID do documento salvo:', availability._id);
+    console.log('   doctorId no documento:', availability.doctorId);
+    
+    // Verificar se foi salvo
+    const verificacao = await RepAvailability.findOne({ doctorId });
+    console.log('🔎 Verificação após salvar:');
+    console.log('   Encontrado:', verificacao ? 'SIM' : 'NÃO');
+    if (verificacao) {
+      console.log('   doctorId encontrado:', verificacao.doctorId);
+      console.log('   Padrões:', verificacao.weeklyPatterns.length);
+    }
     
     res.status(200).json({
       success: true,
