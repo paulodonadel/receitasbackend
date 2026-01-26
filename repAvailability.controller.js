@@ -400,15 +400,10 @@ exports.getAvailableSlots = async (req, res) => {
       });
     });
     
-    // Tentar buscar como string primeiro, depois como ObjectId
-    let availability = await RepAvailability.findOne({ doctorId: doctorId });
-    console.log('   Busca como string:', availability ? 'ENCONTROU' : 'NÃO ENCONTROU');
-    
-    if (!availability && mongoose.Types.ObjectId.isValid(doctorId)) {
-      console.log('   Tentando buscar como ObjectId...');
-      availability = await RepAvailability.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) });
-      console.log('   Busca como ObjectId:', availability ? 'ENCONTROU' : 'NÃO ENCONTROU');
-    }
+    // Buscar pela string do doctorId
+    console.log('🔎 Buscando doctorId:', doctorId);
+    let availability = allDocs.find(doc => doc.doctorId.toString() === doctorId);
+    console.log('   Busca por comparação de string:', availability ? 'ENCONTROU ✅' : 'NÃO ENCONTROU ❌');
     
     console.log('📋 Availability encontrado:', availability ? 'SIM' : 'NÃO');
     if (availability) {
