@@ -387,12 +387,27 @@ exports.getAvailableSlots = async (req, res) => {
     console.log('   startDate:', startDate);
     console.log('   endDate:', endDate);
     
+    // Buscar todos os documentos para debug
+    const allDocs = await RepAvailability.find({});
+    console.log('📚 Total de documentos no banco:', allDocs.length);
+    allDocs.forEach((doc, i) => {
+      console.log(`   Doc ${i+1}:`, {
+        _id: doc._id,
+        doctorId: doc.doctorId,
+        doctorIdType: typeof doc.doctorId,
+        doctorIdString: doc.doctorId?.toString(),
+        patterns: doc.weeklyPatterns?.length || 0
+      });
+    });
+    
     // Tentar buscar como string primeiro, depois como ObjectId
     let availability = await RepAvailability.findOne({ doctorId: doctorId });
+    console.log('   Busca como string:', availability ? 'ENCONTROU' : 'NÃO ENCONTROU');
     
     if (!availability && mongoose.Types.ObjectId.isValid(doctorId)) {
       console.log('   Tentando buscar como ObjectId...');
       availability = await RepAvailability.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) });
+      console.log('   Busca como ObjectId:', availability ? 'ENCONTROU' : 'NÃO ENCONTROU');
     }
     
     console.log('📋 Availability encontrado:', availability ? 'SIM' : 'NÃO');
