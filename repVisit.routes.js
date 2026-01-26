@@ -15,8 +15,8 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 // Todas as rotas são protegidas
 router.use(protect);
 
-// Visitas de hoje
-router.get('/today/:doctorId', authorize('admin', 'secretary'), getTodayVisits);
+// Visitas de hoje (representantes também podem ver suas próprias visitas)
+router.get('/today/:doctorId', authorize('admin', 'secretary', 'representante'), getTodayVisits);
 
 // Check-in e check-out
 router.post('/:id/checkin', authorize('admin', 'secretary'), checkIn);
