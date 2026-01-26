@@ -391,11 +391,12 @@ exports.getAvailableSlots = async (req, res) => {
     const allDocs = await RepAvailability.find({});
     console.log('📚 Total de documentos no banco:', allDocs.length);
     allDocs.forEach((doc, i) => {
+      const docIdStr = doc.doctorId.toString();
       console.log(`   Doc ${i+1}:`, {
         _id: doc._id,
         doctorId: doc.doctorId,
-        doctorIdType: typeof doc.doctorId,
-        doctorIdString: doc.doctorId?.toString(),
+        doctorIdString: docIdStr,
+        match: docIdStr === doctorId ? '✅ MATCH!' : '❌',
         patterns: doc.weeklyPatterns?.length || 0
       });
     });
@@ -404,6 +405,11 @@ exports.getAvailableSlots = async (req, res) => {
     console.log('🔎 Buscando doctorId:', doctorId);
     let availability = allDocs.find(doc => doc.doctorId.toString() === doctorId);
     console.log('   Busca por comparação de string:', availability ? 'ENCONTROU ✅' : 'NÃO ENCONTROU ❌');
+    
+    if (availability) {
+      console.log('   🎉 ENCONTRADO! Padrões:', availability.weeklyPatterns?.length);
+      console.log('   isAvailable:', availability.isAvailable);
+    }
     
     console.log('📋 Availability encontrado:', availability ? 'SIM' : 'NÃO');
     if (availability) {
