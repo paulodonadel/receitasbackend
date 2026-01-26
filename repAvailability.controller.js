@@ -1,5 +1,6 @@
 const RepAvailability = require('./models/repAvailability.model');
 const User = require('./models/user.model');
+const mongoose = require('mongoose');
 
 // @desc    Obter ou criar disponibilidade do médico
 // @route   GET /api/rep-availability/:doctorId
@@ -382,10 +383,17 @@ exports.getAvailableSlots = async (req, res) => {
     
     console.log('🔍 getAvailableSlots chamado:');
     console.log('   doctorId:', doctorId);
+    console.log('   doctorId type:', typeof doctorId);
     console.log('   startDate:', startDate);
     console.log('   endDate:', endDate);
     
-    const availability = await RepAvailability.findOne({ doctorId });
+    // Tentar buscar como string primeiro, depois como ObjectId
+    let availability = await RepAvailability.findOne({ doctorId: doctorId });
+    
+    if (!availability && mongoose.Types.ObjectId.isValid(doctorId)) {
+      console.log('   Tentando buscar como ObjectId...');
+      availability = await RepAvailability.findOne({ doctorId: new mongoose.Types.ObjectId(doctorId) });
+    }
     
     console.log('📋 Availability encontrado:', availability ? 'SIM' : 'NÃO');
     if (availability) {
