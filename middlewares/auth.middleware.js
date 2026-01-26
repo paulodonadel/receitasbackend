@@ -122,7 +122,16 @@ exports.authorize = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    console.log('🔐 authorize chamado:');
+    console.log('   req.user.role:', req.user.role);
+    console.log('   roles permitidas:', roles);
+    console.log('   Match?', roles.includes(req.user.role));
+
+    // Normalizar para case-insensitive
+    const userRoleLower = req.user.role.toLowerCase();
+    const rolesLower = roles.map(r => r.toLowerCase());
+
+    if (!rolesLower.includes(userRoleLower)) {
       logSecurityEvent('AUTHORIZATION_FAILURE', {
         userId: req.user._id,
         role: req.user.role,
