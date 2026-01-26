@@ -18,6 +18,7 @@ router.use(protect);
 
 // Verificar disponibilidade (representantes podem acessar)
 router.post('/:doctorId/check', authorize('admin', 'secretary', 'representante'), checkAvailability);
+// Importante: representantes precisam acessar slots para pré-reserva
 router.get('/:doctorId/slots', authorize('admin', 'secretary', 'representante'), getAvailableSlots);
 
 // Toggle de disponibilidade
