@@ -348,3 +348,61 @@ exports.checkOut = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+// @desc    Marcar representante como chamado
+// @route   POST /api/rep-visits/:id/call
+// @access  Admin/Secretary
+exports.callRepresentative = async (req, res) => {
+  try {
+    const visit = await RepVisit.findById(req.params.id);
+    
+    if (!visit) {
+      return res.status(404).json({ success: false, error: 'Visita não encontrada' });
+    }
+    
+    visit.calledAt = new Date();
+    visit.notificationViewed = false;
+    await visit.save();
+    
+    const updatedVisit = await RepVisit.findById(visit._id)
+      .populate({
+        path: 'repId',
+        populate: {
+          path: 'userId',
+          select: 'name email phone profileImage'
+        }
+      });
+    
+    res.status(200).json({
+      success: true,
+      data: updatedVisit
+    });
+  } catch (error) {
+    console.error('Erro ao chamar representante:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Marcar notificação como visualizada
+// @route   POST /api/rep-visits/:id/view-notification
+// @access  Representante
+exports.viewNotification = async (req, res) => {
+  try {
+    const visit = await RepVisit.findById(req.params.id);
+    
+    if (!visit) {
+      return res.status(404).json({ success: false, error: 'Visita não encontrada' });
+    }
+    
+    visit.notificationViewed = true;
+    await visit.save();
+    
+    res.status(200).json({
+      success: true,
+      data: visit
+    });
+  } catch (error) {
+    console.error('Erro ao marcar notificação como visualizada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};

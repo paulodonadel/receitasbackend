@@ -44,6 +44,14 @@ const RepVisitSchema = new mongoose.Schema({
   repName: String,
   laboratory: String,
   laboratoryLogo: String,
+  calledAt: {
+    type: Date,
+    default: null
+  },
+  notificationViewed: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -8,7 +8,9 @@ const {
   deleteVisit,
   getTodayVisits,
   checkIn,
-  checkOut
+  checkOut,
+  callRepresentative,
+  viewNotification
 } = require('./repVisit.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
@@ -21,6 +23,10 @@ router.get('/today/:doctorId', authorize('admin', 'secretary', 'representante'),
 // Check-in e check-out
 router.post('/:id/checkin', authorize('admin', 'secretary'), checkIn);
 router.post('/:id/checkout', authorize('admin', 'secretary'), checkOut);
+
+// Chamar representante e visualizar notificação
+router.post('/:id/call', authorize('admin', 'secretary'), callRepresentative);
+router.post('/:id/view-notification', authorize('representante'), viewNotification);
 
 // CRUD básico
 router.route('/')
