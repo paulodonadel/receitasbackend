@@ -7,6 +7,7 @@ const {
   updateVisit,
   deleteVisit,
   getTodayVisits,
+  getTodayVisitsAll,
   checkIn,
   checkOut,
   callRepresentative,
@@ -16,6 +17,9 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Todas as rotas são protegidas
 router.use(protect);
+
+// Visitas de hoje - ADMIN pode ver TODAS as visitas
+router.get('/today/all/all', authorize('admin', 'secretary'), getTodayVisitsAll);
 
 // Visitas de hoje (representantes também podem ver suas próprias visitas)
 router.get('/today/:doctorId', authorize('admin', 'secretary', 'representante'), getTodayVisits);

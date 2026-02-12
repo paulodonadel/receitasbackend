@@ -231,6 +231,52 @@ exports.deleteVisit = async (req, res) => {
 // @desc    Buscar visitas agendadas para hoje
 // @route   GET /api/rep-visits/today/:doctorId
 // @access  Admin/Secretary
+// @desc    Buscar TODAS as visitas de hoje (para admin/secretary ver todas)
+// @route   GET /api/rep-visits/today/all/all
+// @access  Admin/Secretary
+exports.getTodayVisitsAll = async (req, res) => {
+  try {
+    console.log('🔍 getTodayVisitsAll - Buscando TODAS as visitas de hoje para admin/secretary');
+    console.log('🔍 User role:', req.user.role);
+    
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    console.log('📅 Buscando visitas entre:', todayStart, 'e', todayEnd);
+    
+    // Retorna TODAS as visitas de hoje, sem filtro de doctorId
+    const visits = await RepVisit.find({
+      visitDate: { $gte: todayStart, $lte: todayEnd },
+      status: { $in: ['aguardando', 'confirmado', 'em_atendimento'] }
+    })
+    .populate({
+      path: 'repId',
+      populate: {
+        path: 'userId',
+        select: 'name email phone profileImage'
+      }
+    })
+    .populate('doctorId', 'name email')
+    .sort({ visitDate: 1 });
+    
+    console.log('✅ Visitas encontradas:', visits.length);
+    if (visits.length > 0) {
+      console.log('📋 Primeira visita:', JSON.stringify(visits[0], null, 2));
+    }
+    
+    res.status(200).json({
+      success: true,
+      count: visits.length,
+      data: visits
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar todas as visitas de hoje:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.getTodayVisits = async (req, res) => {
   try {
     const { doctorId } = req.params;
