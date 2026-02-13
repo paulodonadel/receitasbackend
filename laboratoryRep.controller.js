@@ -8,6 +8,16 @@ exports.createRep = async (req, res) => {
   try {
     const { userId, laboratory, laboratoryLogo, position, territory, phone, alternativeEmail, notes } = req.body;
 
+    if (req.user?.role !== 'admin') {
+      const requesterId = req.user?._id?.toString();
+      if (!requesterId || requesterId !== String(userId)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Você só pode completar o seu próprio cadastro.'
+        });
+      }
+    }
+
     // Verificar se o usuário existe
     const user = await User.findById(userId);
     if (!user) {

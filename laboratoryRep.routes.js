@@ -22,7 +22,7 @@ router.get('/suggestions', authorize('admin', 'secretary'), getSuggestions);
 // CRUD básico
 router.route('/')
   .get(authorize('admin', 'secretary'), getAllReps)
-  .post(authorize('admin'), createRep);
+  .post(authorize('admin', 'representante'), createRep);
 
 // Buscar por userId
 router.get('/user/:userId', authorize('admin', 'secretary', 'representante'), getRepByUserId);
