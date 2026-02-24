@@ -18,7 +18,7 @@ const RepVisitSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['aguardando', 'confirmado', 'em_atendimento', 'concluido', 'cancelado', 'nao_compareceu'],
+    enum: ['agendado', 'aguardando', 'confirmado', 'em_atendimento', 'concluido', 'cancelado', 'nao_compareceu'],
     default: 'aguardando'
   },
   visitType: {
