@@ -40,7 +40,7 @@ exports.createVisit = async (req, res) => {
       doctorId,
       visitDate: visitDate || new Date(),
       visitType: visitType || 'encaixe',
-      status: visitType === 'pre_reserva' ? 'aguardando' : 'aguardando',
+      status: visitType === 'pre_reserva' ? 'agendado' : 'aguardando',
       notes,
       products,
       repName,
