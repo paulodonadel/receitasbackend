@@ -72,6 +72,17 @@ class SocketManager {
           }
         }
       });
+
+      socket.on('adminResponse', (data) => {
+        console.log('📢 AdminResponse recebido:', data);
+
+        this.io.to('role:secretary').emit('adminResponseToSecretary', {
+          ...data,
+          timestamp: Date.now()
+        });
+
+        console.log('✅ Resposta do admin enviada para secretarias');
+      });
     });
   }
 
