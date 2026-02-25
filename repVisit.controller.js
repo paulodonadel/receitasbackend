@@ -64,6 +64,17 @@ exports.createVisit = async (req, res) => {
       populatedVisit = await RepVisit.findById(visit._id);
     }
 
+    // Se foi criado por secretária, notificar admin via Socket.IO
+    const creatorUser = await User.findById(req.user.id);
+    if (creatorUser && creatorUser.role === 'secretary') {
+      const socketManager = require('./SocketManager');
+      socketManager.notifyVisitCreatedBySecretary({
+        visitId: visit._id,
+        repName,
+        laboratory
+      });
+    }
+
     res.status(201).json({
       success: true,
       data: populatedVisit
@@ -418,6 +429,15 @@ exports.callRepresentative = async (req, res) => {
           select: 'name email phone profileImage'
         }
       });
+    
+    // Emitir notificação via Socket.IO para secretária e representante
+    const socketManager = require('./SocketManager');
+    socketManager.notifyRepresentativeCalled({
+      visitId: visit._id,
+      repName: updatedVisit.repName || updatedVisit.repId?.userId?.name,
+      laboratory: updatedVisit.laboratory,
+      representativeId: updatedVisit.repId?.userId?._id
+    });
     
     res.status(200).json({
       success: true,

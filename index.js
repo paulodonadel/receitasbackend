@@ -590,6 +590,11 @@ const server = app.listen(PORT, () => {
 // Configurando timeout do servidor
 server.timeout = TIMEOUT_MS;
 
+// Inicializar Socket.IO para notificações em tempo real
+const socketManager = require('./SocketManager');
+socketManager.initialize(server);
+console.log('✅ Socket.IO inicializado para notificações em tempo real');
+
 // Tratamento de erros não capturados
 process.on('uncaughtException', (err) => {
   console.error('Erro não capturado:', err);
