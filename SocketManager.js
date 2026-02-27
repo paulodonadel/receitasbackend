@@ -137,16 +137,7 @@ class SocketManager {
     console.log('   - visitId:', visitId);
     console.log('   - repName:', repName);
     console.log('   - laboratory:', laboratory);
-    console.log('   - Sockets conectados:', this.io.sockets.sockets.size);
-    
-    // Verificar quantos usuários admins estão conectados
-    const adminSockets = this.io.of('/').to('role:admin').sockets;
-    console.log('   - Admins conectados na sala role:admin:', adminSockets.size);
-    
-    // Listar detalhes dos admins
-    adminSockets.forEach((socket) => {
-      console.log(`     → Admin socket ${socket.id}: userId=${socket.userId}, role=${socket.userRole}`);
-    });
+    console.log('   - Total de sockets conectados:', this.io.sockets.sockets.size);
 
     // Notificar todos os admins
     this.io.to('role:admin').emit('visitCreatedBySecretary', {
@@ -155,6 +146,7 @@ class SocketManager {
       laboratory,
       timestamp: Date.now()
     });
+    
     console.log('✅ Notificação "visitCreatedBySecretary" emitida para role:admin');
   }
 
