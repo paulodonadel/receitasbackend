@@ -339,22 +339,37 @@ exports.getTodayVisits = async (req, res) => {
 // @access  Admin/Secretary
 exports.checkIn = async (req, res) => {
   try {
+    console.log('🔵 [CHECK-IN] Iniciando check-in para visita:', req.params.id);
+    
     const visit = await RepVisit.findById(req.params.id);
     
     if (!visit) {
+      console.log('❌ [CHECK-IN] Visita não encontrada:', req.params.id);
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
     }
+    
+    console.log('📋 [CHECK-IN] Visita atual:', {
+      visitId: visit._id,
+      visitType: visit.visitType,
+      statusAtual: visit.status,
+      repName: visit.repName,
+      laboratory: visit.laboratory
+    });
     
     // Se for pré-reserva (agendada), marcar como 'aguardando' (representante chegou)
     // Se for encaixe, marcar como 'em_atendimento'
     if (visit.visitType === 'pre_reserva' && visit.status === 'agendado') {
+      console.log('✅ [CHECK-IN] Pré-reserva detectada, mudando status: agendado → aguardando');
       visit.status = 'aguardando';
     } else {
+      console.log('✅ [CHECK-IN] Encaixe detectado, mudando status → em_atendimento');
       visit.status = 'em_atendimento';
     }
     
     visit.checkInTime = new Date();
     await visit.save();
+    
+    console.log('💾 [CHECK-IN] Visita salva com novo status:', visit.status);
     
     const updatedVisit = await RepVisit.findById(visit._id)
       .populate({
@@ -367,19 +382,20 @@ exports.checkIn = async (req, res) => {
     
     // Notificar admin quando representante faz check-in (representante aguardando/chegou)
     const socketManager = require('./SocketManager');
+    console.log('📢 [CHECK-IN] Chamando socketManager.notifyVisitCreatedBySecretary...');
     socketManager.notifyVisitCreatedBySecretary({
       visitId: visit._id,
       repName: visit.repName,
       laboratory: visit.laboratory
     });
-    console.log('📢 Notificação de check-in enviada ao admin');
+    console.log('✅ [CHECK-IN] Notificação de check-in enviada ao admin');
     
     res.status(200).json({
       success: true,
       data: updatedVisit
     });
   } catch (error) {
-    console.error('Erro ao fazer check-in:', error);
+    console.error('❌ [CHECK-IN] Erro ao fazer check-in:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
