@@ -345,7 +345,14 @@ exports.checkIn = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
     }
     
-    visit.status = 'em_atendimento';
+    // Se for pré-reserva (agendada), marcar como 'aguardando' (representante chegou)
+    // Se for encaixe, marcar como 'em_atendimento'
+    if (visit.visitType === 'pre_reserva' && visit.status === 'agendado') {
+      visit.status = 'aguardando';
+    } else {
+      visit.status = 'em_atendimento';
+    }
+    
     visit.checkInTime = new Date();
     await visit.save();
     
@@ -358,7 +365,7 @@ exports.checkIn = async (req, res) => {
         }
       });
     
-    // Notificar admin quando representante faz check-in
+    // Notificar admin quando representante faz check-in (representante aguardando/chegou)
     const socketManager = require('./SocketManager');
     socketManager.notifyVisitCreatedBySecretary({
       visitId: visit._id,
