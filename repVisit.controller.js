@@ -358,6 +358,15 @@ exports.checkIn = async (req, res) => {
         }
       });
     
+    // Notificar admin quando representante faz check-in
+    const socketManager = require('./SocketManager');
+    socketManager.notifyVisitCreatedBySecretary({
+      visitId: visit._id,
+      repName: visit.repName,
+      laboratory: visit.laboratory
+    });
+    console.log('📢 Notificação de check-in enviada ao admin');
+    
     res.status(200).json({
       success: true,
       data: updatedVisit
