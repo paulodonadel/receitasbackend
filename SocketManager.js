@@ -190,6 +190,132 @@ class SocketManager {
   }
 
   /**
+   * Notificar atraso de médico para representantes
+   * Envia para todos os representantes e admin
+   */
+  notifyDoctorDelay(data) {
+    const { doctorId, doctorName, delayMinutes, delayType, message, delayId } = data;
+    
+    console.log('🚨 Emitindo notificação de atraso de médico');
+    console.log('   - doctorName:', doctorName);
+    console.log('   - delayMinutes:', delayMinutes);
+    console.log('   - delayType:', delayType);
+
+    // Notificar todos os representantes e admin
+    this.io.to('role:representante').emit('doctorDelayNotification', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      delayId,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:admin').emit('doctorDelayNotification', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      delayId,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:secretary').emit('doctorDelayNotification', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      delayId,
+      timestamp: new Date()
+    });
+    
+    console.log('✅ Notificação de atraso enviada para representantes, admin e secretárias');
+  }
+
+  /**
+   * Notificar atualização de atraso de médico
+   */
+  notifyDoctorDelayUpdated(data) {
+    const { doctorId, doctorName, delayMinutes, delayType, message } = data;
+    
+    console.log('🔄 Emitindo notificação de atualização de atraso');
+    console.log('   - doctorName:', doctorName);
+    console.log('   - delayMinutes:', delayMinutes);
+
+    // Notificar todos os representantes e admin
+    this.io.to('role:representante').emit('doctorDelayUpdated', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:admin').emit('doctorDelayUpdated', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:secretary').emit('doctorDelayUpdated', {
+      doctorId,
+      doctorName,
+      delayMinutes,
+      delayType,
+      message,
+      timestamp: new Date()
+    });
+    
+    console.log('✅ Notificação de atualização de atraso enviada');
+  }
+
+  /**
+   * Notificar resolução de atraso de médico
+   */
+  notifyDoctorDelayResolved(data) {
+    const { doctorId, doctorName } = data;
+    
+    console.log('✅ Emitindo notificação de resolução de atraso');
+    console.log('   - doctorName:', doctorName);
+
+    // Notificar todos os representantes, admin e secretárias
+    this.io.to('role:representante').emit('doctorDelayResolved', {
+      doctorId,
+      doctorName,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:admin').emit('doctorDelayResolved', {
+      doctorId,
+      doctorName,
+      timestamp: new Date()
+    });
+
+    this.io.to('role:secretary').emit('doctorDelayResolved', {
+      doctorId,
+      doctorName,
+      timestamp: new Date()
+    });
+    
+    console.log('✅ Notificação de resolução de atraso enviada');
+  }
+
+  /**
+   * Broadcast genérico para todos os clientes
+   */
+  broadcast(event, data) {
+    console.log(`📢 Broadcasting evento: ${event}`);
+    this.io.emit(event, data);
+  }
+
+  /**
    * Obter instância do Socket.IO
    */
   getIO() {
