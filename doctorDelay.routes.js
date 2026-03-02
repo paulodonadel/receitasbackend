@@ -15,7 +15,7 @@ const {
 } = require('./doctorDelay.controller');
 
 // Middleware para verificar autenticação
-const { protect } = require('./middlewares/auth');
+const { protect } = require('./middlewares/auth.middleware');
 
 /**
  * Routes públicas
