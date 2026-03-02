@@ -11,6 +11,7 @@ const {
   checkIn,
   checkOut,
   callRepresentative,
+  renotifyDoctor,
   viewNotification
 } = require('./repVisit.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
@@ -30,6 +31,7 @@ router.post('/:id/checkout', authorize('admin', 'secretary'), checkOut);
 
 // Chamar representante e visualizar notificação
 router.post('/:id/call', authorize('admin', 'secretary'), callRepresentative);
+router.post('/:id/renotify-doctor', authorize('secretary'), renotifyDoctor);
 router.post('/:id/view-notification', authorize('representante'), viewNotification);
 
 // CRUD básico

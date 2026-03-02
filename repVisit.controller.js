@@ -490,6 +490,58 @@ exports.callRepresentative = async (req, res) => {
   }
 };
 
+// @desc    Reenviar notificação ao médico/admin (reavisar)
+// @route   POST /api/rep-visits/:id/renotify-doctor
+// @access  Secretary
+exports.renotifyDoctor = async (req, res) => {
+  try {
+    console.log('🔔 [REAVISO] Reenviando notificação ao médico para visita:', req.params.id);
+    
+    const visit = await RepVisit.findById(req.params.id)
+      .populate({
+        path: 'repId',
+        populate: {
+          path: 'userId',
+          select: 'name email phone profileImage'
+        }
+      });
+    
+    if (!visit) {
+      console.log('❌ [REAVISO] Visita não encontrada:', req.params.id);
+      return res.status(404).json({ success: false, error: 'Visita não encontrada' });
+    }
+    
+    console.log('📋 [REAVISO] Visita encontrada:', {
+      visitId: visit._id,
+      repName: visit.repName,
+      laboratory: visit.laboratory,
+      status: visit.status
+    });
+    
+    // Emitir notificação via Socket.IO para admin
+    if (global.socketManager && global.socketManager.notifyVisitCreatedBySecretary) {
+      console.log('📢 [REAVISO] Emitindo notificação ao médico/admin...');
+      global.socketManager.notifyVisitCreatedBySecretary({
+        visitId: visit._id,
+        repName: visit.repName,
+        laboratory: visit.laboratory
+      });
+      console.log('✅ [REAVISO] Notificação reenviada com sucesso');
+    } else {
+      console.log('⚠️ [REAVISO] SocketManager não está disponível');
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Notificação reenviada ao médico',
+      data: visit
+    });
+  } catch (error) {
+    console.error('❌ [REAVISO] Erro ao reenviar notificação:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Marcar notificação como visualizada
 // @route   POST /api/rep-visits/:id/view-notification
 // @access  Representante
