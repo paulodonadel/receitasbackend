@@ -42,6 +42,13 @@ const DoctorDelaySchema = new mongoose.Schema({
     trim: true
   },
 
+  // Texto livre para retorno (ex.: "amanhã", "à tarde", "no horário do almoço")
+  returnInstruction: {
+    type: String,
+    default: null,
+    trim: true
+  },
+
   // Se o atraso está ativo ou foi resolvido
   isActive: {
     type: Boolean,
@@ -128,7 +135,7 @@ DoctorDelaySchema.pre('save', function(next) {
 /**
  * Método estático para criar atraso
  */
-DoctorDelaySchema.statics.createDelay = async function(doctorId, createdBy, delayMinutes, delayType = 'delayed', reason = null) {
+DoctorDelaySchema.statics.createDelay = async function(doctorId, createdBy, delayMinutes, delayType = 'delayed', reason = null, returnInstruction = null) {
   try {
     // Desativar atrasos anteriores ativos do mesmo médico
     await this.updateMany(
@@ -143,6 +150,7 @@ DoctorDelaySchema.statics.createDelay = async function(doctorId, createdBy, dela
       delayMinutes,
       delayType,
       reason,
+      returnInstruction,
       isActive: true,
       status: 'active'
     });

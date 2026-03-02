@@ -13,7 +13,7 @@ const User = require('./models/user.model');
  */
 exports.registerDelay = async (req, res, next) => {
   try {
-    const { doctorId, delayMinutes, delayType = 'delayed', reason } = req.body;
+    const { doctorId, delayMinutes, delayType = 'delayed', reason, returnInstruction } = req.body;
     const userId = req.user.id;
 
     // Validações
@@ -61,7 +61,8 @@ exports.registerDelay = async (req, res, next) => {
       userId,
       delayMinutes,
       delayType,
-      reason
+      reason,
+      returnInstruction
     );
 
     // Popular referências
@@ -72,7 +73,12 @@ exports.registerDelay = async (req, res, next) => {
     if (delayType === 'delayed') {
       message = `O médico ${doctor.name} está ${delayMinutes} minutos atrasado. Por favor se informe com a recepção qual o melhor momento para voltar, ou acompanhe o status do médico em tempo real através deste aplicativo.`;
     } else if (delayType === 'delayed_come_back_later') {
-      message = `O médico ${doctor.name} está atrasado. Por favor, volte em aproximadamente ${delayMinutes} minutos ou acompanhe em tempo real através deste aplicativo.`;
+      const customReturn = typeof returnInstruction === 'string' ? returnInstruction.trim() : '';
+      if (customReturn) {
+        message = `O médico ${doctor.name} está atrasado ${delayMinutes} minutos, retorne ${customReturn}.`;
+      } else {
+        message = `O médico ${doctor.name} está atrasado. Por favor, volte em aproximadamente ${delayMinutes} minutos ou acompanhe em tempo real através deste aplicativo.`;
+      }
     }
 
     // Emitir notificação via Socket.IO para representantes
@@ -82,6 +88,7 @@ exports.registerDelay = async (req, res, next) => {
         doctorName: doctor.name,
         delayMinutes,
         delayType,
+        returnInstruction,
         message,
         delayId: delay._id
       });
@@ -260,7 +267,7 @@ exports.resolveDelay = async (req, res, next) => {
 exports.updateDelay = async (req, res, next) => {
   try {
     const { doctorId } = req.params;
-    const { delayMinutes, delayType, reason } = req.body;
+    const { delayMinutes, delayType, reason, returnInstruction } = req.body;
 
     // Verificar permissões
     if (!['admin', 'secretary'].includes(req.user.role)) {
@@ -283,6 +290,7 @@ exports.updateDelay = async (req, res, next) => {
         delayMinutes,
         delayType,
         reason,
+        returnInstruction,
         status: 'updated',
         updatedAt: Date.now()
       },
@@ -304,7 +312,12 @@ exports.updateDelay = async (req, res, next) => {
       if (delayType === 'delayed') {
         message = `O médico ${doctor.name} está ${delayMinutes} minutos atrasado. Por favor se informe com a recepção qual o melhor momento para voltar, ou acompanhe o status do médico em tempo real através deste aplicativo.`;
       } else if (delayType === 'delayed_come_back_later') {
-        message = `O médico ${doctor.name} está atrasado. Por favor, volte em aproximadamente ${delayMinutes} minutos ou acompanhe em tempo real através deste aplicativo.`;
+        const customReturn = typeof returnInstruction === 'string' ? returnInstruction.trim() : '';
+        if (customReturn) {
+          message = `O médico ${doctor.name} está atrasado ${delayMinutes} minutos, retorne ${customReturn}.`;
+        } else {
+          message = `O médico ${doctor.name} está atrasado. Por favor, volte em aproximadamente ${delayMinutes} minutos ou acompanhe em tempo real através deste aplicativo.`;
+        }
       }
 
       global.socketManager.notifyDoctorDelayUpdated({
@@ -312,6 +325,7 @@ exports.updateDelay = async (req, res, next) => {
         doctorName: doctor.name,
         delayMinutes,
         delayType,
+        returnInstruction,
         message
       });
 
