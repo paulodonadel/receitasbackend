@@ -66,19 +66,17 @@ exports.createVisit = async (req, res) => {
 
     // Notificar via Socket.IO baseado no criador
     const creatorUser = await User.findById(req.user.id);
-    if (creatorUser) {
-      const socketManager = require('./SocketManager');
-      
+    if (creatorUser && global.socketManager && global.socketManager.io) {
       if (creatorUser.role === 'secretary') {
         // Secretária criou: notificar admin
-        socketManager.notifyVisitCreatedBySecretary({
+        global.socketManager.notifyVisitCreatedBySecretary({
           visitId: visit._id,
           repName,
           laboratory
         });
       } else if (creatorUser.role === 'representante') {
         // Representante fez self check-in: notificar admin E secretária
-        socketManager.notifyRepresentanteSelfCheckIn({
+        global.socketManager.notifyRepresentanteSelfCheckIn({
           visitId: visit._id,
           repName,
           laboratory
