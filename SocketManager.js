@@ -315,8 +315,37 @@ class SocketManager {
     this.io.emit(event, data);
   }
 
-  /**
-   * Obter instância do Socket.IO
+  /**   * Notificar quando representante faz self check-in
+   * Envia para admin E secretária
+   */
+  notifyRepresentanteSelfCheckIn(data) {
+    const { visitId, repName, laboratory } = data;
+    
+    console.log('📢 Emitindo notificação de self check-in de representante');
+    console.log('   - visitId:', visitId);
+    console.log('   - repName:', repName);
+    console.log('   - laboratory:', laboratory);
+
+    // Notificar todos os admins
+    this.io.to('role:admin').emit('representanteSelfCheckIn', {
+      visitId,
+      repName,
+      laboratory,
+      timestamp: Date.now()
+    });
+    console.log('✅ Notificação de self check-in enviada para role:admin');
+
+    // Notificar todas as secretárias
+    this.io.to('role:secretary').emit('representanteSelfCheckIn', {
+      visitId,
+      repName,
+      laboratory,
+      timestamp: Date.now()
+    });
+    console.log('✅ Notificação de self check-in enviada para role:secretary');
+  }
+
+  /**   * Obter instância do Socket.IO
    */
   getIO() {
     if (!this.io) {
