@@ -671,7 +671,7 @@ exports.updateUserRole = async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    console.log(`👤 [USER] Admin ${req.user._id} atualizando role do usuário ${id} para ${role}`);
+    console.log(`👤 [USER] ${req.user.role} ${req.user._id} atualizando role do usuário ${id} para ${role}`);
 
     // Validar role
     const validRoles = ['patient', 'secretary', 'admin', 'representante'];
@@ -691,6 +691,29 @@ exports.updateUserRole = async (req, res) => {
         message: 'Usuário não encontrado',
         errorCode: 'USER_NOT_FOUND'
       });
+    }
+
+    // Restrições para secretária
+    if (req.user.role === 'secretary') {
+      // Secretária só pode alterar entre patient e representante
+      const allowedRolesForSecretary = ['patient', 'representante'];
+      
+      if (!allowedRolesForSecretary.includes(role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Secretárias só podem alterar usuários entre os perfis: Paciente e Representante',
+          errorCode: 'SECRETARY_ROLE_RESTRICTION'
+        });
+      }
+
+      // Não pode alterar admins ou outras secretárias
+      if (user.role === 'admin' || user.role === 'secretary') {
+        return res.status(403).json({
+          success: false,
+          message: 'Secretárias não podem alterar o perfil de Administradores ou outras Secretárias',
+          errorCode: 'SECRETARY_CANNOT_MODIFY_ADMIN_OR_SECRETARY'
+        });
+      }
     }
 
     // Prevenir que o admin remova seu próprio privilégio de admin
@@ -730,6 +753,71 @@ exports.updateUserRole = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao atualizar role do usuário',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Deletar usuário
+ * @route   DELETE /api/users/:id
+ * @access  Private/Admin-Secretary
+ */
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ [USER] ${req.user.role} ${req.user._id} tentando deletar usuário ${id}`);
+
+    // Buscar usuário
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado',
+        errorCode: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Não permitir deletar a si mesmo
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Você não pode deletar sua própria conta',
+        errorCode: 'CANNOT_DELETE_SELF'
+      });
+    }
+
+    // Não permitir deletar admins ou secretárias
+    if (user.role === 'admin' || user.role === 'secretary') {
+      return res.status(403).json({
+        success: false,
+        message: 'Não é permitido deletar Administradores ou Secretárias',
+        errorCode: 'CANNOT_DELETE_ADMIN_OR_SECRETARY'
+      });
+    }
+
+    // Deletar usuário
+    await User.findByIdAndDelete(id);
+
+    console.log(`✅ [USER] Usuário ${user.name} (${user.email}) deletado com sucesso por ${req.user.role} ${req.user._id}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Usuário ${user.name} deletado com sucesso`,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [USER] Erro ao deletar usuário:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao deletar usuário',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

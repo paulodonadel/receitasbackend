@@ -67,7 +67,7 @@ router.put('/updatepassword', protect, updatePassword);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
-// Rotas administrativas
-router.post('/admin/create', protect, authorize('admin'), createAdminUser);
+// Rotas administrativas - Admin e Secretary podem criar usuários
+router.post('/admin/create', protect, authorize('admin', 'secretary'), createAdminUser);
 
 module.exports = router;

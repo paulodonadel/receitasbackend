@@ -405,11 +405,32 @@ exports.createAdminUser = async (req, res, next) => {
       });
     }
 
-    if (!["secretary", "admin"].includes(role)) {
+    // Validar role baseado no tipo de usuário que está criando
+    const validRoles = ['patient', 'secretary', 'admin', 'representante'];
+    if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
-        message: "Papel inválido. Deve ser \"secretary\" ou \"admin\""
+        message: `Papel inválido. Valores permitidos: ${validRoles.join(', ')}`
       });
+    }
+
+    // Restrições para secretária
+    if (req.user.role === 'secretary') {
+      // Secretária só pode criar patient ou representante
+      if (role === 'admin' || role === 'secretary') {
+        return res.status(403).json({
+          success: false,
+          message: "Secretárias só podem criar usuários do tipo Paciente ou Representante"
+        });
+      }
+    } else if (req.user.role === 'admin') {
+      // Admin pode criar qualquer tipo, mas vamos validar se está criando admin ou secretary
+      if (!["secretary", "admin", "patient", "representante"].includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Papel inválido"
+        });
+      }
     }
 
     // Preparar dados do usuário
@@ -429,9 +450,17 @@ exports.createAdminUser = async (req, res, next) => {
 
     // Enviar e-mail de boas-vindas (não bloqueia a criação se falhar)
     try {
-      const subject = `Sua conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada`;
-      const textBody = `Olá ${name},\n\nUma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
-      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${role === "admin" ? "Administrador" : "Secretária"} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
+      let roleLabel = '';
+      switch(role) {
+        case 'admin': roleLabel = 'Administrador'; break;
+        case 'secretary': roleLabel = 'Secretária'; break;
+        case 'representante': roleLabel = 'Representante'; break;
+        default: roleLabel = 'Paciente';
+      }
+
+      const subject = `Sua conta de ${roleLabel} foi criada`;
+      const textBody = `Olá ${name},\n\nUma conta de ${roleLabel} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
+      const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${roleLabel} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
       await emailService.sendEmail(email, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);

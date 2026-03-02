@@ -11,7 +11,8 @@ const {
   getAllPatients,
   createPatient,
   getAllUsers,
-  updateUserRole
+  updateUserRole,
+  deleteUser
 } = require('../user.controller');
 const { protect, authorize } = require('../middlewares/auth.middleware');
 const rateLimit = require('express-rate-limit');
@@ -90,20 +91,30 @@ router.delete('/photo', protect, removeProfilePhoto);
 
 // @desc    Listar todos os usuários
 // @route   GET /api/users
-// @access  Private/Admin
+// @access  Private/Admin-Secretary
 router.get('/', 
   protect, 
-  authorize('admin'), 
+  authorize('admin', 'secretary'), 
   getAllUsers
 );
 
 // @desc    Atualizar role de um usuário
 // @route   PATCH /api/users/:id/role
-// @access  Private/Admin
+// @access  Private/Admin-Secretary
 router.patch('/:id/role',
   protect,
-  authorize('admin'),
+  authorize('admin', 'secretary'),
   updateUserRole
+);
+
+// @desc    Deletar usuário (apenas pacientes e representantes)
+// @route   DELETE /api/users/:id
+// @access  Private/Admin-Secretary
+router.delete('/:id',
+  protect,
+  authorize('admin', 'secretary'),
+  sensitiveOperationsLimiter,
+  deleteUser
 );
 
 // ROTAS PARA GERENCIAMENTO DE PACIENTES (ADMIN/SECRETARY)
