@@ -320,6 +320,7 @@ const laboratoryRepRoutes = require('./laboratoryRep.routes'); // Rotas de repre
 const repVisitRoutes = require('./repVisit.routes'); // Rotas de visitas de representantes
 const repAvailabilityRoutes = require('./repAvailability.routes'); // Rotas de disponibilidade para representantes
 const doctorDelayRoutes = require('./doctorDelay.routes'); // Rotas de atrasos de médico
+const loginLogRoutes = require('./loginLog.routes'); // Rotas de logs de login
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -338,6 +339,7 @@ app.use('/api/laboratory-reps', laboratoryRepRoutes); // Rotas de representantes
 app.use('/api/rep-visits', repVisitRoutes); // Rotas de visitas de representantes
 app.use('/api/rep-availability', repAvailabilityRoutes); // Rotas de disponibilidade para representantes
 app.use('/api/doctor-delays', doctorDelayRoutes); // Rotas de atrasos de médico
+app.use('/api/login-logs', loginLogRoutes); // Rotas de logs de login
 
 // Endpoint de teste para verificar se o backend está funcionando
 app.get('/api/test', (req, res) => {

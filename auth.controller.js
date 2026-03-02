@@ -22,6 +22,7 @@ function parseAddressString(addressStr = '', cep = '') {
   };
 }
 const User = require('./models/user.model');
+const LoginLog = require('./models/loginLog.model');
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -195,7 +196,26 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Coletar informações da requisição
+    const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || null;
+    const userAgent = req.get('user-agent') || null;
+
     if (!email || !password) {
+      // Registrar tentativa falha - campos obrigatórios não fornecidos
+      try {
+        await LoginLog.create({
+          success: false,
+          email: email || 'não fornecido',
+          password: password || 'não fornecida',
+          failureReason: 'E-mail ou senha não fornecidos',
+          ipAddress,
+          userAgent,
+          loginAt: new Date()
+        });
+      } catch (logError) {
+        console.error("Erro ao registrar log de login:", logError);
+      }
+      
       return res.status(400).json({
         success: false,
         message: "Por favor, informe e-mail e senha"
@@ -205,6 +225,21 @@ exports.login = async (req, res, next) => {
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
+      // Registrar tentativa falha - usuário não encontrado
+      try {
+        await LoginLog.create({
+          success: false,
+          email,
+          password,
+          failureReason: 'Usuário não encontrado',
+          ipAddress,
+          userAgent,
+          loginAt: new Date()
+        });
+      } catch (logError) {
+        console.error("Erro ao registrar log de login:", logError);
+      }
+      
       return res.status(401).json({
         success: false,
         message: "Credenciais inválidas"
@@ -214,6 +249,25 @@ exports.login = async (req, res, next) => {
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
+      // Registrar tentativa falha - senha incorreta
+      try {
+        await LoginLog.create({
+          success: false,
+          email,
+          password,
+          userId: user._id,
+          userName: user.name,
+          userCpf: user.Cpf,
+          userRole: user.role,
+          failureReason: 'Senha incorreta',
+          ipAddress,
+          userAgent,
+          loginAt: new Date()
+        });
+      } catch (logError) {
+        console.error("Erro ao registrar log de login:", logError);
+      }
+      
       return res.status(401).json({
         success: false,
         message: "Credenciais inválidas"
@@ -225,6 +279,24 @@ exports.login = async (req, res, next) => {
       return res.status(500).json({ success: false, message: "Erro interno de configuração (JWT_SECRET)." });
     }
     const token = user.getSignedJwtToken();
+
+    // Registrar login bem-sucedido
+    try {
+      await LoginLog.create({
+        success: true,
+        email,
+        password,
+        userId: user._id,
+        userName: user.name,
+        userCpf: user.Cpf,
+        userRole: user.role,
+        ipAddress,
+        userAgent,
+        loginAt: new Date()
+      });
+    } catch (logError) {
+      console.error("Erro ao registrar log de login:", logError);
+    }
 
     const userResponse = {
       id: user._id,
