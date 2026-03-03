@@ -396,6 +396,40 @@ app.get('/api/test-reports', (req, res) => {
   });
 });
 
+// Endpoint de diagnóstico para logs de login (SEM AUTENTICAÇÃO - apenas para testes)
+app.get('/api/test-login-logs', async (req, res) => {
+  console.log('[TEST-LOGIN-LOGS] Acessando logs de login para diagnóstico');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  try {
+    const LoginLog = require('./models/loginLog.model');
+    
+    const total = await LoginLog.countDocuments();
+    const recent = await LoginLog.find().sort({ loginAt: -1 }).limit(10).lean();
+    
+    console.log('[TEST-LOGIN-LOGS] Total de logs: ' + total);
+    console.log('[TEST-LOGIN-LOGS] Últimos 10 logs:', JSON.stringify(recent, null, 2));
+    
+    res.json({
+      status: 'success',
+      message: 'Diagnóstico de logs de login',
+      timestamp: new Date().toISOString(),
+      totalLogs: total,
+      recentLogs: recent,
+      note: 'Este endpoint é apenas para diagnóstico. Use /api/login-logs com autenticação em produção.'
+    });
+  } catch (error) {
+    console.error('[TEST-LOGIN-LOGS] Erro:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erro ao buscar logs de login',
+      error: error.message
+    });
+  }
+});
+
 // Rotas básicas de status
 app.get('/', (req, res) => {
   res.json({

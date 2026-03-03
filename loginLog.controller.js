@@ -5,6 +5,9 @@ const LoginLog = require('./models/loginLog.model');
 // @access  Private/Admin
 exports.getLoginLogs = async (req, res) => {
   try {
+    console.log('[LOGIN-LOGS] Acessando logs de login');
+    console.log('   User:', req.user ? req.user._id + ' (' + req.user.role + ')' : 'undefined');
+    
     const {
       page = 1,
       limit = 50,
@@ -60,6 +63,8 @@ exports.getLoginLogs = async (req, res) => {
 
     // Contar total
     const total = await LoginLog.countDocuments(filter);
+    
+    console.log('[LOGIN-LOGS] ' + logs.length + ' logs retornados, total: ' + total);
 
     res.status(200).json({
       success: true,
@@ -72,10 +77,11 @@ exports.getLoginLogs = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Erro ao buscar logs de login:", error);
+    console.error('[LOGIN-LOGS] Erro ao buscar logs:', error);
     res.status(500).json({
       success: false,
-      message: "Erro ao buscar logs de login"
+      message: "Erro ao buscar logs de login",
+      error: error.message
     });
   }
 };
@@ -85,6 +91,8 @@ exports.getLoginLogs = async (req, res) => {
 // @access  Private/Admin
 exports.getLoginStats = async (req, res) => {
   try {
+    console.log('[LOGIN-STATS] Acessando estatísticas de login');
+    
     const totalAttempts = await LoginLog.countDocuments();
     const successfulLogins = await LoginLog.countDocuments({ success: true });
     const failedLogins = await LoginLog.countDocuments({ success: false });
@@ -98,6 +106,8 @@ exports.getLoginStats = async (req, res) => {
     // Usuários únicos que fizeram login
     const uniqueUsers = await LoginLog.distinct('userId', { success: true });
 
+    console.log('[LOGIN-STATS] Total: ' + totalAttempts + ', Sucesso: ' + successfulLogins + ', Falha: ' + failedLogins);
+
     res.status(200).json({
       success: true,
       stats: {
@@ -109,10 +119,11 @@ exports.getLoginStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Erro ao buscar estatísticas de login:", error);
+    console.error("[LOGIN-STATS] Erro ao buscar estatísticas:", error);
     res.status(500).json({
       success: false,
-      message: "Erro ao buscar estatísticas"
+      message: "Erro ao buscar estatísticas",
+      error: error.message
     });
   }
 };
@@ -123,6 +134,8 @@ exports.getLoginStats = async (req, res) => {
 exports.registerLogout = async (req, res) => {
   try {
     const { userId } = req.body;
+    
+    console.log('[LOGIN-LOGOUT] Registrando logout para usuário: ' + userId);
 
     // Encontrar o último login bem-sucedido do usuário que ainda não tem logout
     const lastLogin = await LoginLog.findOne({
@@ -134,6 +147,9 @@ exports.registerLogout = async (req, res) => {
     if (lastLogin) {
       lastLogin.logoutAt = new Date();
       await lastLogin.save();
+      console.log('[LOGIN-LOGOUT] Logout registrado para log: ' + lastLogin._id);
+    } else {
+      console.log('[LOGIN-LOGOUT] Nenhum login ativo encontrado para: ' + userId);
     }
 
     res.status(200).json({
@@ -141,10 +157,11 @@ exports.registerLogout = async (req, res) => {
       message: "Logout registrado"
     });
   } catch (error) {
-    console.error("Erro ao registrar logout:", error);
+    console.error("[LOGIN-LOGOUT] Erro ao registrar logout:", error);
     res.status(500).json({
       success: false,
-      message: "Erro ao registrar logout"
+      message: "Erro ao registrar logout",
+      error: error.message
     });
   }
 };

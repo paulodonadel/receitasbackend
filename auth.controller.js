@@ -212,8 +212,9 @@ exports.login = async (req, res, next) => {
           userAgent,
           loginAt: new Date()
         });
+        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (campos não fornecidos)');
       } catch (logError) {
-        console.error("Erro ao registrar log de login:", logError);
+        console.error("[AUTH-LOGIN] Erro ao registrar log de login (campos não fornecidos):", logError);
       }
       
       return res.status(400).json({
@@ -236,8 +237,9 @@ exports.login = async (req, res, next) => {
           userAgent,
           loginAt: new Date()
         });
+        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (usuário não encontrado) para ' + email);
       } catch (logError) {
-        console.error("Erro ao registrar log de login:", logError);
+        console.error("[AUTH-LOGIN] Erro ao registrar log de login (usuário não encontrado):", logError);
       }
       
       return res.status(401).json({
@@ -264,8 +266,9 @@ exports.login = async (req, res, next) => {
           userAgent,
           loginAt: new Date()
         });
+        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (senha incorreta) para ' + email);
       } catch (logError) {
-        console.error("Erro ao registrar log de login:", logError);
+        console.error("[AUTH-LOGIN] Erro ao registrar log de login (senha incorreta):", logError);
       }
       
       return res.status(401).json({
@@ -294,8 +297,9 @@ exports.login = async (req, res, next) => {
         userAgent,
         loginAt: new Date()
       });
+      console.log('[AUTH-LOGIN] Log registrado: LOGIN BEM-SUCEDIDO para ' + email + ' (ID: ' + user._id + ')');
     } catch (logError) {
-      console.error("Erro ao registrar log de login:", logError);
+      console.error("[AUTH-LOGIN] Erro ao registrar log de login bem-sucedido:", logError);
     }
 
     const userResponse = {
