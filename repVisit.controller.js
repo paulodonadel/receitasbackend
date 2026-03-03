@@ -64,17 +64,18 @@ exports.createVisit = async (req, res) => {
       populatedVisit = await RepVisit.findById(visit._id);
     }
 
-    // Notificar via Socket.IO baseado no criador
+    // Notificar via Socket.IO apenas quando houver representante realmente aguardando
     const creatorUser = await User.findById(req.user.id);
+    const shouldNotifyWaiting = visit.status === 'aguardando';
     if (creatorUser && global.socketManager && global.socketManager.io) {
-      if (creatorUser.role === 'secretary') {
+      if (creatorUser.role === 'secretary' && shouldNotifyWaiting) {
         // Secretária criou: notificar admin
         global.socketManager.notifyVisitCreatedBySecretary({
           visitId: visit._id,
           repName,
           laboratory
         });
-      } else if (creatorUser.role === 'representante') {
+      } else if (creatorUser.role === 'representante' && shouldNotifyWaiting) {
         // Representante fez self check-in: notificar admin E secretária
         global.socketManager.notifyRepresentanteSelfCheckIn({
           visitId: visit._id,
