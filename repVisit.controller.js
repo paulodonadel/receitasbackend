@@ -9,6 +9,7 @@ const User = require('./models/user.model');
 exports.createVisit = async (req, res) => {
   try {
     const { repId, doctorId, visitDate, visitType, notes, products } = req.body;
+    const creatorUser = await User.findById(req.user.id);
 
     let repName = 'Representante';
     let laboratory = 'Laboratório não informado';
@@ -25,9 +26,65 @@ exports.createVisit = async (req, res) => {
       laboratoryLogo = rep.laboratoryLogo;
     }
 
+    const resolvedVisitType = visitType || 'encaixe';
+
+    // Se representante fizer self-check-in e já tiver pré-reserva no dia,
+    // evoluir a pré-reserva para "aguardando" em vez de criar nova visita.
+    if (creatorUser?.role === 'representante' && resolvedVisitType === 'encaixe' && repId) {
+      const baseDate = visitDate ? new Date(visitDate) : new Date();
+      const dayStart = new Date(baseDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(baseDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const existingPreReserva = await RepVisit.findOne({
+        repId,
+        doctorId,
+        visitType: 'pre_reserva',
+        visitDate: { $gte: dayStart, $lte: dayEnd },
+        status: { $in: ['agendado', 'confirmado', 'aguardando'] }
+      }).sort({ visitDate: 1, createdAt: 1 });
+
+      if (existingPreReserva) {
+        existingPreReserva.status = 'aguardando';
+        if (!existingPreReserva.checkInTime) {
+          existingPreReserva.checkInTime = new Date();
+        }
+
+        if (notes && !existingPreReserva.notes) {
+          existingPreReserva.notes = notes;
+        }
+
+        await existingPreReserva.save();
+
+        const populatedExistingVisit = await RepVisit.findById(existingPreReserva._id)
+          .populate('repId')
+          .populate({
+            path: 'repId',
+            populate: {
+              path: 'userId',
+              select: 'name email phone profileImage'
+            }
+          });
+
+        if (global.socketManager && global.socketManager.io) {
+          global.socketManager.notifyRepresentanteSelfCheckIn({
+            visitId: existingPreReserva._id,
+            repName,
+            laboratory
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          data: populatedExistingVisit
+        });
+      }
+    }
+
     // Verificar disponibilidade do médico
     const availability = await RepAvailability.findOne({ doctorId });
-    if (availability && !availability.isAvailable && visitType === 'encaixe') {
+    if (availability && !availability.isAvailable && resolvedVisitType === 'encaixe') {
       return res.status(400).json({ 
         success: false, 
         error: 'Médico está indisponível para visitas no momento' 
@@ -39,8 +96,8 @@ exports.createVisit = async (req, res) => {
       repId: repId || null,
       doctorId,
       visitDate: visitDate || new Date(),
-      visitType: visitType || 'encaixe',
-      status: visitType === 'pre_reserva' ? 'agendado' : 'aguardando',
+      visitType: resolvedVisitType,
+      status: resolvedVisitType === 'pre_reserva' ? 'agendado' : 'aguardando',
       notes,
       products,
       repName,
@@ -65,7 +122,6 @@ exports.createVisit = async (req, res) => {
     }
 
     // Notificar via Socket.IO apenas quando houver representante realmente aguardando
-    const creatorUser = await User.findById(req.user.id);
     const shouldNotifyWaiting = visit.status === 'aguardando';
     if (creatorUser && global.socketManager && global.socketManager.io) {
       if (creatorUser.role === 'secretary' && shouldNotifyWaiting) {
