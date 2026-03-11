@@ -143,7 +143,7 @@ exports.getThreads = async (req, res, next) => {
     if (userRole === 'patient') {
       // Paciente vê apenas seus próprios threads
       query.patient = userId;
-    } else if (userRole === 'secretary' || userRole === 'admin') {
+    } else if (userRole === 'secretary') {
       // Secretária vê threads que não são trancados E que estão para secretary
       // OU threads onde ela é a assignedTo
       query.$or = [
@@ -155,8 +155,8 @@ exports.getThreads = async (req, res, next) => {
           assignedTo: userId
         }
       ];
-    } else if (userRole === 'doctor') {
-      // Médico vê todos os threads
+    } else if (userRole === 'doctor' || userRole === 'admin') {
+      // Médico e admin veem todos os threads
       // Sem filtro de role
     }
 
