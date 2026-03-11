@@ -7,19 +7,40 @@ const pushNotificationService = require('./pushNotification.service');
 
 const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
 
+const getEntityId = (value) => {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value._id) {
+    return value._id.toString();
+  }
+
+  if (typeof value.toString === 'function') {
+    return value.toString();
+  }
+
+  return null;
+};
+
 const canAccessThread = (thread, userId, userRole) => {
   if (!thread) return false;
+
+  const patientId = getEntityId(thread.patient);
+  const assignedToId = getEntityId(thread.assignedTo);
 
   if (userRole === 'admin' || userRole === 'doctor') {
     return true;
   }
 
   if (userRole === 'patient') {
-    return thread.patient?.toString() === userId;
+    return patientId === userId;
   }
 
   if (userRole === 'secretary') {
-    const isAssignedToSecretary = thread.assignedTo && thread.assignedTo.toString() === userId;
+    const isAssignedToSecretary = assignedToId === userId;
     const isSecretaryInbox = thread.currentDestinee === 'secretary' && !thread.isLockedFromSecretaries;
     return !!(isAssignedToSecretary || isSecretaryInbox);
   }
@@ -32,10 +53,12 @@ const emitChatEvent = (thread, type, payload = {}) => {
     return;
   }
 
+  const patientId = getEntityId(thread.patient);
+
   const eventData = {
     type,
     threadId: thread._id?.toString(),
-    patientId: thread.patient?.toString(),
+    patientId,
     timestamp: new Date().toISOString(),
     ...payload
   };
@@ -44,17 +67,19 @@ const emitChatEvent = (thread, type, payload = {}) => {
     global.socketManager.emitToRoles(STAFF_ROLES, 'chat:thread_event', eventData);
   }
 
-  if (thread.patient && typeof global.socketManager.emitToUser === 'function') {
-    global.socketManager.emitToUser(thread.patient.toString(), 'chat:thread_event', eventData);
+  if (patientId && typeof global.socketManager.emitToUser === 'function') {
+    global.socketManager.emitToUser(patientId, 'chat:thread_event', eventData);
   }
 };
 
 const notifyPatientPush = (thread, payload) => {
-  if (!global.socketManager || !thread?.patient || typeof global.socketManager.emitToUser !== 'function') {
+  const patientId = getEntityId(thread?.patient);
+
+  if (!global.socketManager || !patientId || typeof global.socketManager.emitToUser !== 'function') {
     return;
   }
 
-  global.socketManager.emitToUser(thread.patient.toString(), 'chat:patient_push', {
+  global.socketManager.emitToUser(patientId, 'chat:patient_push', {
     threadId: thread._id?.toString(),
     timestamp: new Date().toISOString(),
     ...payload
@@ -62,12 +87,14 @@ const notifyPatientPush = (thread, payload) => {
 };
 
 const notifyPatientNativePush = async (thread, payload) => {
-  if (!thread?.patient) {
+  const patientId = getEntityId(thread?.patient);
+
+  if (!patientId) {
     return;
   }
 
   try {
-    await pushNotificationService.sendToUser(thread.patient.toString(), payload);
+    await pushNotificationService.sendToUser(patientId, payload);
   } catch (error) {
     console.error('❌ Erro ao enviar Web Push nativo ao paciente:', error.message);
   }
@@ -827,7 +854,7 @@ exports.deleteThread = async (req, res, next) => {
       });
     }
 
-    if (userRole === 'patient' && thread.patient?.toString() !== userId) {
+    if (userRole === 'patient' && getEntityId(thread.patient) !== userId) {
       return res.status(403).json({
         success: false,
         error: 'Você só pode excluir seus próprios threads'
