@@ -98,6 +98,22 @@ const UserSchema = new mongoose.Schema({
       default: 'pt-BR'
     }
   },
+  webPushSubscriptions: {
+    type: [
+      {
+        endpoint: { type: String, required: true },
+        keys: {
+          p256dh: { type: String, required: true },
+          auth: { type: String, required: true }
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+    default: []
+  },
   role: {
     type: String,
     enum: ['patient', 'secretary', 'admin', 'representante'],

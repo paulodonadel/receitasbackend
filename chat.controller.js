@@ -3,6 +3,7 @@ const ChatMessage = require('./models/chatMessage.model');
 const ChatCategory = require('./models/chatCategory.model');
 const User = require('./models/user.model');
 const emailService = require('./emailService');
+const pushNotificationService = require('./pushNotification.service');
 
 const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
 
@@ -58,6 +59,18 @@ const notifyPatientPush = (thread, payload) => {
     timestamp: new Date().toISOString(),
     ...payload
   });
+};
+
+const notifyPatientNativePush = async (thread, payload) => {
+  if (!thread?.patient) {
+    return;
+  }
+
+  try {
+    await pushNotificationService.sendToUser(thread.patient.toString(), payload);
+  } catch (error) {
+    console.error('❌ Erro ao enviar Web Push nativo ao paciente:', error.message);
+  }
 };
 
 // ===============================
@@ -463,6 +476,14 @@ exports.addMessage = async (req, res, next) => {
         title: 'Nova resposta da equipe',
         message: `Voce recebeu uma resposta em ${thread.categoryName}.`
       });
+
+      await notifyPatientNativePush(thread, {
+        type: 'new_reply',
+        title: 'Nova resposta da equipe',
+        body: `Voce recebeu uma resposta em ${thread.categoryName}.`,
+        threadId: thread._id?.toString(),
+        url: '/patient/chat'
+      });
     }
 
     emitChatEvent(thread, 'message_added', {
@@ -590,6 +611,16 @@ exports.updateThreadStatus = async (req, res, next) => {
         message: `Status alterado de ${oldStatus} para ${status}.`,
         oldStatus,
         newStatus: status
+      });
+
+      await notifyPatientNativePush(thread, {
+        type: 'status_changed',
+        title: 'Status da conversa atualizado',
+        body: `Seu chat foi atualizado para ${status}.`,
+        oldStatus,
+        newStatus: status,
+        threadId: thread._id?.toString(),
+        url: '/patient/chat'
       });
 
       if (thread.patientEmail && thread.patientEmail.includes('@')) {

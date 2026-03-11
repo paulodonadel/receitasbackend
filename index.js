@@ -322,6 +322,7 @@ const repAvailabilityRoutes = require('./repAvailability.routes'); // Rotas de d
 const doctorDelayRoutes = require('./doctorDelay.routes'); // Rotas de atrasos de médico
 const loginLogRoutes = require('./loginLog.routes'); // Rotas de logs de login
 const chatRoutes = require('./chat.routes'); // Rotas do chat
+const pushNotificationRoutes = require('./pushNotification.routes'); // Rotas de web push
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -342,6 +343,7 @@ app.use('/api/rep-availability', repAvailabilityRoutes); // Rotas de disponibili
 app.use('/api/doctor-delays', doctorDelayRoutes); // Rotas de atrasos de médico
 app.use('/api/login-logs', loginLogRoutes); // Rotas de logs de login
 app.use('/api/chat', chatRoutes); // Rotas do chat
+app.use('/api/push', pushNotificationRoutes); // Rotas de web push
 
 // Endpoint de teste para verificar se o backend está funcionando
 app.get('/api/test', (req, res) => {
