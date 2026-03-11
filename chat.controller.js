@@ -450,10 +450,10 @@ exports.updateThreadStatus = async (req, res, next) => {
     }
 
     // Apenas médico pode desmarcar urgência
-    if (thread.isUrgent && status !== 'urgente' && userRole !== 'doctor') {
+    if (thread.isUrgent && status !== 'urgente' && !['doctor', 'admin'].includes(userRole)) {
       return res.status(403).json({
         success: false,
-        error: 'Apenas médico pode desmarcar urgência'
+        error: 'Apenas medico ou admin podem desmarcar urgencia'
       });
     }
 
@@ -478,7 +478,7 @@ exports.updateThreadStatus = async (req, res, next) => {
     const systemMessage = new ChatMessage({
       thread: threadId,
       sender: userId,
-      senderName: `${userRole === 'secretary' ? 'Secretária' : 'Dr.'}`,
+      senderName: userRole === 'secretary' ? 'Secretaria' : userRole === 'admin' ? 'Administrador' : 'Dr.',
       senderType: 'system',
       senderRole: userRole,
       content: `Status alterado de ${oldStatus} para ${status}` +
