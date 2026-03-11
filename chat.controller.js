@@ -2,6 +2,63 @@ const ChatThread = require('./models/chatThread.model');
 const ChatMessage = require('./models/chatMessage.model');
 const ChatCategory = require('./models/chatCategory.model');
 const User = require('./models/user.model');
+const emailService = require('./emailService');
+
+const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
+
+const canAccessThread = (thread, userId, userRole) => {
+  if (!thread) return false;
+
+  if (userRole === 'admin' || userRole === 'doctor') {
+    return true;
+  }
+
+  if (userRole === 'patient') {
+    return thread.patient?.toString() === userId;
+  }
+
+  if (userRole === 'secretary') {
+    const isAssignedToSecretary = thread.assignedTo && thread.assignedTo.toString() === userId;
+    const isSecretaryInbox = thread.currentDestinee === 'secretary' && !thread.isLockedFromSecretaries;
+    return !!(isAssignedToSecretary || isSecretaryInbox);
+  }
+
+  return false;
+};
+
+const emitChatEvent = (thread, type, payload = {}) => {
+  if (!global.socketManager || !thread) {
+    return;
+  }
+
+  const eventData = {
+    type,
+    threadId: thread._id?.toString(),
+    patientId: thread.patient?.toString(),
+    timestamp: new Date().toISOString(),
+    ...payload
+  };
+
+  if (typeof global.socketManager.emitToRoles === 'function') {
+    global.socketManager.emitToRoles(STAFF_ROLES, 'chat:thread_event', eventData);
+  }
+
+  if (thread.patient && typeof global.socketManager.emitToUser === 'function') {
+    global.socketManager.emitToUser(thread.patient.toString(), 'chat:thread_event', eventData);
+  }
+};
+
+const notifyPatientPush = (thread, payload) => {
+  if (!global.socketManager || !thread?.patient || typeof global.socketManager.emitToUser !== 'function') {
+    return;
+  }
+
+  global.socketManager.emitToUser(thread.patient.toString(), 'chat:patient_push', {
+    threadId: thread._id?.toString(),
+    timestamp: new Date().toISOString(),
+    ...payload
+  });
+};
 
 // ===============================
 // CATEGORIAS
@@ -105,6 +162,11 @@ exports.createThread = async (req, res, next) => {
 
     // Populate referencias
     await thread.populate('category');
+
+    emitChatEvent(thread, 'thread_created', {
+      status: thread.status,
+      actorRole: 'patient'
+    });
 
     res.status(201).json({
       success: true,
@@ -236,7 +298,7 @@ exports.getThreadById = async (req, res, next) => {
     }
 
     // Verificar permissão
-    if (userRole === 'patient' && thread.patient._id.toString() !== userId) {
+    if (!canAccessThread(thread, userId, userRole)) {
       return res.status(403).json({
         success: false,
         error: 'Você não tem permissão para acessar este thread'
@@ -247,6 +309,11 @@ exports.getThreadById = async (req, res, next) => {
     thread.status = thread.status === 'iniciado' ? 'recebido' : 
                      thread.status === 'recebido' ? 'visualizado' : thread.status;
     await thread.save();
+
+    emitChatEvent(thread, 'thread_viewed', {
+      status: thread.status,
+      actorRole: userRole
+    });
 
     // Buscar mensagens
     const messages = await ChatMessage.find({
@@ -293,6 +360,13 @@ exports.addMessage = async (req, res, next) => {
 
     // Buscar thread
     const thread = await ChatThread.findById(threadId);
+        if (!canAccessThread(thread, userId, userRole)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Você não tem permissão para enviar mensagem neste thread'
+          });
+        }
+
     if (!thread) {
       return res.status(404).json({
         success: false,
@@ -382,6 +456,20 @@ exports.addMessage = async (req, res, next) => {
     }
 
     await thread.save();
+
+    if (userRole !== 'patient') {
+      notifyPatientPush(thread, {
+        type: 'new_reply',
+        title: 'Nova resposta da equipe',
+        message: `Voce recebeu uma resposta em ${thread.categoryName}.`
+      });
+    }
+
+    emitChatEvent(thread, 'message_added', {
+      status: thread.status,
+      actorRole: userRole,
+      preview: thread.lastMessage
+    });
 
     // Populate referências
     await message.populate('sender', 'name email');
@@ -495,6 +583,35 @@ exports.updateThreadStatus = async (req, res, next) => {
 
     await systemMessage.save();
 
+    if (userRole !== 'patient') {
+      notifyPatientPush(thread, {
+        type: 'status_changed',
+        title: 'Status da sua conversa foi atualizado',
+        message: `Status alterado de ${oldStatus} para ${status}.`,
+        oldStatus,
+        newStatus: status
+      });
+
+      if (thread.patientEmail && thread.patientEmail.includes('@')) {
+        emailService.sendChatStatusUpdateEmail({
+          to: thread.patientEmail,
+          patientName: thread.patientName,
+          categoryName: thread.categoryName,
+          oldStatus,
+          newStatus: status,
+          updatedBy: req.user?.name || userRole
+        }).catch((emailError) => {
+          console.error('❌ Erro ao enviar e-mail de status do chat:', emailError);
+        });
+      }
+    }
+
+    emitChatEvent(thread, 'status_updated', {
+      actorRole: userRole,
+      oldStatus,
+      newStatus: status
+    });
+
     res.status(200).json({
       success: true,
       data: thread
@@ -515,6 +632,23 @@ exports.getThreadMessages = async (req, res, next) => {
   try {
     const threadId = req.params.id;
     const { page = 1, limit = 50 } = req.query;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({
+        success: false,
+        error: 'Thread não encontrada'
+      });
+    }
+
+    if (!canAccessThread(thread, userId, userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você não tem permissão para acessar as mensagens deste thread'
+      });
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -539,6 +673,157 @@ exports.getThreadMessages = async (req, res, next) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar mensagens'
+    });
+  }
+};
+
+// @desc    Deletar mensagem de um thread
+// @route   DELETE /api/chat/threads/:threadId/messages/:messageId
+// @access  Private
+exports.deleteThreadMessage = async (req, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({
+        success: false,
+        error: 'Thread não encontrada'
+      });
+    }
+
+    if (!canAccessThread(thread, userId, userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você não tem permissão para excluir mensagens deste thread'
+      });
+    }
+
+    const message = await ChatMessage.findOne({ _id: messageId, thread: threadId });
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        error: 'Mensagem não encontrada'
+      });
+    }
+
+    if (message.isSystemMessage) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mensagens de sistema não podem ser removidas'
+      });
+    }
+
+    const canDeleteAsStaff = STAFF_ROLES.includes(userRole);
+    const canDeleteOwnAsPatient = userRole === 'patient' && message.sender?.toString() === userId;
+
+    if (!canDeleteAsStaff && !canDeleteOwnAsPatient) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você só pode excluir mensagens permitidas para seu perfil'
+      });
+    }
+
+    await ChatMessage.deleteOne({ _id: messageId });
+
+    const [messageCount, latestMessage] = await Promise.all([
+      ChatMessage.countDocuments({ thread: threadId }),
+      ChatMessage.findOne({ thread: threadId }).sort({ createdAt: -1 })
+    ]);
+
+    thread.messageCount = messageCount;
+
+    if (latestMessage) {
+      thread.lastMessage = latestMessage.content.substring(0, 40);
+      thread.lastMessageAt = latestMessage.createdAt;
+      thread.lastMessageUserId = latestMessage.sender || null;
+      thread.lastMessageUserName = latestMessage.senderName || '';
+    } else {
+      thread.lastMessage = '';
+      thread.lastMessageAt = thread.updatedAt;
+      thread.lastMessageUserId = null;
+      thread.lastMessageUserName = '';
+    }
+
+    await thread.save();
+
+    emitChatEvent(thread, 'message_deleted', {
+      actorRole: userRole,
+      messageId,
+      status: thread.status
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        threadId,
+        messageId,
+        messageCount: thread.messageCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao deletar mensagem do thread:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao deletar mensagem'
+    });
+  }
+};
+
+// @desc    Deletar thread inteira
+// @route   DELETE /api/chat/threads/:id
+// @access  Private
+exports.deleteThread = async (req, res, next) => {
+  try {
+    const threadId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({
+        success: false,
+        error: 'Thread não encontrada'
+      });
+    }
+
+    if (!canAccessThread(thread, userId, userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você não tem permissão para excluir este thread'
+      });
+    }
+
+    if (userRole === 'patient' && thread.patient?.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você só pode excluir seus próprios threads'
+      });
+    }
+
+    await Promise.all([
+      ChatMessage.deleteMany({ thread: threadId }),
+      ChatThread.deleteOne({ _id: threadId })
+    ]);
+
+    emitChatEvent(thread, 'thread_deleted', {
+      actorRole: userRole,
+      deletedThreadId: threadId
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        threadId
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao deletar thread:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao deletar thread'
     });
   }
 };

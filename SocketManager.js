@@ -345,6 +345,46 @@ class SocketManager {
     console.log('✅ Notificação de self check-in enviada para role:secretary');
   }
 
+  /**
+   * Emitir evento para um usuário específico
+   */
+  emitToUser(userId, event, data) {
+    if (!this.io || !userId) {
+      return;
+    }
+
+    const sockets = this.userSockets.get(userId);
+    if (!sockets || sockets.size === 0) {
+      return;
+    }
+
+    sockets.forEach((socketId) => {
+      this.io.to(socketId).emit(event, data);
+    });
+  }
+
+  /**
+   * Emitir evento para um role específico
+   */
+  emitToRole(role, event, data) {
+    if (!this.io || !role) {
+      return;
+    }
+
+    this.io.to(`role:${role}`).emit(event, data);
+  }
+
+  /**
+   * Emitir evento para múltiplos roles
+   */
+  emitToRoles(roles, event, data) {
+    if (!Array.isArray(roles)) {
+      return;
+    }
+
+    roles.forEach((role) => this.emitToRole(role, event, data));
+  }
+
   /**   * Obter instância do Socket.IO
    */
   getIO() {

@@ -1239,3 +1239,63 @@ Equipe ${doctorName}
   }
 };
 
+/**
+ * Envia e-mail ao paciente quando o status do chat é alterado pela equipe.
+ */
+exports.sendChatStatusUpdateEmail = async (options) => {
+  const {
+    to,
+    patientName,
+    categoryName,
+    oldStatus,
+    newStatus,
+    updatedBy
+  } = options;
+
+  const subject = `Atualizacao no seu chat: ${newStatus}`;
+
+  const textBody = `
+Ola ${patientName || 'Paciente'},
+
+O status da sua conversa foi atualizado pela equipe.
+
+- Assunto: ${categoryName || 'Chat'}
+- Status anterior: ${oldStatus}
+- Novo status: ${newStatus}
+- Atualizado por: ${updatedBy || 'Equipe'}
+
+Acesse o sistema para acompanhar as mensagens em tempo real.
+  `.trim();
+
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h2 style="color: #2c5aa0; margin-bottom: 8px;">Atualizacao no seu chat</h2>
+      <p style="color: #6c757d;">Sua conversa recebeu uma alteracao de status.</p>
+    </div>
+
+    <div style="background-color: rgba(44, 90, 160, 0.05); padding: 22px; border-radius: 8px; border-left: 4px solid #2c5aa0;">
+      <p>Ola <strong>${patientName || 'Paciente'}</strong>,</p>
+      <p>O status da sua conversa foi alterado pela equipe.</p>
+
+      <div style="background: rgba(255,255,255,0.8); padding: 16px; border-radius: 8px; border: 1px solid rgba(44, 90, 160, 0.15); margin-top: 16px;">
+        <p style="margin: 0 0 8px 0;"><strong>Assunto:</strong> ${categoryName || 'Chat'}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Status anterior:</strong> ${oldStatus}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Novo status:</strong> ${newStatus}</p>
+        <p style="margin: 0;"><strong>Atualizado por:</strong> ${updatedBy || 'Equipe'}</p>
+      </div>
+
+      <p style="margin-top: 16px;">Entre no sistema para continuar o acompanhamento.</p>
+    </div>
+  `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject,
+    useHeaderImage: false,
+    footerText: 'Notificacao automatica do chat de atendimento.',
+    emailType: 'notification'
+  });
+
+  return exports.sendEmail(to, subject, textBody, htmlBody);
+};
+
