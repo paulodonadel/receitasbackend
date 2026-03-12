@@ -48,6 +48,18 @@ const canAccessThread = (thread, userId, userRole) => {
   return false;
 };
 
+const sanitizeThreadForRole = (thread, userRole) => {
+  if (!thread) return thread;
+
+  const plainThread = typeof thread.toObject === 'function' ? thread.toObject() : { ...thread };
+
+  if (userRole === 'patient') {
+    delete plainThread.internalPendingLevel;
+  }
+
+  return plainThread;
+};
+
 const emitChatEvent = (thread, type, payload = {}) => {
   if (!global.socketManager || !thread) {
     return;
@@ -70,6 +82,20 @@ const emitChatEvent = (thread, type, payload = {}) => {
   if (patientId && typeof global.socketManager.emitToUser === 'function') {
     global.socketManager.emitToUser(patientId, 'chat:thread_event', eventData);
   }
+};
+
+const emitStaffOnlyChatEvent = (thread, type, payload = {}) => {
+  if (!global.socketManager || !thread || typeof global.socketManager.emitToRoles !== 'function') {
+    return;
+  }
+
+  global.socketManager.emitToRoles(STAFF_ROLES, 'chat:thread_event', {
+    type,
+    threadId: thread._id?.toString(),
+    patientId: getEntityId(thread.patient),
+    timestamp: new Date().toISOString(),
+    ...payload
+  });
 };
 
 const notifyPatientPush = (thread, payload) => {
@@ -210,7 +236,7 @@ exports.createThread = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      data: thread
+      data: sanitizeThreadForRole(thread, 'patient')
     });
   } catch (error) {
     console.error('❌ Erro ao criar thread:', error);
@@ -305,7 +331,7 @@ exports.getThreads = async (req, res, next) => {
       total,
       pages: Math.ceil(total / parseInt(limit)),
       currentPage: parseInt(page),
-      data: threads
+      data: threads.map((thread) => sanitizeThreadForRole(thread, userRole))
     });
   } catch (error) {
     console.error('❌ Erro ao buscar threads:', error);
@@ -368,7 +394,7 @@ exports.getThreadById = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      thread,
+      thread: sanitizeThreadForRole(thread, userRole),
       messages: messages || []
     });
   } catch (error) {
@@ -683,6 +709,55 @@ exports.updateThreadStatus = async (req, res, next) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao atualizar status'
+    });
+  }
+};
+
+// @desc    Atualizar pendencia interna da thread
+// @route   PUT /api/chat/threads/:id/internal-pending
+// @access  Private (secretary, doctor, admin)
+exports.updateThreadInternalPending = async (req, res, next) => {
+  try {
+    const threadId = req.params.id;
+    const { internalPendingLevel } = req.body;
+    const userRole = req.user.role;
+
+    const validLevels = ['none', 'pending', 'urgent_pending'];
+
+    if (!validLevels.includes(internalPendingLevel)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Pendencia interna invalida'
+      });
+    }
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({
+        success: false,
+        error: 'Thread não encontrada'
+      });
+    }
+
+    const oldInternalPendingLevel = thread.internalPendingLevel || 'none';
+    thread.internalPendingLevel = internalPendingLevel;
+    await thread.save();
+
+    emitStaffOnlyChatEvent(thread, 'internal_pending_updated', {
+      actorRole: userRole,
+      oldInternalPendingLevel,
+      internalPendingLevel
+    });
+
+    res.status(200).json({
+      success: true,
+      data: thread
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar pendencia interna:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao atualizar pendencia interna'
     });
   }
 };

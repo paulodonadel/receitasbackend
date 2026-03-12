@@ -83,6 +83,13 @@ const ChatThreadSchema = new mongoose.Schema({
     trim: true
   },
 
+  internalPendingLevel: {
+    type: String,
+    enum: ['none', 'pending', 'urgent_pending'],
+    default: 'none',
+    index: true
+  },
+
   // Flags de conteúdo (para LGPD e segurança)
   containsSuicideKeywords: {
     type: Boolean,
@@ -209,6 +216,7 @@ const ChatThreadSchema = new mongoose.Schema({
 // Índices para performance
 ChatThreadSchema.index({ patient: 1, createdAt: -1 });
 ChatThreadSchema.index({ currentDestinee: 1, status: 1 });
+ChatThreadSchema.index({ internalPendingLevel: 1, createdAt: -1 });
 ChatThreadSchema.index({ isUrgent: 1, createdAt: -1 });
 ChatThreadSchema.index({ assignedTo: 1, status: 1 });
 ChatThreadSchema.index({ status: 1, createdAt: -1 });

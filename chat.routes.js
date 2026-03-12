@@ -9,6 +9,7 @@ const {
   getThreadById,
   addMessage,
   updateThreadStatus,
+  updateThreadInternalPending,
   getThreadMessages,
   deleteThread,
   deleteThreadMessage
@@ -39,6 +40,9 @@ router.delete('/threads/:id', protect, authorize('patient', 'secretary', 'doctor
 
 // PUT /api/chat/threads/:id/status - Alterar status (secretária, médico)
 router.put('/threads/:id/status', protect, authorize('secretary', 'doctor', 'admin'), updateThreadStatus);
+
+// PUT /api/chat/threads/:id/internal-pending - Alterar pendencia interna (uso interno)
+router.put('/threads/:id/internal-pending', protect, authorize('secretary', 'doctor', 'admin'), updateThreadInternalPending);
 
 // ===============================
 // MENSAGENS
