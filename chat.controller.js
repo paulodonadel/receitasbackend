@@ -6,6 +6,19 @@ const emailService = require('./emailService');
 const pushNotificationService = require('./pushNotification.service');
 
 const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
+const INTERNAL_PENDING_PRIORITY = { none: 0, pending: 1, urgent_pending: 2 };
+const STATUS_SORT_PRIORITY = {
+  urgente: 0,
+  recebido: 1,
+  iniciado: 2,
+  aguardando_avaliacao: 3,
+  aguardando_resposta_paciente: 4,
+  aguardando_resolucao: 5,
+  visualizado: 6,
+  iniciado_atendimento: 7,
+  resolvido: 8,
+  arquivado: 9
+};
 
 const getEntityId = (value) => {
   if (!value) return null;
@@ -55,9 +68,52 @@ const sanitizeThreadForRole = (thread, userRole) => {
 
   if (userRole === 'patient') {
     delete plainThread.internalPendingLevel;
+    delete plainThread.customSortOrder;
   }
 
   return plainThread;
+};
+
+const getThreadTimestamp = (thread, field) => {
+  const value = thread?.[field] ? new Date(thread[field]).getTime() : 0;
+  return Number.isNaN(value) ? 0 : value;
+};
+
+const compareThreadsBySortMode = (sortBy = 'recent') => {
+  if (sortBy === 'custom') {
+    return (left, right) => {
+      const orderDiff = (right.customSortOrder || 0) - (left.customSortOrder || 0);
+      if (orderDiff !== 0) return orderDiff;
+      return getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
+    };
+  }
+
+  if (sortBy === 'urgent') {
+    return (left, right) => {
+      const urgentDiff = Number(!!right.isUrgent) - Number(!!left.isUrgent);
+      if (urgentDiff !== 0) return urgentDiff;
+
+      const pendingDiff = (INTERNAL_PENDING_PRIORITY[right.internalPendingLevel || 'none'] || 0) - (INTERNAL_PENDING_PRIORITY[left.internalPendingLevel || 'none'] || 0);
+      if (pendingDiff !== 0) return pendingDiff;
+
+      return getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
+    };
+  }
+
+  if (sortBy === 'status') {
+    return (left, right) => {
+      const leftPriority = STATUS_SORT_PRIORITY[left.status] ?? 999;
+      const rightPriority = STATUS_SORT_PRIORITY[right.status] ?? 999;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      return getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
+    };
+  }
+
+  return (left, right) => {
+    const lastMessageDiff = getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
+    if (lastMessageDiff !== 0) return lastMessageDiff;
+    return getThreadTimestamp(right, 'createdAt') - getThreadTimestamp(left, 'createdAt');
+  };
 };
 
 const emitChatEvent = (thread, type, payload = {}) => {
@@ -258,7 +314,8 @@ exports.getThreads = async (req, res, next) => {
       page = 1, 
       limit = 20,
       search = '',
-      destinee = '' // 'secretary' ou 'doctor'
+      destinee = '', // 'secretary' ou 'doctor'
+      sortBy = 'recent'
     } = req.query;
 
     const userId = req.user.id;
@@ -310,27 +367,26 @@ exports.getThreads = async (req, res, next) => {
       query.patientName = { $regex: search, $options: 'i' };
     }
 
-    // Contagem total
-    const total = await ChatThread.countDocuments(query);
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
 
-    // Paginação
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Executar query
-    const threads = await ChatThread.find(query)
+    // Executar query e ordenar em memoria para suportar modos customizados
+    const allThreads = await ChatThread.find(query)
       .populate('category')
       .populate('patient', 'name email')
-      .populate('assignedTo', 'name email')
-      .sort({ lastMessageAt: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+      .populate('assignedTo', 'name email');
+
+    const sortedThreads = allThreads.sort(compareThreadsBySortMode(sortBy));
+    const total = sortedThreads.length;
+    const skip = (parsedPage - 1) * parsedLimit;
+    const threads = sortedThreads.slice(skip, skip + parsedLimit);
 
     res.status(200).json({
       success: true,
       count: threads.length,
       total,
-      pages: Math.ceil(total / parseInt(limit)),
-      currentPage: parseInt(page),
+      pages: Math.ceil(total / parsedLimit),
+      currentPage: parsedPage,
       data: threads.map((thread) => sanitizeThreadForRole(thread, userRole))
     });
   } catch (error) {
@@ -758,6 +814,67 @@ exports.updateThreadInternalPending = async (req, res, next) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao atualizar pendencia interna'
+    });
+  }
+};
+
+// @desc    Reordenar threads no modo customizado
+// @route   PUT /api/chat/threads/reorder
+// @access  Private (secretary, doctor, admin)
+exports.reorderThreads = async (req, res, next) => {
+  try {
+    const { orderedThreadIds = [] } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (!Array.isArray(orderedThreadIds) || orderedThreadIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lista de ordenacao invalida'
+      });
+    }
+
+    const threads = await ChatThread.find({ _id: { $in: orderedThreadIds } });
+    if (threads.length !== orderedThreadIds.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'Uma ou mais threads nao foram encontradas'
+      });
+    }
+
+    const inaccessibleThread = threads.find((thread) => !canAccessThread(thread, userId, userRole));
+    if (inaccessibleThread) {
+      return res.status(403).json({
+        success: false,
+        error: 'Voce nao tem permissao para reordenar uma ou mais threads'
+      });
+    }
+
+    const baseOrder = Date.now() + orderedThreadIds.length;
+
+    await Promise.all(orderedThreadIds.map((threadId, index) => (
+      ChatThread.updateOne(
+        { _id: threadId },
+        {
+          $set: {
+            customSortOrder: baseOrder - index,
+            updatedAt: new Date()
+          }
+        }
+      )
+    )));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        orderedThreadIds
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao reordenar threads:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao reordenar threads'
     });
   }
 };

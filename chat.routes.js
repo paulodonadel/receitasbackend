@@ -10,6 +10,7 @@ const {
   addMessage,
   updateThreadStatus,
   updateThreadInternalPending,
+  reorderThreads,
   getThreadMessages,
   deleteThread,
   deleteThreadMessage
@@ -31,6 +32,9 @@ router.post('/threads', protect, authorize('patient'), createThread);
 
 // GET /api/chat/threads - Listar threads (secretária, médico)
 router.get('/threads', protect, getThreads);
+
+// PUT /api/chat/threads/reorder - Reordenar threads em modo customizado
+router.put('/threads/reorder', protect, authorize('secretary', 'doctor', 'admin'), reorderThreads);
 
 // GET /api/chat/threads/:id - Detalhe de uma thread
 router.get('/threads/:id', protect, getThreadById);
