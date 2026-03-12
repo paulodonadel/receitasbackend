@@ -272,6 +272,7 @@ exports.createThread = async (req, res, next) => {
     thread.lastMessageUserId = patientId;
     thread.lastMessageUserName = patient.name;
     thread.status = 'recebido';
+    thread.internalPendingLevel = 'pending';
 
     await thread.save();
 
@@ -594,10 +595,14 @@ exports.addMessage = async (req, res, next) => {
       thread.isUrgent = true;
       thread.urgentReason = 'automatic_detection';
       thread.status = 'urgente';
+      thread.internalPendingLevel = 'urgent_pending';
       thread.containsSuicideKeywords = true;
       thread.suicideKeywordsDetected = detectedKeywords;
     } else if (userRole === 'patient' && thread.status === 'iniciado') {
       thread.status = 'recebido';
+      thread.internalPendingLevel = 'pending';
+    } else if (userRole === 'patient') {
+      thread.internalPendingLevel = 'pending';
     } else if (userRole !== 'patient' && thread.status === 'recebido') {
       thread.status = 'visualizado';
     }
