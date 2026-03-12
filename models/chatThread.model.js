@@ -128,6 +128,38 @@ const ChatThreadSchema = new mongoose.Schema({
     }
   ],
 
+  // Secretárias adicionadas ao grupo (além da assignedTo)
+  sharedSecretaries: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      userName: {
+        type: String,
+        trim: true
+      },
+      canSeeHistory: {
+        type: Boolean,
+        default: true
+      },
+      historyVisibleFrom: {
+        // Se canSeeHistory=false, mensagens ANTES desta data ficam ocultas
+        type: Date,
+        default: null
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now
+      },
+      addedByName: {
+        type: String,
+        trim: true
+      }
+    }
+  ],
+
   // Trancar/destrancar (apenas médico)
   isLockedFromSecretaries: {
     type: Boolean,

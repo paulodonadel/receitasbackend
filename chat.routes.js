@@ -13,7 +13,10 @@ const {
   reorderThreads,
   getThreadMessages,
   deleteThread,
-  deleteThreadMessage
+  deleteThreadMessage,
+  getSecretaries,
+  addParticipant,
+  removeParticipant
 } = require('./chat.controller');
 
 // ===============================
@@ -60,5 +63,18 @@ router.get('/threads/:id/messages', protect, getThreadMessages);
 
 // DELETE /api/chat/threads/:threadId/messages/:messageId - Deletar mensagem específica
 router.delete('/threads/:threadId/messages/:messageId', protect, authorize('patient', 'secretary', 'doctor', 'admin'), deleteThreadMessage);
+
+// ===============================
+// PARTICIPANTES (GRUPO DE SECRETÁRIAS)
+// ===============================
+
+// GET /api/chat/staff/secretaries - Listar secretárias disponíveis
+router.get('/staff/secretaries', protect, authorize('admin'), getSecretaries);
+
+// POST /api/chat/threads/:id/participants - Adicionar secretária ao grupo
+router.post('/threads/:id/participants', protect, authorize('admin'), addParticipant);
+
+// DELETE /api/chat/threads/:id/participants/:secretaryId - Remover secretária do grupo
+router.delete('/threads/:id/participants/:secretaryId', protect, authorize('admin'), removeParticipant);
 
 module.exports = router;

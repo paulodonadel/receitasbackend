@@ -56,7 +56,9 @@ const canAccessThread = (thread, userId, userRole) => {
   if (userRole === 'secretary') {
     const isAssignedToSecretary = assignedToId === userId;
     const isSecretaryInbox = thread.currentDestinee === 'secretary' && !thread.isLockedFromSecretaries;
-    return !!(isAssignedToSecretary || isSecretaryInbox);
+    const isSharedWithSecretary = Array.isArray(thread.sharedSecretaries) &&
+      thread.sharedSecretaries.some((s) => getEntityId(s.user) === userId);
+    return !!(isAssignedToSecretary || isSecretaryInbox || isSharedWithSecretary);
   }
 
   return false;
@@ -464,9 +466,20 @@ exports.getThreadById = async (req, res, next) => {
     }
 
     // Buscar mensagens
-    const messages = await ChatMessage.find({
-      thread: threadId
-    })
+    let messageQuery = { thread: threadId };
+
+    // Se é secretária compartilhada sem acesso ao histórico, filtrar por data de adição
+    if (userRole === 'secretary') {
+      const sharedEntry = Array.isArray(thread.sharedSecretaries)
+        ? thread.sharedSecretaries.find((s) => getEntityId(s.user) === userId)
+        : null;
+
+      if (sharedEntry && !sharedEntry.canSeeHistory && sharedEntry.historyVisibleFrom) {
+        messageQuery.createdAt = { $gte: sharedEntry.historyVisibleFrom };
+      }
+    }
+
+    const messages = await ChatMessage.find(messageQuery)
     .populate('sender', 'name email')
     .sort({ createdAt: 1 });
 
@@ -1106,5 +1119,167 @@ exports.deleteThread = async (req, res, next) => {
       success: false,
       error: 'Erro ao deletar thread'
     });
+  }
+};
+
+// ===============================
+// GESTÃO DE PARTICIPANTES (GRUPO DE SECRETÁRIAS)
+// ===============================
+
+// @desc    Listar secretárias disponíveis para adicionar a uma conversa
+// @route   GET /api/chat/staff/secretaries
+// @access  Private/Admin
+exports.getSecretaries = async (req, res, next) => {
+  try {
+    const secretaries = await User.find({ role: 'secretary', isActive: true })
+      .select('_id name email')
+      .sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      data: secretaries
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar secretárias:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar secretárias' });
+  }
+};
+
+// @desc    Adicionar secretária ao grupo da conversa
+// @route   POST /api/chat/threads/:id/participants
+// @access  Private/Admin
+exports.addParticipant = async (req, res, next) => {
+  try {
+    const { id: threadId } = req.params;
+    const { secretaryId, canSeeHistory = true } = req.body;
+    const actorName = req.user.name || 'Admin';
+
+    if (!secretaryId) {
+      return res.status(400).json({ success: false, error: 'secretaryId é obrigatório' });
+    }
+
+    const [thread, secretary] = await Promise.all([
+      ChatThread.findById(threadId),
+      User.findOne({ _id: secretaryId, role: 'secretary' })
+    ]);
+
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread não encontrada' });
+    }
+    if (!secretary) {
+      return res.status(404).json({ success: false, error: 'Secretária não encontrada' });
+    }
+
+    // Verificar se já está no grupo
+    const alreadyAdded = thread.sharedSecretaries.some(
+      (s) => getEntityId(s.user) === secretaryId.toString()
+    );
+    if (alreadyAdded) {
+      return res.status(409).json({ success: false, error: 'Secretária já está nesta conversa' });
+    }
+
+    // Se não pode ver histórico, registrar a data de adição como ponto de corte
+    const historyVisibleFrom = canSeeHistory ? null : new Date();
+
+    thread.sharedSecretaries.push({
+      user: secretaryId,
+      userName: secretary.name,
+      canSeeHistory: !!canSeeHistory,
+      historyVisibleFrom,
+      addedAt: new Date(),
+      addedByName: actorName
+    });
+
+    // Mensagem de sistema informando a adição
+    const systemContent = canSeeHistory
+      ? `${actorName} adicionou ${secretary.name} a esta conversa.`
+      : `${actorName} adicionou ${secretary.name} a esta conversa (sem acesso ao histórico anterior).`;
+
+    const systemMessage = new ChatMessage({
+      thread: threadId,
+      sender: req.user.id,
+      senderName: actorName,
+      senderType: 'staff',
+      senderRole: req.user.role,
+      content: systemContent,
+      isSystemMessage: true
+    });
+
+    await Promise.all([thread.save(), systemMessage.save()]);
+
+    await thread.populate('sharedSecretaries.user', 'name email');
+
+    emitChatEvent(thread, 'participant_added', {
+      secretaryId,
+      secretaryName: secretary.name,
+      canSeeHistory,
+      actorName
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sharedSecretaries: thread.sharedSecretaries,
+        systemMessage
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao adicionar participante:', error);
+    res.status(500).json({ success: false, error: 'Erro ao adicionar participante' });
+  }
+};
+
+// @desc    Remover secretária do grupo da conversa
+// @route   DELETE /api/chat/threads/:id/participants/:secretaryId
+// @access  Private/Admin
+exports.removeParticipant = async (req, res, next) => {
+  try {
+    const { id: threadId, secretaryId } = req.params;
+    const actorName = req.user.name || 'Admin';
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread não encontrada' });
+    }
+
+    const participantIndex = thread.sharedSecretaries.findIndex(
+      (s) => getEntityId(s.user) === secretaryId.toString()
+    );
+
+    if (participantIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Secretária não está nesta conversa' });
+    }
+
+    const removedName = thread.sharedSecretaries[participantIndex].userName || 'Secretária';
+    thread.sharedSecretaries.splice(participantIndex, 1);
+
+    const systemMessage = new ChatMessage({
+      thread: threadId,
+      sender: req.user.id,
+      senderName: actorName,
+      senderType: 'staff',
+      senderRole: req.user.role,
+      content: `${actorName} removeu ${removedName} desta conversa.`,
+      isSystemMessage: true
+    });
+
+    await Promise.all([thread.save(), systemMessage.save()]);
+
+    emitChatEvent(thread, 'participant_removed', {
+      secretaryId,
+      secretaryName: removedName,
+      actorName
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sharedSecretaries: thread.sharedSecretaries,
+        systemMessage
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao remover participante:', error);
+    res.status(500).json({ success: false, error: 'Erro ao remover participante' });
   }
 };
