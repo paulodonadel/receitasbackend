@@ -1,4 +1,5 @@
 const ChatThread = require('./models/chatThread.model');
+const ChatThreadOrder = require('./models/chatThreadOrder.model');
 const ChatMessage = require('./models/chatMessage.model');
 const ChatCategory = require('./models/chatCategory.model');
 const User = require('./models/user.model');
@@ -80,14 +81,6 @@ const getThreadTimestamp = (thread, field) => {
 };
 
 const compareThreadsBySortMode = (sortBy = 'recent') => {
-  if (sortBy === 'custom') {
-    return (left, right) => {
-      const orderDiff = (right.customSortOrder || 0) - (left.customSortOrder || 0);
-      if (orderDiff !== 0) return orderDiff;
-      return getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
-    };
-  }
-
   if (sortBy === 'urgent') {
     return (left, right) => {
       const urgentDiff = Number(!!right.isUrgent) - Number(!!left.isUrgent);
@@ -376,7 +369,35 @@ exports.getThreads = async (req, res, next) => {
       .populate('patient', 'name email')
       .populate('assignedTo', 'name email');
 
-    const sortedThreads = allThreads.sort(compareThreadsBySortMode(sortBy));
+    let sortedThreads = [];
+
+    if (sortBy === 'custom' && userRole !== 'patient') {
+      const savedOrder = await ChatThreadOrder.findOne({ user: userId }).lean();
+      const positionMap = new Map();
+
+      if (savedOrder?.orderedThreadIds?.length) {
+        savedOrder.orderedThreadIds.forEach((threadId, index) => {
+          positionMap.set(threadId.toString(), index);
+        });
+      }
+
+      sortedThreads = [...allThreads].sort((left, right) => {
+        const leftPosition = positionMap.has(left._id.toString()) ? positionMap.get(left._id.toString()) : Number.MAX_SAFE_INTEGER;
+        const rightPosition = positionMap.has(right._id.toString()) ? positionMap.get(right._id.toString()) : Number.MAX_SAFE_INTEGER;
+
+        if (leftPosition !== rightPosition) {
+          return leftPosition - rightPosition;
+        }
+
+        const lastMessageDiff = getThreadTimestamp(right, 'lastMessageAt') - getThreadTimestamp(left, 'lastMessageAt');
+        if (lastMessageDiff !== 0) return lastMessageDiff;
+
+        return getThreadTimestamp(right, 'createdAt') - getThreadTimestamp(left, 'createdAt');
+      });
+    } else {
+      sortedThreads = [...allThreads].sort(compareThreadsBySortMode(sortBy));
+    }
+
     const total = sortedThreads.length;
     const skip = (parsedPage - 1) * parsedLimit;
     const threads = sortedThreads.slice(skip, skip + parsedLimit);
@@ -850,19 +871,20 @@ exports.reorderThreads = async (req, res, next) => {
       });
     }
 
-    const baseOrder = Date.now() + orderedThreadIds.length;
-
-    await Promise.all(orderedThreadIds.map((threadId, index) => (
-      ChatThread.updateOne(
-        { _id: threadId },
-        {
-          $set: {
-            customSortOrder: baseOrder - index,
-            updatedAt: new Date()
-          }
+    await ChatThreadOrder.findOneAndUpdate(
+      { user: userId },
+      {
+        $set: {
+          orderedThreadIds,
+          updatedAt: new Date()
         }
-      )
-    )));
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    );
 
     res.status(200).json({
       success: true,
