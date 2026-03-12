@@ -324,6 +324,7 @@ exports.getThreadById = async (req, res, next) => {
     const threadId = req.params.id;
     const userId = req.user.id;
     const userRole = req.user.role;
+    const shouldMarkAsViewed = req.query.markAsViewed === 'true';
 
     const thread = await ChatThread.findById(threadId)
       .populate('category')
@@ -345,15 +346,18 @@ exports.getThreadById = async (req, res, next) => {
       });
     }
 
-    // Marcar como visualizado
-    thread.status = thread.status === 'iniciado' ? 'recebido' : 
-                     thread.status === 'recebido' ? 'visualizado' : thread.status;
-    await thread.save();
+    const canPromoteToViewed = shouldMarkAsViewed && userRole !== 'patient';
 
-    emitChatEvent(thread, 'thread_viewed', {
-      status: thread.status,
-      actorRole: userRole
-    });
+    if (canPromoteToViewed) {
+      thread.status = thread.status === 'iniciado' ? 'recebido' : 
+                       thread.status === 'recebido' ? 'visualizado' : thread.status;
+      await thread.save();
+
+      emitChatEvent(thread, 'thread_viewed', {
+        status: thread.status,
+        actorRole: userRole
+      });
+    }
 
     // Buscar mensagens
     const messages = await ChatMessage.find({
