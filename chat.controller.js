@@ -1199,13 +1199,14 @@ exports.addParticipant = async (req, res, next) => {
       thread: threadId,
       sender: req.user.id,
       senderName: actorName,
-      senderType: 'staff',
+      senderType: 'system',
       senderRole: req.user.role,
       content: systemContent,
       isSystemMessage: true
     });
 
-    await Promise.all([thread.save(), systemMessage.save()]);
+    await thread.save();
+    await systemMessage.save();
 
     await thread.populate('sharedSecretaries.user', 'name email');
 
@@ -1257,13 +1258,14 @@ exports.removeParticipant = async (req, res, next) => {
       thread: threadId,
       sender: req.user.id,
       senderName: actorName,
-      senderType: 'staff',
+      senderType: 'system',
       senderRole: req.user.role,
       content: `${actorName} removeu ${removedName} desta conversa.`,
       isSystemMessage: true
     });
 
-    await Promise.all([thread.save(), systemMessage.save()]);
+    await thread.save();
+    await systemMessage.save();
 
     emitChatEvent(thread, 'participant_removed', {
       secretaryId,
