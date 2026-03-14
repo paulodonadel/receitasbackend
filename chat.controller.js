@@ -1294,12 +1294,12 @@ exports.removeParticipant = async (req, res, next) => {
 // GESTÃO DE ADMINS COMPARTILHADOS (SECRETÁRIA → ADMIN)
 // ===============================
 
-// @desc    Listar admins disponíveis para adicionar a uma conversa
-// @route   GET /api/chat/staff/admins
+// @desc    Listar medicos disponíveis para adicionar a uma conversa
+// @route   GET /api/chat/staff/doctors
 // @access  Private (secretary, admin)
 exports.getAdmins = async (req, res, next) => {
   try {
-    const admins = await User.find({ role: 'admin', isActive: true })
+    const admins = await User.find({ role: 'doctor', isActive: true })
       .select('_id name email')
       .sort({ name: 1 });
 
@@ -1308,34 +1308,34 @@ exports.getAdmins = async (req, res, next) => {
       data: admins
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar admins:', error);
-    res.status(500).json({ success: false, error: 'Erro ao buscar admins' });
+    console.error('❌ Erro ao buscar medicos:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar medicos' });
   }
 };
 
-// @desc    Adicionar admin ao grupo da conversa (chamado pela secretária)
+// @desc    Adicionar medico ao grupo da conversa (chamado pela secretária)
 // @route   POST /api/chat/threads/:id/admin-participants
 // @access  Private (secretary, admin)
 exports.addAdminParticipant = async (req, res, next) => {
   try {
     const { id: threadId } = req.params;
-    const { adminId } = req.body;
+    const doctorId = req.body.doctorId || req.body.adminId;
     const actorName = req.user.name || 'Secretária';
 
-    if (!adminId) {
-      return res.status(400).json({ success: false, error: 'adminId é obrigatório' });
+    if (!doctorId) {
+      return res.status(400).json({ success: false, error: 'doctorId é obrigatório' });
     }
 
     const [thread, admin] = await Promise.all([
       ChatThread.findById(threadId),
-      User.findOne({ _id: adminId, role: 'admin' })
+      User.findOne({ _id: doctorId, role: 'doctor' })
     ]);
 
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread não encontrada' });
     }
     if (!admin) {
-      return res.status(404).json({ success: false, error: 'Admin não encontrado' });
+      return res.status(404).json({ success: false, error: 'Medico não encontrado' });
     }
 
     if (!Array.isArray(thread.sharedAdmins)) {
@@ -1343,14 +1343,14 @@ exports.addAdminParticipant = async (req, res, next) => {
     }
 
     const alreadyAdded = thread.sharedAdmins.some(
-      (a) => getEntityId(a.user) === adminId.toString()
+      (a) => getEntityId(a.user) === doctorId.toString()
     );
     if (alreadyAdded) {
-      return res.status(409).json({ success: false, error: 'Admin já está nesta conversa' });
+      return res.status(409).json({ success: false, error: 'Medico já está nesta conversa' });
     }
 
     thread.sharedAdmins.push({
-      user: adminId,
+      user: doctorId,
       userName: admin.name,
       addedAt: new Date(),
       addedByName: actorName
@@ -1362,7 +1362,7 @@ exports.addAdminParticipant = async (req, res, next) => {
       senderName: actorName,
       senderType: 'system',
       senderRole: req.user.role,
-      content: `${actorName} chamou ${admin.name} para esta conversa.`,
+      content: `${actorName} chamou Dr(a). ${admin.name} para esta conversa.`,
       isSystemMessage: true
     });
 
@@ -1372,7 +1372,7 @@ exports.addAdminParticipant = async (req, res, next) => {
     await thread.populate('sharedAdmins.user', 'name email');
 
     emitChatEvent(thread, 'admin_participant_added', {
-      adminId,
+      adminId: doctorId,
       adminName: admin.name,
       actorName
     });
@@ -1385,12 +1385,12 @@ exports.addAdminParticipant = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('❌ Erro ao adicionar admin à conversa:', error);
-    res.status(500).json({ success: false, error: 'Erro ao adicionar admin' });
+    console.error('❌ Erro ao adicionar medico à conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao adicionar medico' });
   }
 };
 
-// @desc    Remover admin do grupo da conversa
+// @desc    Remover medico do grupo da conversa
 // @route   DELETE /api/chat/threads/:id/admin-participants/:adminId
 // @access  Private (secretary, admin)
 exports.removeAdminParticipant = async (req, res, next) => {
@@ -1404,7 +1404,7 @@ exports.removeAdminParticipant = async (req, res, next) => {
     }
 
     if (!Array.isArray(thread.sharedAdmins)) {
-      return res.status(404).json({ success: false, error: 'Admin não está nesta conversa' });
+      return res.status(404).json({ success: false, error: 'Medico não está nesta conversa' });
     }
 
     const participantIndex = thread.sharedAdmins.findIndex(
@@ -1412,10 +1412,10 @@ exports.removeAdminParticipant = async (req, res, next) => {
     );
 
     if (participantIndex === -1) {
-      return res.status(404).json({ success: false, error: 'Admin não está nesta conversa' });
+      return res.status(404).json({ success: false, error: 'Medico não está nesta conversa' });
     }
 
-    const removedName = thread.sharedAdmins[participantIndex].userName || 'Admin';
+    const removedName = thread.sharedAdmins[participantIndex].userName || 'Medico';
     thread.sharedAdmins.splice(participantIndex, 1);
 
     const systemMessage = new ChatMessage({
@@ -1424,7 +1424,7 @@ exports.removeAdminParticipant = async (req, res, next) => {
       senderName: actorName,
       senderType: 'system',
       senderRole: req.user.role,
-      content: `${actorName} removeu ${removedName} desta conversa.`,
+      content: `${actorName} removeu Dr(a). ${removedName} desta conversa.`,
       isSystemMessage: true
     });
 
@@ -1445,8 +1445,8 @@ exports.removeAdminParticipant = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('❌ Erro ao remover admin da conversa:', error);
-    res.status(500).json({ success: false, error: 'Erro ao remover admin' });
+    console.error('❌ Erro ao remover medico da conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao remover medico' });
   }
 };
 

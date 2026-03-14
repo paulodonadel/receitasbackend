@@ -74,7 +74,10 @@ router.delete('/threads/:threadId/messages/:messageId', protect, authorize('pati
 // GET /api/chat/staff/secretaries - Listar secretárias disponíveis
 router.get('/staff/secretaries', protect, authorize('admin', 'secretary'), getSecretaries);
 
-// GET /api/chat/staff/admins - Listar admins disponíveis (para secretária chamar)
+// GET /api/chat/staff/doctors - Listar medicos disponíveis (para secretária chamar)
+router.get('/staff/doctors', protect, authorize('admin', 'secretary'), getAdmins);
+
+// Compatibilidade retroativa
 router.get('/staff/admins', protect, authorize('admin', 'secretary'), getAdmins);
 
 // POST /api/chat/threads/:id/participants - Adicionar secretária ao grupo
