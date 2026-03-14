@@ -16,7 +16,10 @@ const {
   deleteThreadMessage,
   getSecretaries,
   addParticipant,
-  removeParticipant
+  removeParticipant,
+  getAdmins,
+  addAdminParticipant,
+  removeAdminParticipant
 } = require('./chat.controller');
 
 // ===============================
@@ -69,12 +72,21 @@ router.delete('/threads/:threadId/messages/:messageId', protect, authorize('pati
 // ===============================
 
 // GET /api/chat/staff/secretaries - Listar secretárias disponíveis
-router.get('/staff/secretaries', protect, authorize('admin'), getSecretaries);
+router.get('/staff/secretaries', protect, authorize('admin', 'secretary'), getSecretaries);
+
+// GET /api/chat/staff/admins - Listar admins disponíveis (para secretária chamar)
+router.get('/staff/admins', protect, authorize('admin', 'secretary'), getAdmins);
 
 // POST /api/chat/threads/:id/participants - Adicionar secretária ao grupo
 router.post('/threads/:id/participants', protect, authorize('admin'), addParticipant);
 
 // DELETE /api/chat/threads/:id/participants/:secretaryId - Remover secretária do grupo
 router.delete('/threads/:id/participants/:secretaryId', protect, authorize('admin'), removeParticipant);
+
+// POST /api/chat/threads/:id/admin-participants - Secretária chama admin
+router.post('/threads/:id/admin-participants', protect, authorize('admin', 'secretary'), addAdminParticipant);
+
+// DELETE /api/chat/threads/:id/admin-participants/:adminId - Remover admin do grupo
+router.delete('/threads/:id/admin-participants/:adminId', protect, authorize('admin', 'secretary'), removeAdminParticipant);
 
 module.exports = router;

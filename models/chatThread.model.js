@@ -160,6 +160,29 @@ const ChatThreadSchema = new mongoose.Schema({
     }
   ],
 
+  // Admins/médicos adicionados pela secretária à conversa
+  sharedAdmins: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      userName: {
+        type: String,
+        trim: true
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now
+      },
+      addedByName: {
+        type: String,
+        trim: true
+      }
+    }
+  ],
+
   // Trancar/destrancar (apenas médico)
   isLockedFromSecretaries: {
     type: Boolean,

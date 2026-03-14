@@ -327,6 +327,7 @@ exports.getThreads = async (req, res, next) => {
     } else if (userRole === 'secretary') {
       // Secretária vê threads que não são trancados E que estão para secretary
       // OU threads onde ela é a assignedTo
+      // OU threads onde ela foi explicitamente adicionada pelo admin (sharedSecretaries)
       query.$or = [
         {
           currentDestinee: 'secretary',
@@ -334,6 +335,9 @@ exports.getThreads = async (req, res, next) => {
         },
         {
           assignedTo: userId
+        },
+        {
+          'sharedSecretaries.user': userId
         }
       ];
     } else if (userRole === 'doctor' || userRole === 'admin') {
@@ -1285,3 +1289,164 @@ exports.removeParticipant = async (req, res, next) => {
     res.status(500).json({ success: false, error: 'Erro ao remover participante' });
   }
 };
+
+// ===============================
+// GESTÃO DE ADMINS COMPARTILHADOS (SECRETÁRIA → ADMIN)
+// ===============================
+
+// @desc    Listar admins disponíveis para adicionar a uma conversa
+// @route   GET /api/chat/staff/admins
+// @access  Private (secretary, admin)
+exports.getAdmins = async (req, res, next) => {
+  try {
+    const admins = await User.find({ role: 'admin', isActive: true })
+      .select('_id name email')
+      .sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      data: admins
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar admins:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar admins' });
+  }
+};
+
+// @desc    Adicionar admin ao grupo da conversa (chamado pela secretária)
+// @route   POST /api/chat/threads/:id/admin-participants
+// @access  Private (secretary, admin)
+exports.addAdminParticipant = async (req, res, next) => {
+  try {
+    const { id: threadId } = req.params;
+    const { adminId } = req.body;
+    const actorName = req.user.name || 'Secretária';
+
+    if (!adminId) {
+      return res.status(400).json({ success: false, error: 'adminId é obrigatório' });
+    }
+
+    const [thread, admin] = await Promise.all([
+      ChatThread.findById(threadId),
+      User.findOne({ _id: adminId, role: 'admin' })
+    ]);
+
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread não encontrada' });
+    }
+    if (!admin) {
+      return res.status(404).json({ success: false, error: 'Admin não encontrado' });
+    }
+
+    if (!Array.isArray(thread.sharedAdmins)) {
+      thread.sharedAdmins = [];
+    }
+
+    const alreadyAdded = thread.sharedAdmins.some(
+      (a) => getEntityId(a.user) === adminId.toString()
+    );
+    if (alreadyAdded) {
+      return res.status(409).json({ success: false, error: 'Admin já está nesta conversa' });
+    }
+
+    thread.sharedAdmins.push({
+      user: adminId,
+      userName: admin.name,
+      addedAt: new Date(),
+      addedByName: actorName
+    });
+
+    const systemMessage = new ChatMessage({
+      thread: threadId,
+      sender: req.user.id,
+      senderName: actorName,
+      senderType: 'system',
+      senderRole: req.user.role,
+      content: `${actorName} chamou ${admin.name} para esta conversa.`,
+      isSystemMessage: true
+    });
+
+    await thread.save();
+    await systemMessage.save();
+
+    await thread.populate('sharedAdmins.user', 'name email');
+
+    emitChatEvent(thread, 'admin_participant_added', {
+      adminId,
+      adminName: admin.name,
+      actorName
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sharedAdmins: thread.sharedAdmins,
+        systemMessage
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao adicionar admin à conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao adicionar admin' });
+  }
+};
+
+// @desc    Remover admin do grupo da conversa
+// @route   DELETE /api/chat/threads/:id/admin-participants/:adminId
+// @access  Private (secretary, admin)
+exports.removeAdminParticipant = async (req, res, next) => {
+  try {
+    const { id: threadId, adminId } = req.params;
+    const actorName = req.user.name || 'Secretária';
+
+    const thread = await ChatThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread não encontrada' });
+    }
+
+    if (!Array.isArray(thread.sharedAdmins)) {
+      return res.status(404).json({ success: false, error: 'Admin não está nesta conversa' });
+    }
+
+    const participantIndex = thread.sharedAdmins.findIndex(
+      (a) => getEntityId(a.user) === adminId.toString()
+    );
+
+    if (participantIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Admin não está nesta conversa' });
+    }
+
+    const removedName = thread.sharedAdmins[participantIndex].userName || 'Admin';
+    thread.sharedAdmins.splice(participantIndex, 1);
+
+    const systemMessage = new ChatMessage({
+      thread: threadId,
+      sender: req.user.id,
+      senderName: actorName,
+      senderType: 'system',
+      senderRole: req.user.role,
+      content: `${actorName} removeu ${removedName} desta conversa.`,
+      isSystemMessage: true
+    });
+
+    await thread.save();
+    await systemMessage.save();
+
+    emitChatEvent(thread, 'admin_participant_removed', {
+      adminId,
+      adminName: removedName,
+      actorName
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sharedAdmins: thread.sharedAdmins,
+        systemMessage
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao remover admin da conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao remover admin' });
+  }
+};
+
