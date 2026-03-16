@@ -1,17 +1,27 @@
 const mongoose = require('mongoose');
 
 const ChatThreadSchema = new mongoose.Schema({
+  isInternalStaffChat: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+
   // IDs dos participantes
   patient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Paciente é obrigatório'],
+    required: function requiredPatient() {
+      return !this.isInternalStaffChat;
+    },
     index: true
   },
   
   patientName: {
     type: String,
-    required: true,
+    required: function requiredPatientName() {
+      return !this.isInternalStaffChat;
+    },
     trim: true
   },
 
@@ -23,12 +33,16 @@ const ChatThreadSchema = new mongoose.Schema({
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ChatCategory',
-    required: [true, 'Categoria é obrigatória']
+    required: function requiredCategory() {
+      return !this.isInternalStaffChat;
+    }
   },
 
   categoryName: {
     type: String,
-    required: true,
+    required: function requiredCategoryName() {
+      return !this.isInternalStaffChat;
+    },
     trim: true
   },
 

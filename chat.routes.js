@@ -5,9 +5,12 @@ const { protect, authorize } = require('./middlewares/auth.middleware');
 const {
   getCategories,
   createThread,
+  createThreadForStaff,
+  getInternalStaffThread,
   getThreads,
   getThreadById,
   addMessage,
+  uploadChatAttachments,
   updateThreadStatus,
   updateThreadInternalPending,
   reorderThreads,
@@ -36,6 +39,12 @@ router.get('/categories', protect, getCategories);
 // POST /api/chat/threads - Criar nova thread (paciente)
 router.post('/threads', protect, authorize('patient'), createThread);
 
+// POST /api/chat/threads/staff - Criar nova thread (admin/secretária)
+router.post('/threads/staff', protect, authorize('admin', 'secretary'), createThreadForStaff);
+
+// GET /api/chat/internal/staff-thread - Buscar/criar chat interno admin + secretárias
+router.get('/internal/staff-thread', protect, authorize('admin', 'secretary'), getInternalStaffThread);
+
 // GET /api/chat/threads - Listar threads (secretária, médico)
 router.get('/threads', protect, getThreads);
 
@@ -60,6 +69,9 @@ router.put('/threads/:id/internal-pending', protect, authorize('secretary', 'doc
 
 // POST /api/chat/threads/:id/messages - Adicionar mensagem
 router.post('/threads/:id/messages', protect, addMessage);
+
+// POST /api/chat/attachments/upload - Upload de anexos (até 10MB por arquivo)
+router.post('/attachments/upload', protect, authorize('patient', 'secretary', 'admin'), uploadChatAttachments);
 
 // GET /api/chat/threads/:id/messages - Buscar mensagens
 router.get('/threads/:id/messages', protect, getThreadMessages);

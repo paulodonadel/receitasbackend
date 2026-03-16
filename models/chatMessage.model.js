@@ -34,7 +34,9 @@ const ChatMessageSchema = new mongoose.Schema({
 
   content: {
     type: String,
-    required: [true, 'Conteúdo da mensagem é obrigatório'],
+    required: function requiredContent() {
+      return !Array.isArray(this.attachments) || this.attachments.length === 0;
+    },
     maxlength: [5000, 'Mensagem não pode exceder 5000 caracteres'],
     trim: true
   },

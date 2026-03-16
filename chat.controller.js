@@ -5,8 +5,25 @@ const ChatCategory = require('./models/chatCategory.model');
 const User = require('./models/user.model');
 const emailService = require('./emailService');
 const pushNotificationService = require('./pushNotification.service');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
+const INTERNAL_STAFF_ROLES = ['secretary', 'admin'];
+const CHAT_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024;
+const CHAT_ALLOWED_FILE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain'
+];
 const INTERNAL_PENDING_PRIORITY = { none: 0, pending: 1, urgent_pending: 2 };
 const STATUS_SORT_PRIORITY = {
   urgente: 0,
@@ -41,6 +58,10 @@ const getEntityId = (value) => {
 
 const canAccessThread = (thread, userId, userRole) => {
   if (!thread) return false;
+
+  if (thread.isInternalStaffChat) {
+    return INTERNAL_STAFF_ROLES.includes(userRole);
+  }
 
   const patientId = getEntityId(thread.patient);
   const assignedToId = getEntityId(thread.assignedTo);
@@ -127,13 +148,81 @@ const emitChatEvent = (thread, type, payload = {}) => {
   };
 
   if (typeof global.socketManager.emitToRoles === 'function') {
-    global.socketManager.emitToRoles(STAFF_ROLES, 'chat:thread_event', eventData);
+    const targetRoles = thread.isInternalStaffChat ? INTERNAL_STAFF_ROLES : STAFF_ROLES;
+    global.socketManager.emitToRoles(targetRoles, 'chat:thread_event', eventData);
   }
 
-  if (patientId && typeof global.socketManager.emitToUser === 'function') {
+  if (!thread.isInternalStaffChat && patientId && typeof global.socketManager.emitToUser === 'function') {
     global.socketManager.emitToUser(patientId, 'chat:thread_event', eventData);
   }
 };
+
+const normalizeAttachments = (attachments = []) => {
+  if (!Array.isArray(attachments)) return [];
+
+  return attachments
+    .filter((file) => file && file.fileUrl)
+    .map((file) => {
+      const fileType = file.fileType || 'document';
+      const parsedSize = Number(file.fileSize || 0);
+      return {
+        filename: file.filename || 'arquivo',
+        fileType,
+        fileSize: Number.isNaN(parsedSize) ? 0 : parsedSize,
+        fileUrl: file.fileUrl,
+        uploadedAt: file.uploadedAt || new Date()
+      };
+    });
+};
+
+const validateAttachments = (attachments = []) => {
+  if (!Array.isArray(attachments)) return;
+
+  for (const attachment of attachments) {
+    if (!attachment?.fileUrl) {
+      throw new Error('Anexo inválido: URL ausente');
+    }
+
+    const fileSize = Number(attachment.fileSize || 0);
+    if (fileSize > CHAT_ATTACHMENT_MAX_SIZE) {
+      throw new Error('Cada anexo deve ter no máximo 10MB');
+    }
+  }
+};
+
+const ensureChatUploadsDir = () => {
+  const chatUploadsDir = path.join(__dirname, '..', 'uploads', 'chat');
+  if (!fs.existsSync(chatUploadsDir)) {
+    fs.mkdirSync(chatUploadsDir, { recursive: true });
+  }
+  return chatUploadsDir;
+};
+
+const chatAttachmentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, ensureChatUploadsDir());
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    cb(null, `chat-${req.user.id}-${uniqueSuffix}${extension}`);
+  }
+});
+
+const chatAttachmentUpload = multer({
+  storage: chatAttachmentStorage,
+  fileFilter: (req, file, cb) => {
+    if (CHAT_ALLOWED_FILE_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Tipo de arquivo não permitido para anexos de chat'));
+  },
+  limits: {
+    fileSize: CHAT_ATTACHMENT_MAX_SIZE,
+    files: 5
+  }
+});
 
 const emitStaffOnlyChatEvent = (thread, type, payload = {}) => {
   if (!global.socketManager || !thread || typeof global.socketManager.emitToRoles !== 'function') {
@@ -212,16 +301,20 @@ exports.getCategories = async (req, res, next) => {
 // @access  Private/Patient
 exports.createThread = async (req, res, next) => {
   try {
-    const { categoryId, firstMessage } = req.body;
+    const { categoryId, firstMessage = '', attachments = [] } = req.body;
     const patientId = req.user.id;
+    const trimmedMessage = (firstMessage || '').trim();
+    const normalizedAttachments = normalizeAttachments(attachments);
 
     // Validações
-    if (!categoryId || !firstMessage) {
+    if (!categoryId || (!trimmedMessage && normalizedAttachments.length === 0)) {
       return res.status(400).json({
         success: false,
-        error: 'categoryId e firstMessage são obrigatórios'
+        error: 'categoryId e uma mensagem ou anexo são obrigatórios'
       });
     }
+
+    validateAttachments(normalizedAttachments);
 
     // Buscar categoria
     const category = await ChatCategory.findById(categoryId);
@@ -261,7 +354,8 @@ exports.createThread = async (req, res, next) => {
       senderName: patient.name,
       senderType: 'patient',
       senderRole: 'patient',
-      content: firstMessage,
+      content: trimmedMessage,
+      attachments: normalizedAttachments,
       isSystemMessage: false
     });
 
@@ -269,7 +363,7 @@ exports.createThread = async (req, res, next) => {
 
     // Atualizar thread com informações da última mensagem
     thread.messageCount = 1;
-    thread.lastMessage = firstMessage.substring(0, 40);
+    thread.lastMessage = trimmedMessage ? trimmedMessage.substring(0, 40) : '[Anexo]';
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = patientId;
     thread.lastMessageUserName = patient.name;
@@ -299,6 +393,131 @@ exports.createThread = async (req, res, next) => {
   }
 };
 
+// @desc    Criar nova thread para um usuário (admin/secretária)
+// @route   POST /api/chat/threads/staff
+// @access  Private/Admin-Secretary
+exports.createThreadForStaff = async (req, res, next) => {
+  try {
+    const { recipientId, categoryId, firstMessage = '', attachments = [] } = req.body;
+    const actorRole = req.user.role;
+    const actorName = req.user.name || 'Equipe';
+    const trimmedMessage = (firstMessage || '').trim();
+    const normalizedAttachments = normalizeAttachments(attachments);
+
+    if (!recipientId || !categoryId || (!trimmedMessage && normalizedAttachments.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        error: 'recipientId, categoryId e uma mensagem ou anexo são obrigatórios'
+      });
+    }
+
+    validateAttachments(normalizedAttachments);
+
+    const [category, recipient] = await Promise.all([
+      ChatCategory.findById(categoryId),
+      User.findById(recipientId)
+    ]);
+
+    if (!category) {
+      return res.status(404).json({ success: false, error: 'Categoria não encontrada' });
+    }
+
+    if (!recipient || ['admin', 'secretary'].includes(recipient.role)) {
+      return res.status(404).json({ success: false, error: 'Destinatário não encontrado ou inválido' });
+    }
+
+    const thread = new ChatThread({
+      patient: recipient._id,
+      patientName: recipient.name,
+      patientEmail: recipient.email,
+      category: category._id,
+      categoryName: category.name,
+      currentDestinee: category.defaultDirector,
+      status: 'recebido'
+    });
+
+    await thread.save();
+
+    const message = new ChatMessage({
+      thread: thread._id,
+      sender: req.user.id,
+      senderName: actorName,
+      senderType: actorRole === 'secretary' ? 'secretary' : 'doctor',
+      senderRole: actorRole,
+      content: trimmedMessage,
+      attachments: normalizedAttachments,
+      isSystemMessage: false
+    });
+
+    await message.save();
+
+    thread.messageCount = 1;
+    thread.lastMessage = trimmedMessage ? trimmedMessage.substring(0, 40) : '[Anexo]';
+    thread.lastMessageAt = new Date();
+    thread.lastMessageUserId = req.user.id;
+    thread.lastMessageUserName = actorName;
+    thread.internalPendingLevel = 'none';
+
+    await thread.save();
+
+    emitChatEvent(thread, 'thread_created', {
+      status: thread.status,
+      actorRole
+    });
+
+    notifyPatientPush(thread, {
+      type: 'new_thread',
+      title: 'Nova mensagem da equipe',
+      message: `A equipe iniciou uma conversa: ${category.name}.`
+    });
+
+    res.status(201).json({
+      success: true,
+      data: sanitizeThreadForRole(thread, actorRole)
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar thread via equipe:', error);
+    res.status(500).json({ success: false, error: 'Erro ao criar thread via equipe' });
+  }
+};
+
+// @desc    Buscar ou criar thread interno admin + secretárias
+// @route   GET /api/chat/internal/staff-thread
+// @access  Private/Admin-Secretary
+exports.getInternalStaffThread = async (req, res, next) => {
+  try {
+    const userRole = req.user.role;
+    if (!INTERNAL_STAFF_ROLES.includes(userRole)) {
+      return res.status(403).json({ success: false, error: 'Sem permissão para chat interno' });
+    }
+
+    let thread = await ChatThread.findOne({ isInternalStaffChat: true })
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: 1 });
+
+    if (!thread) {
+      thread = new ChatThread({
+        isInternalStaffChat: true,
+        patientName: 'Chat interno Admin e Secretárias',
+        patientEmail: '',
+        categoryName: 'Equipe interna',
+        currentDestinee: 'secretary',
+        status: 'visualizado',
+        internalPendingLevel: 'none'
+      });
+      await thread.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: sanitizeThreadForRole(thread, userRole)
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar chat interno:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar chat interno' });
+  }
+};
+
 // @desc    Listar threads (com filtros e paginação)
 // @route   GET /api/chat/threads
 // @access  Private
@@ -318,7 +537,7 @@ exports.getThreads = async (req, res, next) => {
     const userRole = req.user.role;
 
     // Construir query
-    let query = {};
+    let query = { isInternalStaffChat: { $ne: true } };
 
     // Filtro por role
     if (userRole === 'patient') {
@@ -511,31 +730,35 @@ exports.getThreadById = async (req, res, next) => {
 exports.addMessage = async (req, res, next) => {
   try {
     const threadId = req.params.id;
-    const { content, attachments = [] } = req.body;
+    const { content = '', attachments = [] } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
+    const trimmedContent = (content || '').trim();
+    const normalizedAttachments = normalizeAttachments(attachments);
 
     // Validações
-    if (!content || !content.trim()) {
+    if (!trimmedContent && normalizedAttachments.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Conteúdo da mensagem é obrigatório'
+        error: 'Mensagem deve conter texto ou anexo'
       });
     }
 
+    validateAttachments(normalizedAttachments);
+
     // Buscar thread
     const thread = await ChatThread.findById(threadId);
-        if (!canAccessThread(thread, userId, userRole)) {
-          return res.status(403).json({
-            success: false,
-            error: 'Você não tem permissão para enviar mensagem neste thread'
-          });
-        }
-
     if (!thread) {
       return res.status(404).json({
         success: false,
         error: 'Thread não encontrada'
+      });
+    }
+
+    if (!canAccessThread(thread, userId, userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Você não tem permissão para enviar mensagem neste thread'
       });
     }
 
@@ -578,9 +801,9 @@ exports.addMessage = async (req, res, next) => {
       'vou acabar com tudo', 'não vejo futuro', 'o que adianta'
     ];
 
-    const contentLower = content.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const normalizedMessage = trimmedContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const detectedKeywords = suicideKeywords.filter(kw => 
-      contentLower.includes(kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+      normalizedMessage.includes(kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
     );
 
     // Criar mensagem
@@ -589,10 +812,12 @@ exports.addMessage = async (req, res, next) => {
       sender: userId,
       senderName: user.name,
       senderType: userRole === 'patient' ? 'patient' : 
-                  userRole === 'secretary' ? 'secretary' : 'doctor',
+                  userRole === 'secretary' ? 'secretary' :
+                  userRole === 'doctor' ? 'doctor' :
+                  userRole === 'admin' ? 'doctor' : 'doctor',
       senderRole: userRole,
-      content,
-      attachments,
+      content: trimmedContent,
+      attachments: normalizedAttachments,
       containsSuicideKeywords: detectedKeywords.length > 0,
       suicideKeywordsDetected: detectedKeywords,
       isSystemMessage: false
@@ -602,7 +827,7 @@ exports.addMessage = async (req, res, next) => {
 
     // Atualizar thread
     thread.messageCount += 1;
-    thread.lastMessage = content.substring(0, 40);
+    thread.lastMessage = trimmedContent ? trimmedContent.substring(0, 40) : '[Anexo]';
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = userId;
     thread.lastMessageUserName = user.name;
@@ -626,7 +851,7 @@ exports.addMessage = async (req, res, next) => {
 
     await thread.save();
 
-    if (userRole !== 'patient') {
+    if (userRole !== 'patient' && !thread.isInternalStaffChat) {
       notifyPatientPush(thread, {
         type: 'new_reply',
         title: 'Nova resposta da equipe',
@@ -672,6 +897,51 @@ exports.addMessage = async (req, res, next) => {
     });
   }
 };
+
+// @desc    Upload de anexos para chat
+// @route   POST /api/chat/attachments/upload
+// @access  Private (patient, secretary, admin)
+exports.uploadChatAttachments = [
+  (req, res, next) => {
+    chatAttachmentUpload.array('files', 5)(req, res, (error) => {
+      if (!error) return next();
+
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'Cada arquivo deve ter no máximo 10MB'
+        : error.message || 'Erro ao fazer upload do anexo';
+
+      res.status(400).json({ success: false, error: message });
+    });
+  },
+  async (req, res) => {
+    try {
+      const files = Array.isArray(req.files) ? req.files : [];
+
+      if (files.length === 0) {
+        return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+      }
+
+      const data = files.map((file) => {
+        const isImage = file.mimetype.startsWith('image/');
+        return {
+          filename: file.originalname,
+          fileType: isImage ? 'image' : 'document',
+          fileSize: file.size,
+          fileUrl: `/uploads/chat/${file.filename}`,
+          uploadedAt: new Date()
+        };
+      });
+
+      return res.status(201).json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      console.error('❌ Erro ao subir anexos do chat:', error);
+      return res.status(500).json({ success: false, error: 'Erro ao subir anexos do chat' });
+    }
+  }
+];
 
 // @desc    Atualizar status da thread
 // @route   PUT /api/chat/threads/:id/status
@@ -1299,6 +1569,10 @@ exports.removeParticipant = async (req, res, next) => {
 // @access  Private (secretary, admin)
 exports.getAdmins = async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     const admins = await User.find({ role: 'doctor', isActive: true })
       .select('_id name email')
       .sort({ name: 1 });
