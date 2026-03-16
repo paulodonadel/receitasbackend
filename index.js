@@ -7,6 +7,16 @@ const fs = require('fs');
 
 const app = express();
 
+const getUploadsRootCandidates = () => {
+  const candidates = [
+    process.env.UPLOADS_DIR,
+    path.join(__dirname, '..', 'uploads'),
+    path.join(__dirname, 'uploads')
+  ].filter(Boolean);
+
+  return [...new Set(candidates)];
+};
+
 // ESSENCIAL PARA FUNCIONAR NO RENDER (NGINX/PROXY)
 app.set('trust proxy', 1);
 
@@ -209,6 +219,35 @@ app.get('/uploads/profiles/:filename', (req, res) => {
   
   // Send file
   res.sendFile(imagePath);
+});
+
+// Endpoint robusto para anexos do chat em múltiplos diretórios possíveis
+app.get('/uploads/chat/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const uploadRoots = getUploadsRootCandidates();
+
+  let foundFilePath = null;
+  for (const root of uploadRoots) {
+    const candidate = path.join(root, 'chat', filename);
+    if (fs.existsSync(candidate)) {
+      foundFilePath = candidate;
+      break;
+    }
+  }
+
+  if (!foundFilePath) {
+    return res.status(404).json({
+      error: 'Arquivo de chat não encontrado',
+      filename
+    });
+  }
+
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=86400');
+
+  return res.sendFile(foundFilePath);
 });
 
 // Alternative API endpoint for images (backup)

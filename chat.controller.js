@@ -190,8 +190,25 @@ const validateAttachments = (attachments = []) => {
   }
 };
 
+const resolveUploadsBaseDir = () => {
+  const configuredDir = process.env.UPLOADS_DIR;
+  const candidates = [
+    configuredDir,
+    path.join(__dirname, '..', 'uploads'),
+    path.join(__dirname, 'uploads')
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+  }
+
+  return candidates[0] || path.join(__dirname, '..', 'uploads');
+};
+
 const ensureChatUploadsDir = () => {
-  const chatUploadsDir = path.join(__dirname, '..', 'uploads', 'chat');
+  const chatUploadsDir = path.join(resolveUploadsBaseDir(), 'chat');
   if (!fs.existsSync(chatUploadsDir)) {
     fs.mkdirSync(chatUploadsDir, { recursive: true });
   }
