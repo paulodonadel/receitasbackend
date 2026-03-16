@@ -283,6 +283,56 @@ const notifyPatientNativePush = async (thread, payload) => {
   }
 };
 
+const getStaffPushRecipientIds = async (thread) => {
+  if (!thread || thread.isInternalStaffChat) {
+    return [];
+  }
+
+  const recipientIds = new Set();
+
+  if (thread.assignedTo) {
+    recipientIds.add(getEntityId(thread.assignedTo));
+  }
+
+  (thread.sharedSecretaries || []).forEach((entry) => {
+    const id = getEntityId(entry.user);
+    if (id) recipientIds.add(id);
+  });
+
+  (thread.sharedAdmins || []).forEach((entry) => {
+    const id = getEntityId(entry.user);
+    if (id) recipientIds.add(id);
+  });
+
+  if (recipientIds.size > 0) {
+    return Array.from(recipientIds).filter(Boolean);
+  }
+
+  const fallbackRoles = thread.currentDestinee === 'secretary' ? ['secretary'] : ['admin'];
+  const users = await User.find({ role: { $in: fallbackRoles }, isActive: { $ne: false } }).select('_id');
+  users.forEach((user) => recipientIds.add(user._id.toString()));
+
+  return Array.from(recipientIds).filter(Boolean);
+};
+
+const notifyStaffNativePush = async (thread, payload) => {
+  const recipientIds = await getStaffPushRecipientIds(thread);
+
+  if (!recipientIds.length) {
+    return;
+  }
+
+  await Promise.all(
+    recipientIds.map(async (recipientId) => {
+      try {
+        await pushNotificationService.sendToUser(recipientId, payload);
+      } catch (error) {
+        console.error(`❌ Erro ao enviar Web Push nativo ao staff ${recipientId}:`, error.message);
+      }
+    })
+  );
+};
+
 // ===============================
 // CATEGORIAS
 // ===============================
@@ -887,6 +937,17 @@ exports.addMessage = async (req, res, next) => {
         body: `Voce recebeu uma resposta em ${thread.categoryName}.`,
         threadId: thread._id?.toString(),
         url: '/patient/chat'
+      });
+    } else if (userRole === 'patient' && !thread.isInternalStaffChat) {
+      await notifyStaffNativePush(thread, {
+        type: 'new_patient_message',
+        title: 'Nova mensagem de paciente',
+        body: `${thread.patientName} enviou uma nova mensagem em ${thread.categoryName}.`,
+        threadId: thread._id?.toString(),
+        url: '/admin/chat',
+        requireInteraction: true,
+        tag: `chat-staff-${thread._id?.toString()}`,
+        vibrate: [400, 120, 400, 120, 700]
       });
     }
 
