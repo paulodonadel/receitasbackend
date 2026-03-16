@@ -1579,9 +1579,14 @@ exports.getAdmins = async (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    const admins = await User.find({ role: 'admin', isActive: true })
-      .select('_id name email')
+    const adminCandidates = await User.find({ isActive: true })
+      .select('_id name email role')
       .sort({ name: 1 });
+
+    const admins = adminCandidates.filter((user) => {
+      const normalizedRole = String(user?.role || '').trim().toLowerCase();
+      return normalizedRole === 'admin';
+    });
 
     res.status(200).json({
       success: true,
