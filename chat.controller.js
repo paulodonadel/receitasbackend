@@ -1411,7 +1411,7 @@ exports.deleteThread = async (req, res, next) => {
 // @access  Private/Admin
 exports.getSecretaries = async (req, res, next) => {
   try {
-    const secretaries = await User.find({ role: 'secretary', isActive: true })
+    const secretaries = await User.find({ role: 'secretary', isActive: { $ne: false } })
       .select('_id name email')
       .sort({ name: 1 });
 
@@ -1579,7 +1579,7 @@ exports.getAdmins = async (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    const adminCandidates = await User.find({ isActive: true })
+    const adminCandidates = await User.find({ isActive: { $ne: false } })
       .select('_id name email role')
       .sort({ name: 1 });
 
@@ -1613,7 +1613,7 @@ exports.addAdminParticipant = async (req, res, next) => {
 
     const [thread, admin] = await Promise.all([
       ChatThread.findById(threadId),
-      User.findOne({ _id: doctorId, role: 'admin', isActive: true })
+      User.findOne({ _id: doctorId, role: 'admin', isActive: { $ne: false } })
     ]);
 
     if (!thread) {
