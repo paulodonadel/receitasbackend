@@ -305,6 +305,8 @@ exports.createThread = async (req, res, next) => {
     const patientId = req.user.id;
     const trimmedMessage = (firstMessage || '').trim();
     const normalizedAttachments = normalizeAttachments(attachments);
+    const fallbackContent = normalizedAttachments.some((item) => item.fileType === 'image') ? '[Imagem]' : '[Anexo]';
+    const storedContent = trimmedMessage || fallbackContent;
 
     // Validações
     if (!categoryId || (!trimmedMessage && normalizedAttachments.length === 0)) {
@@ -354,7 +356,7 @@ exports.createThread = async (req, res, next) => {
       senderName: patient.name,
       senderType: 'patient',
       senderRole: 'patient',
-      content: trimmedMessage,
+      content: storedContent,
       attachments: normalizedAttachments,
       isSystemMessage: false
     });
@@ -363,7 +365,7 @@ exports.createThread = async (req, res, next) => {
 
     // Atualizar thread com informações da última mensagem
     thread.messageCount = 1;
-    thread.lastMessage = trimmedMessage ? trimmedMessage.substring(0, 40) : '[Anexo]';
+    thread.lastMessage = storedContent.substring(0, 40);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = patientId;
     thread.lastMessageUserName = patient.name;
@@ -403,6 +405,8 @@ exports.createThreadForStaff = async (req, res, next) => {
     const actorName = req.user.name || 'Equipe';
     const trimmedMessage = (firstMessage || '').trim();
     const normalizedAttachments = normalizeAttachments(attachments);
+    const fallbackContent = normalizedAttachments.some((item) => item.fileType === 'image') ? '[Imagem]' : '[Anexo]';
+    const storedContent = trimmedMessage || fallbackContent;
 
     if (!recipientId || !categoryId || (!trimmedMessage && normalizedAttachments.length === 0)) {
       return res.status(400).json({
@@ -444,7 +448,7 @@ exports.createThreadForStaff = async (req, res, next) => {
       senderName: actorName,
       senderType: actorRole === 'secretary' ? 'secretary' : 'doctor',
       senderRole: actorRole,
-      content: trimmedMessage,
+      content: storedContent,
       attachments: normalizedAttachments,
       isSystemMessage: false
     });
@@ -452,7 +456,7 @@ exports.createThreadForStaff = async (req, res, next) => {
     await message.save();
 
     thread.messageCount = 1;
-    thread.lastMessage = trimmedMessage ? trimmedMessage.substring(0, 40) : '[Anexo]';
+    thread.lastMessage = storedContent.substring(0, 40);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = req.user.id;
     thread.lastMessageUserName = actorName;
@@ -735,6 +739,8 @@ exports.addMessage = async (req, res, next) => {
     const userRole = req.user.role;
     const trimmedContent = (content || '').trim();
     const normalizedAttachments = normalizeAttachments(attachments);
+    const fallbackContent = normalizedAttachments.some((item) => item.fileType === 'image') ? '[Imagem]' : '[Anexo]';
+    const storedContent = trimmedContent || fallbackContent;
 
     // Validações
     if (!trimmedContent && normalizedAttachments.length === 0) {
@@ -816,7 +822,7 @@ exports.addMessage = async (req, res, next) => {
                   userRole === 'doctor' ? 'doctor' :
                   userRole === 'admin' ? 'doctor' : 'doctor',
       senderRole: userRole,
-      content: trimmedContent,
+      content: storedContent,
       attachments: normalizedAttachments,
       containsSuicideKeywords: detectedKeywords.length > 0,
       suicideKeywordsDetected: detectedKeywords,
@@ -827,7 +833,7 @@ exports.addMessage = async (req, res, next) => {
 
     // Atualizar thread
     thread.messageCount += 1;
-    thread.lastMessage = trimmedContent ? trimmedContent.substring(0, 40) : '[Anexo]';
+    thread.lastMessage = storedContent.substring(0, 40);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = userId;
     thread.lastMessageUserName = user.name;
@@ -1564,7 +1570,7 @@ exports.removeParticipant = async (req, res, next) => {
 // GESTÃO DE ADMINS COMPARTILHADOS (SECRETÁRIA → ADMIN)
 // ===============================
 
-// @desc    Listar medicos disponíveis para adicionar a uma conversa
+// @desc    Listar medicos/admins disponíveis para adicionar a uma conversa
 // @route   GET /api/chat/staff/doctors
 // @access  Private (secretary, admin)
 exports.getAdmins = async (req, res, next) => {
@@ -1573,7 +1579,7 @@ exports.getAdmins = async (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    const admins = await User.find({ role: 'doctor', isActive: true })
+    const admins = await User.find({ role: { $in: ['doctor', 'admin'] }, isActive: true })
       .select('_id name email')
       .sort({ name: 1 });
 
@@ -1582,8 +1588,8 @@ exports.getAdmins = async (req, res, next) => {
       data: admins
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar medicos:', error);
-    res.status(500).json({ success: false, error: 'Erro ao buscar medicos' });
+    console.error('❌ Erro ao buscar profissionais:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar profissionais' });
   }
 };
 
@@ -1602,14 +1608,14 @@ exports.addAdminParticipant = async (req, res, next) => {
 
     const [thread, admin] = await Promise.all([
       ChatThread.findById(threadId),
-      User.findOne({ _id: doctorId, role: 'doctor' })
+      User.findOne({ _id: doctorId, role: { $in: ['doctor', 'admin'] } })
     ]);
 
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread não encontrada' });
     }
     if (!admin) {
-      return res.status(404).json({ success: false, error: 'Medico não encontrado' });
+      return res.status(404).json({ success: false, error: 'Profissional não encontrado' });
     }
 
     if (!Array.isArray(thread.sharedAdmins)) {
@@ -1620,7 +1626,7 @@ exports.addAdminParticipant = async (req, res, next) => {
       (a) => getEntityId(a.user) === doctorId.toString()
     );
     if (alreadyAdded) {
-      return res.status(409).json({ success: false, error: 'Medico já está nesta conversa' });
+      return res.status(409).json({ success: false, error: 'Profissional já está nesta conversa' });
     }
 
     thread.sharedAdmins.push({
@@ -1636,7 +1642,7 @@ exports.addAdminParticipant = async (req, res, next) => {
       senderName: actorName,
       senderType: 'system',
       senderRole: req.user.role,
-      content: `${actorName} chamou Dr(a). ${admin.name} para esta conversa.`,
+      content: `${actorName} chamou ${admin.role === 'doctor' ? 'Dr(a). ' : ''}${admin.name} para esta conversa.`,
       isSystemMessage: true
     });
 
@@ -1659,8 +1665,8 @@ exports.addAdminParticipant = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('❌ Erro ao adicionar medico à conversa:', error);
-    res.status(500).json({ success: false, error: 'Erro ao adicionar medico' });
+    console.error('❌ Erro ao adicionar profissional à conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao adicionar profissional' });
   }
 };
 
