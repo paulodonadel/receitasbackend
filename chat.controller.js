@@ -918,8 +918,11 @@ exports.addMessage = async (req, res, next) => {
       thread.internalPendingLevel = 'pending';
     } else if (userRole === 'patient') {
       thread.internalPendingLevel = 'pending';
-    } else if (userRole !== 'patient' && thread.status === 'recebido') {
-      thread.status = 'visualizado';
+    } else if (userRole !== 'patient') {
+      thread.internalPendingLevel = 'none';
+      if (thread.status === 'recebido') {
+        thread.status = 'visualizado';
+      }
     }
 
     await thread.save();
