@@ -1570,7 +1570,7 @@ exports.removeParticipant = async (req, res, next) => {
 // GESTÃO DE ADMINS COMPARTILHADOS (SECRETÁRIA → ADMIN)
 // ===============================
 
-// @desc    Listar medicos/admins disponíveis para adicionar a uma conversa
+// @desc    Listar admins disponíveis para adicionar a uma conversa
 // @route   GET /api/chat/staff/doctors
 // @access  Private (secretary, admin)
 exports.getAdmins = async (req, res, next) => {
@@ -1579,7 +1579,7 @@ exports.getAdmins = async (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
 
-    const admins = await User.find({ role: { $in: ['doctor', 'admin'] }, isActive: true })
+    const admins = await User.find({ role: 'admin', isActive: true })
       .select('_id name email')
       .sort({ name: 1 });
 
@@ -1608,14 +1608,14 @@ exports.addAdminParticipant = async (req, res, next) => {
 
     const [thread, admin] = await Promise.all([
       ChatThread.findById(threadId),
-      User.findOne({ _id: doctorId, role: { $in: ['doctor', 'admin'] } })
+      User.findOne({ _id: doctorId, role: 'admin', isActive: true })
     ]);
 
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread não encontrada' });
     }
     if (!admin) {
-      return res.status(404).json({ success: false, error: 'Profissional não encontrado' });
+      return res.status(404).json({ success: false, error: 'Administrador não encontrado' });
     }
 
     if (!Array.isArray(thread.sharedAdmins)) {
@@ -1626,7 +1626,7 @@ exports.addAdminParticipant = async (req, res, next) => {
       (a) => getEntityId(a.user) === doctorId.toString()
     );
     if (alreadyAdded) {
-      return res.status(409).json({ success: false, error: 'Profissional já está nesta conversa' });
+      return res.status(409).json({ success: false, error: 'Administrador já está nesta conversa' });
     }
 
     thread.sharedAdmins.push({
@@ -1642,7 +1642,7 @@ exports.addAdminParticipant = async (req, res, next) => {
       senderName: actorName,
       senderType: 'system',
       senderRole: req.user.role,
-      content: `${actorName} chamou ${admin.role === 'doctor' ? 'Dr(a). ' : ''}${admin.name} para esta conversa.`,
+      content: `${actorName} chamou ${admin.name} para esta conversa.`,
       isSystemMessage: true
     });
 
@@ -1665,8 +1665,8 @@ exports.addAdminParticipant = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('❌ Erro ao adicionar profissional à conversa:', error);
-    res.status(500).json({ success: false, error: 'Erro ao adicionar profissional' });
+    console.error('❌ Erro ao adicionar administrador à conversa:', error);
+    res.status(500).json({ success: false, error: 'Erro ao adicionar administrador' });
   }
 };
 
