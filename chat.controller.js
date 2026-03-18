@@ -622,6 +622,7 @@ exports.getThreads = async (req, res, next) => {
       page = 1, 
       limit = 20,
       search = '',
+      patientId = '',
       destinee = '', // 'secretary' ou 'doctor'
       sortBy = 'recent'
     } = req.query;
@@ -677,6 +678,11 @@ exports.getThreads = async (req, res, next) => {
     // Busca por nome do paciente
     if (search) {
       query.patientName = { $regex: search, $options: 'i' };
+    }
+
+    // Filtro por paciente específico (somente para staff)
+    if (patientId && userRole !== 'patient') {
+      query.patient = patientId;
     }
 
     const parsedPage = parseInt(page, 10);
