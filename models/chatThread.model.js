@@ -99,7 +99,7 @@ const ChatThreadSchema = new mongoose.Schema({
 
   internalPendingLevel: {
     type: String,
-    enum: ['none', 'pending', 'urgent_pending'],
+    enum: ['none', 'pending', 'awaiting_patient', 'awaiting_internal', 'urgent_pending'],
     default: 'none',
     index: true
   },

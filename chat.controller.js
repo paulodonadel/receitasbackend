@@ -24,7 +24,13 @@ const CHAT_ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain'
 ];
-const INTERNAL_PENDING_PRIORITY = { none: 0, pending: 1, urgent_pending: 2 };
+const INTERNAL_PENDING_PRIORITY = {
+  none: 0,
+  pending: 1,
+  awaiting_patient: 1,
+  awaiting_internal: 1,
+  urgent_pending: 2
+};
 const STATUS_SORT_PRIORITY = {
   urgente: 0,
   recebido: 1,
@@ -1198,7 +1204,7 @@ exports.updateThreadInternalPending = async (req, res, next) => {
     const { internalPendingLevel } = req.body;
     const userRole = req.user.role;
 
-    const validLevels = ['none', 'pending', 'urgent_pending'];
+    const validLevels = ['none', 'pending', 'awaiting_patient', 'awaiting_internal', 'urgent_pending'];
 
     if (!validLevels.includes(internalPendingLevel)) {
       return res.status(400).json({
