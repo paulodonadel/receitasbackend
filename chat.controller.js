@@ -147,9 +147,20 @@ const emitChatEvent = (thread, type, payload = {}) => {
     ...payload
   };
 
-  if (typeof global.socketManager.emitToRoles === 'function') {
-    const targetRoles = thread.isInternalStaffChat ? INTERNAL_STAFF_ROLES : STAFF_ROLES;
-    global.socketManager.emitToRoles(targetRoles, 'chat:thread_event', eventData);
+  if (thread.isInternalStaffChat) {
+    if (typeof global.socketManager.emitToRoles === 'function') {
+      global.socketManager.emitToRoles(INTERNAL_STAFF_ROLES, 'chat:thread_event', eventData);
+    }
+  } else if (typeof global.socketManager.emitToUser === 'function') {
+    getStaffPushRecipientIds(thread)
+      .then((recipientIds) => {
+        recipientIds.forEach((recipientId) => {
+          global.socketManager.emitToUser(recipientId, 'chat:thread_event', eventData);
+        });
+      })
+      .catch((error) => {
+        console.error('❌ Erro ao determinar destinatarios de evento do chat:', error.message);
+      });
   }
 
   if (!thread.isInternalStaffChat && patientId && typeof global.socketManager.emitToUser === 'function') {
@@ -308,7 +319,7 @@ const getStaffPushRecipientIds = async (thread) => {
     return Array.from(recipientIds).filter(Boolean);
   }
 
-  const fallbackRoles = thread.currentDestinee === 'secretary' ? ['secretary'] : ['admin'];
+  const fallbackRoles = thread.currentDestinee === 'secretary' ? ['secretary'] : ['admin', 'doctor'];
   const users = await User.find({ role: { $in: fallbackRoles }, isActive: { $ne: false } }).select('_id');
   users.forEach((user) => recipientIds.add(user._id.toString()));
 
