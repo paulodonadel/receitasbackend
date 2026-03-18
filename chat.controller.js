@@ -8,6 +8,7 @@ const pushNotificationService = require('./pushNotification.service');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 
 const STAFF_ROLES = ['secretary', 'doctor', 'admin'];
 const INTERNAL_STAFF_ROLES = ['secretary', 'admin'];
@@ -829,7 +830,7 @@ exports.getThreadById = async (req, res, next) => {
 exports.addMessage = async (req, res, next) => {
   try {
     const threadId = req.params.id;
-    const { content = '', attachments = [] } = req.body;
+    const { content = '', attachments = [], replyToMessageId = null } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
     const trimmedContent = (content || '').trim();
@@ -907,6 +908,36 @@ exports.addMessage = async (req, res, next) => {
       normalizedMessage.includes(kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
     );
 
+    let replyTo = null;
+    if (replyToMessageId) {
+      if (!mongoose.Types.ObjectId.isValid(replyToMessageId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Mensagem de referência inválida'
+        });
+      }
+
+      const referencedMessage = await ChatMessage.findOne({
+        _id: replyToMessageId,
+        thread: threadId
+      }).select('_id senderName content createdAt');
+
+      if (!referencedMessage) {
+        return res.status(404).json({
+          success: false,
+          error: 'Mensagem de referência não encontrada'
+        });
+      }
+
+      const referencedContent = (referencedMessage.content || '').trim();
+      replyTo = {
+        messageId: referencedMessage._id,
+        senderName: referencedMessage.senderName || '',
+        contentPreview: referencedContent ? referencedContent.substring(0, 160) : '[Anexo]',
+        createdAt: referencedMessage.createdAt || null
+      };
+    }
+
     // Criar mensagem
     const message = new ChatMessage({
       thread: threadId,
@@ -919,6 +950,7 @@ exports.addMessage = async (req, res, next) => {
       senderRole: userRole,
       content: storedContent,
       attachments: normalizedAttachments,
+      replyTo,
       containsSuicideKeywords: detectedKeywords.length > 0,
       suicideKeywordsDetected: detectedKeywords,
       isSystemMessage: false

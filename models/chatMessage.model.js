@@ -55,6 +55,28 @@ const ChatMessageSchema = new mongoose.Schema({
     }
   ],
 
+  replyTo: {
+    messageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ChatMessage',
+      default: null
+    },
+    senderName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    contentPreview: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    createdAt: {
+      type: Date,
+      default: null
+    }
+  },
+
   // Flags de segurança e conteúdo
   containsSuicideKeywords: {
     type: Boolean,
