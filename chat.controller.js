@@ -333,6 +333,19 @@ const notifyStaffNativePush = async (thread, payload) => {
   );
 };
 
+const notifySingleStaffNativePush = async (userId, payload) => {
+  const targetId = getEntityId(userId);
+  if (!targetId) {
+    return;
+  }
+
+  try {
+    await pushNotificationService.sendToUser(targetId, payload);
+  } catch (error) {
+    console.error(`❌ Erro ao enviar Web Push nativo para usuario ${targetId}:`, error.message);
+  }
+};
+
 // ===============================
 // CATEGORIAS
 // ===============================
@@ -1573,9 +1586,21 @@ exports.addParticipant = async (req, res, next) => {
 
     emitChatEvent(thread, 'participant_added', {
       secretaryId,
+      targetUserId: secretaryId.toString(),
       secretaryName: secretary.name,
+      patientName: thread.patientName,
       canSeeHistory,
       actorName
+    });
+
+    await notifySingleStaffNativePush(secretaryId, {
+      type: 'participant_added',
+      title: 'Voce foi adicionada a uma conversa',
+      body: `${actorName} adicionou voce na conversa de ${thread.patientName}.`,
+      threadId: thread._id?.toString(),
+      url: '/admin/chat',
+      requireInteraction: true,
+      tag: `chat-participant-added-${thread._id?.toString()}`
     });
 
     res.status(200).json({
@@ -1739,8 +1764,20 @@ exports.addAdminParticipant = async (req, res, next) => {
 
     emitChatEvent(thread, 'admin_participant_added', {
       adminId: doctorId,
+      targetUserId: doctorId.toString(),
       adminName: admin.name,
+      patientName: thread.patientName,
       actorName
+    });
+
+    await notifySingleStaffNativePush(doctorId, {
+      type: 'admin_participant_added',
+      title: 'Voce foi chamado para uma conversa',
+      body: `${actorName} chamou voce para a conversa de ${thread.patientName}.`,
+      threadId: thread._id?.toString(),
+      url: '/admin/chat',
+      requireInteraction: true,
+      tag: `chat-admin-participant-added-${thread._id?.toString()}`
     });
 
     res.status(200).json({
