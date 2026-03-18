@@ -149,6 +149,10 @@ const emitChatEvent = (thread, type, payload = {}) => {
     type,
     threadId: thread._id?.toString(),
     patientId,
+    currentDestinee: thread.currentDestinee,
+    assignedToId: getEntityId(thread.assignedTo),
+    sharedSecretaryIds: (thread.sharedSecretaries || []).map((entry) => getEntityId(entry.user)).filter(Boolean),
+    sharedAdminIds: (thread.sharedAdmins || []).map((entry) => getEntityId(entry.user)).filter(Boolean),
     timestamp: new Date().toISOString(),
     ...payload
   };
@@ -157,16 +161,8 @@ const emitChatEvent = (thread, type, payload = {}) => {
     if (typeof global.socketManager.emitToRoles === 'function') {
       global.socketManager.emitToRoles(INTERNAL_STAFF_ROLES, 'chat:thread_event', eventData);
     }
-  } else if (typeof global.socketManager.emitToUser === 'function') {
-    getStaffPushRecipientIds(thread)
-      .then((recipientIds) => {
-        recipientIds.forEach((recipientId) => {
-          global.socketManager.emitToUser(recipientId, 'chat:thread_event', eventData);
-        });
-      })
-      .catch((error) => {
-        console.error('❌ Erro ao determinar destinatarios de evento do chat:', error.message);
-      });
+  } else if (typeof global.socketManager.emitToRoles === 'function') {
+    global.socketManager.emitToRoles(STAFF_ROLES, 'chat:thread_event', eventData);
   }
 
   if (!thread.isInternalStaffChat && patientId && typeof global.socketManager.emitToUser === 'function') {
