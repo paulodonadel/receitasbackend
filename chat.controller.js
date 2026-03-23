@@ -278,6 +278,7 @@ const notifyPatientPush = (thread, payload) => {
 
   global.socketManager.emitToUser(patientId, 'chat:patient_push', {
     threadId: thread._id?.toString(),
+    patientId,
     timestamp: new Date().toISOString(),
     ...payload
   });
