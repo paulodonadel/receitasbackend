@@ -77,7 +77,7 @@ const canAccessThread = (thread, userId, userRole) => {
     return true;
   }
 
-  if (userRole === 'patient') {
+  if (userRole === 'patient' || userRole === 'representante') {
     return patientId === userId;
   }
 
@@ -394,6 +394,7 @@ exports.createThread = async (req, res, next) => {
   try {
     const { categoryId, firstMessage = '', attachments = [] } = req.body;
     const patientId = req.user.id;
+    const userRole = req.user.role;
     const trimmedMessage = (firstMessage || '').trim();
     const normalizedAttachments = normalizeAttachments(attachments);
     const fallbackContent = normalizedAttachments.some((item) => item.fileType === 'image') ? '[Imagem]' : '[Anexo]';
@@ -418,12 +419,12 @@ exports.createThread = async (req, res, next) => {
       });
     }
 
-    // Buscar dados do paciente
+    // Buscar dados do usuário (paciente ou representante)
     const patient = await User.findById(patientId);
     if (!patient) {
       return res.status(404).json({
         success: false,
-        error: 'Paciente não encontrado'
+        error: 'Usuário não encontrado'
       });
     }
 
@@ -440,13 +441,13 @@ exports.createThread = async (req, res, next) => {
 
     await thread.save();
 
-    // Criar primeira mensagem do sistema (de boas-vindas)
+    // Criar primeira mensagem
     const welcomeMessage = new ChatMessage({
       thread: thread._id,
       sender: patientId,
       senderName: patient.name,
-      senderType: 'patient',
-      senderRole: 'patient',
+      senderType: userRole === 'representante' ? 'representante' : 'patient',
+      senderRole: userRole,
       content: storedContent,
       attachments: normalizedAttachments,
       isSystemMessage: false
@@ -470,12 +471,12 @@ exports.createThread = async (req, res, next) => {
 
     emitChatEvent(thread, 'thread_created', {
       status: thread.status,
-      actorRole: 'patient'
+      actorRole: userRole
     });
 
     res.status(201).json({
       success: true,
-      data: sanitizeThreadForRole(thread, 'patient')
+      data: sanitizeThreadForRole(thread, userRole)
     });
   } catch (error) {
     console.error('❌ Erro ao criar thread:', error);
@@ -632,7 +633,7 @@ exports.getThreads = async (req, res, next) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    if (!['patient', 'secretary', 'doctor', 'admin'].includes(userRole)) {
+    if (!['patient', 'secretary', 'doctor', 'admin', 'representante'].includes(userRole)) {
       return res.status(403).json({ success: false, error: 'Sem permissão para acessar threads de chat' });
     }
 
@@ -640,8 +641,8 @@ exports.getThreads = async (req, res, next) => {
     let query = { isInternalStaffChat: { $ne: true } };
 
     // Filtro por role
-    if (userRole === 'patient') {
-      // Paciente vê apenas seus próprios threads
+    if (userRole === 'patient' || userRole === 'representante') {
+      // Paciente/representante vê apenas seus próprios threads
       query.patient = userId;
     } else if (userRole === 'secretary') {
       // Secretária vê threads que não são trancados E que estão para secretary
@@ -948,8 +949,9 @@ exports.addMessage = async (req, res, next) => {
       thread: threadId,
       sender: userId,
       senderName: user.name,
-      senderType: userRole === 'patient' ? 'patient' : 
-                  userRole === 'secretary' ? 'secretary' :
+      senderType: userRole === 'patient' ? 'patient' :
+          userRole === 'representante' ? 'representante' :
+          userRole === 'secretary' ? 'secretary' :
                   userRole === 'doctor' ? 'doctor' :
                   userRole === 'admin' ? 'doctor' : 'doctor',
       senderRole: userRole,

@@ -36,8 +36,8 @@ router.get('/categories', protect, getCategories);
 // THREADS
 // ===============================
 
-// POST /api/chat/threads - Criar nova thread (paciente)
-router.post('/threads', protect, authorize('patient'), createThread);
+// POST /api/chat/threads - Criar nova thread (paciente ou representante)
+router.post('/threads', protect, authorize('patient', 'representante'), createThread);
 
 // POST /api/chat/threads/staff - Criar nova thread (admin/secretária)
 router.post('/threads/staff', protect, authorize('admin', 'secretary'), createThreadForStaff);
@@ -45,17 +45,17 @@ router.post('/threads/staff', protect, authorize('admin', 'secretary'), createTh
 // GET /api/chat/internal/staff-thread - Buscar/criar chat interno admin + secretárias
 router.get('/internal/staff-thread', protect, authorize('admin', 'secretary'), getInternalStaffThread);
 
-// GET /api/chat/threads - Listar threads (paciente, secretaria, medico, admin)
-router.get('/threads', protect, authorize('patient', 'secretary', 'doctor', 'admin'), getThreads);
+// GET /api/chat/threads - Listar threads
+router.get('/threads', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), getThreads);
 
 // PUT /api/chat/threads/reorder - Reordenar threads em modo customizado
 router.put('/threads/reorder', protect, authorize('secretary', 'doctor', 'admin'), reorderThreads);
 
 // GET /api/chat/threads/:id - Detalhe de uma thread
-router.get('/threads/:id', protect, authorize('patient', 'secretary', 'doctor', 'admin'), getThreadById);
+router.get('/threads/:id', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), getThreadById);
 
 // DELETE /api/chat/threads/:id - Deletar thread inteira
-router.delete('/threads/:id', protect, authorize('patient', 'secretary', 'doctor', 'admin'), deleteThread);
+router.delete('/threads/:id', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), deleteThread);
 
 // PUT /api/chat/threads/:id/status - Alterar status (secretária, médico)
 router.put('/threads/:id/status', protect, authorize('secretary', 'doctor', 'admin'), updateThreadStatus);
@@ -68,16 +68,16 @@ router.put('/threads/:id/internal-pending', protect, authorize('secretary', 'doc
 // ===============================
 
 // POST /api/chat/threads/:id/messages - Adicionar mensagem
-router.post('/threads/:id/messages', protect, authorize('patient', 'secretary', 'doctor', 'admin'), addMessage);
+router.post('/threads/:id/messages', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), addMessage);
 
 // POST /api/chat/attachments/upload - Upload de anexos (até 10MB por arquivo)
-router.post('/attachments/upload', protect, authorize('patient', 'secretary', 'admin'), uploadChatAttachments);
+router.post('/attachments/upload', protect, authorize('patient', 'secretary', 'admin', 'representante'), uploadChatAttachments);
 
 // GET /api/chat/threads/:id/messages - Buscar mensagens
-router.get('/threads/:id/messages', protect, authorize('patient', 'secretary', 'doctor', 'admin'), getThreadMessages);
+router.get('/threads/:id/messages', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), getThreadMessages);
 
 // DELETE /api/chat/threads/:threadId/messages/:messageId - Deletar mensagem específica
-router.delete('/threads/:threadId/messages/:messageId', protect, authorize('patient', 'secretary', 'doctor', 'admin'), deleteThreadMessage);
+router.delete('/threads/:threadId/messages/:messageId', protect, authorize('patient', 'secretary', 'doctor', 'admin', 'representante'), deleteThreadMessage);
 
 // ===============================
 // PARTICIPANTES (GRUPO DE SECRETÁRIAS)
