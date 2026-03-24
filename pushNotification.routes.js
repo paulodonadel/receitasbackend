@@ -11,7 +11,7 @@ router.get('/public-key', protect, (req, res) => {
   });
 });
 
-router.post('/subscribe', protect, authorize('patient'), async (req, res) => {
+router.post('/subscribe', protect, authorize('patient', 'secretary', 'admin', 'doctor', 'representante'), async (req, res) => {
   try {
     const { subscription } = req.body;
     await pushService.subscribeUser(req.user.id, subscription);
@@ -28,7 +28,7 @@ router.post('/subscribe', protect, authorize('patient'), async (req, res) => {
   }
 });
 
-router.post('/unsubscribe', protect, authorize('patient'), async (req, res) => {
+router.post('/unsubscribe', protect, authorize('patient', 'secretary', 'admin', 'doctor', 'representante'), async (req, res) => {
   try {
     const { endpoint } = req.body;
     await pushService.unsubscribeUser(req.user.id, endpoint);
