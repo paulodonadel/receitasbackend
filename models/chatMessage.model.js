@@ -22,7 +22,7 @@ const ChatMessageSchema = new mongoose.Schema({
 
   senderType: {
     type: String,
-    enum: ['patient', 'secretary', 'doctor', 'system'],
+    enum: ['patient', 'representante', 'secretary', 'doctor', 'system'],
     default: 'patient'
   },
 
