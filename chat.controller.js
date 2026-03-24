@@ -994,7 +994,7 @@ exports.addMessage = async (req, res, next) => {
 
     await thread.save();
 
-    if (userRole !== 'patient' && !thread.isInternalStaffChat) {
+    if (userRole !== 'patient' && userRole !== 'representante' && !thread.isInternalStaffChat) {
       notifyPatientPush(thread, {
         type: 'new_reply',
         title: 'Nova resposta da equipe',
@@ -1008,7 +1008,7 @@ exports.addMessage = async (req, res, next) => {
         threadId: thread._id?.toString(),
         url: '/patient/chat'
       });
-    } else if (userRole === 'patient' && !thread.isInternalStaffChat) {
+    } else if ((userRole === 'patient' || userRole === 'representante') && !thread.isInternalStaffChat) {
       await notifyStaffNativePush(thread, {
         type: 'new_patient_message',
         title: 'Nova mensagem de paciente',
