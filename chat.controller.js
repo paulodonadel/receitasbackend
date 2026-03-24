@@ -319,7 +319,7 @@ const getStaffPushRecipientIds = async (thread) => {
     if (id) recipientIds.add(id);
   });
 
-  const fallbackRoles = thread.currentDestinee === 'secretary' ? ['secretary'] : ['admin', 'doctor'];
+  const fallbackRoles = thread.currentDestinee === 'secretary' ? ['admin', 'secretary'] : ['admin', 'doctor'];
   const users = await User.find({ role: { $in: fallbackRoles }, isActive: { $ne: false } }).select('_id');
   users.forEach((user) => recipientIds.add(user._id.toString()));
 
