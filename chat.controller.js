@@ -632,6 +632,10 @@ exports.getThreads = async (req, res, next) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
+    if (!['patient', 'secretary', 'doctor', 'admin'].includes(userRole)) {
+      return res.status(403).json({ success: false, error: 'Sem permissão para acessar threads de chat' });
+    }
+
     // Construir query
     let query = { isInternalStaffChat: { $ne: true } };
 
