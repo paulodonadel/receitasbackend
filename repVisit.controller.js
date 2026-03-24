@@ -2,6 +2,7 @@ const RepVisit = require('./models/repVisit.model');
 const LaboratoryRep = require('./models/laboratoryRep.model');
 const RepAvailability = require('./models/repAvailability.model');
 const User = require('./models/user.model');
+const pushNotificationService = require('./pushNotification.service');
 
 // @desc    Criar nova visita (encaixe ou pré-reserva)
 // @route   POST /api/rep-visits
@@ -73,6 +74,31 @@ exports.createVisit = async (req, res) => {
             repName,
             laboratory
           });
+
+          // Enviar Web Push para todos os admin/secretary notificarem offline
+          (async () => {
+            try {
+              const staffUsers = await User.find({ 
+                role: { $in: ['admin', 'secretary'] }, 
+                isActive: { $ne: false } 
+              }).select('_id');
+              
+              for (const staffUser of staffUsers) {
+                await pushNotificationService.sendToUser(staffUser._id, {
+                  title: '📋 Representante Chegou',
+                  body: `${repName} - ${laboratory}`,
+                  icon: '/images/icon.png',
+                  badge: '/images/icon.png',
+                  tag: `rep-arrival-${existingPreReserva._id}`,
+                  renotify: true,
+                  vibrate: [300, 150, 300],
+                  url: '/admin/dashboard'
+                });
+              }
+            } catch (error) {
+              console.error('⚠️ [SELF CHECK-IN] Erro ao enviar Web Push:', error.message);
+            }
+          })();
         }
 
         return res.status(200).json({
@@ -131,6 +157,31 @@ exports.createVisit = async (req, res) => {
           repName,
           laboratory
         });
+
+        // Enviar Web Push para admin
+        (async () => {
+          try {
+            const adminUsers = await User.find({ 
+              role: { $in: ['admin'] }, 
+              isActive: { $ne: false } 
+            }).select('_id');
+            
+            for (const adminUser of adminUsers) {
+              await pushNotificationService.sendToUser(adminUser._id, {
+                title: '📋 Representante Chegou',
+                body: `${repName} - ${laboratory}`,
+                icon: '/images/icon.png',
+                badge: '/images/icon.png',
+                tag: `rep-arrival-${visit._id}`,
+                renotify: true,
+                vibrate: [300, 150, 300],
+                url: '/admin/dashboard'
+              });
+            }
+          } catch (error) {
+            console.error('⚠️ [SECRETARY CREATE] Erro ao enviar Web Push:', error.message);
+          }
+        })();
       } else if (creatorUser.role === 'representante' && shouldNotifyWaiting) {
         // Representante fez self check-in: notificar admin E secretária
         global.socketManager.notifyRepresentanteSelfCheckIn({
@@ -138,6 +189,31 @@ exports.createVisit = async (req, res) => {
           repName,
           laboratory
         });
+
+        // Enviar Web Push para admin e secretária
+        (async () => {
+          try {
+            const staffUsers = await User.find({ 
+              role: { $in: ['admin', 'secretary'] }, 
+              isActive: { $ne: false } 
+            }).select('_id');
+            
+            for (const staffUser of staffUsers) {
+              await pushNotificationService.sendToUser(staffUser._id, {
+                title: '📋 Representante Chegou',
+                body: `${repName} - ${laboratory}`,
+                icon: '/images/icon.png',
+                badge: '/images/icon.png',
+                tag: `rep-arrival-${visit._id}`,
+                renotify: true,
+                vibrate: [300, 150, 300],
+                url: '/admin/dashboard'
+              });
+            }
+          } catch (error) {
+            console.error('⚠️ [REP SELF CHECK-IN] Erro ao enviar Web Push:', error.message);
+          }
+        })();
       }
     }
 
@@ -455,6 +531,30 @@ exports.checkIn = async (req, res) => {
       laboratory: visit.laboratory
     });
     console.log('✅ [CHECK-IN] Notificação de check-in enviada ao admin');
+
+    // Enviar Web Push para todos os admin/secretary notificarem offline
+    try {
+      const staffUsers = await User.find({ 
+        role: { $in: ['admin', 'secretary'] }, 
+        isActive: { $ne: false } 
+      }).select('_id');
+      
+      for (const staffUser of staffUsers) {
+        await pushNotificationService.sendToUser(staffUser._id, {
+          title: '📍 Representante Chegou',
+          body: `${visit.repName} - ${visit.laboratory}`,
+          icon: '/images/icon.png',
+          badge: '/images/icon.png',
+          tag: `rep-arrival-${visit._id}`,
+          renotify: true,
+          vibrate: [300, 150, 300],
+          url: '/admin/dashboard'
+        });
+      }
+      console.log(`✅ [CHECK-IN] Web Push enviado para ${staffUsers.length} staff members`);
+    } catch (error) {
+      console.error('⚠️ [CHECK-IN] Erro ao enviar Web Push ao staff:', error.message);
+    }
     
     res.status(200).json({
       success: true,
@@ -536,6 +636,26 @@ exports.callRepresentative = async (req, res) => {
       laboratory: updatedVisit.laboratory,
       representativeId: updatedVisit.repId?.userId?._id
     });
+
+    // Enviar Web Push para o representante
+    if (updatedVisit.repId?.userId?._id) {
+      try {
+        await pushNotificationService.sendToUser(updatedVisit.repId.userId._id, {
+          title: '🔔 Você Foi Chamado!',
+          body: 'O médico está pronto para você no consultório.',
+          icon: '/images/icon.png',
+          badge: '/images/icon.png',
+          tag: `rep-called-${visit._id}`,
+          renotify: true,
+          vibrate: [400, 120, 400, 120, 700],
+          requireInteraction: true,
+          url: '/representative/dashboard'
+        });
+        console.log(`✅ [CALL REP] Web Push enviado ao representante ${updatedVisit.repId.userId._id}`);
+      } catch (error) {
+        console.error('⚠️ [CALL REP] Erro ao enviar Web Push ao representante:', error.message);
+      }
+    }
     
     res.status(200).json({
       success: true,
