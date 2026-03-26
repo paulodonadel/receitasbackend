@@ -13,6 +13,7 @@ router.get('/search', async (req, res) => {
   try {
     const { cpf, name } = req.query;
     const requestId = Math.random().toString(36).substring(7);
+    const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     console.log(`🔍 [PATIENT-SEARCH-${requestId}] Iniciando busca - CPF: ${cpf}, Nome: ${name}, Timestamp: ${new Date().toISOString()}`);
     
@@ -40,9 +41,29 @@ router.get('/search', async (req, res) => {
       searchQuery.Cpf = cpfClean;
       console.log(`🔍 [PATIENT-SEARCH-${requestId}] Buscando por CPF: ${cpfClean}`);
     } else if (name) {
-      // Busca por nome (case insensitive, busca parcial)
-      searchQuery.name = { $regex: name, $options: 'i' };
-      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Buscando por nome: ${name}`);
+      // Busca por partes do nome em qualquer ordem: "Paulo Donadel" encontra "Paulo Henrique Donadel"
+      const tokens = String(name)
+        .trim()
+        .split(/\s+/)
+        .map(token => escapeRegex(token))
+        .filter(Boolean);
+
+      if (tokens.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nome é obrigatório para busca'
+        });
+      }
+
+      if (tokens.length === 1) {
+        searchQuery.name = { $regex: tokens[0], $options: 'i' };
+      } else {
+        searchQuery.$and = tokens.map(token => ({
+          name: { $regex: token, $options: 'i' }
+        }));
+      }
+
+      console.log(`🔍 [PATIENT-SEARCH-${requestId}] Buscando por nome tokenizado: ${tokens.join(', ')}`);
     }
 
     console.log(`🔍 [PATIENT-SEARCH-${requestId}] Query MongoDB: ${JSON.stringify(searchQuery)}`);
