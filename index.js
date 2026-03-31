@@ -557,20 +557,76 @@ app.get('/test-uploads', (req, res) => {
 
 // NOVO ENDPOINT: Enviar solicitação de retorno por e-mail
 const emailService = require('./emailService');
-app.post('/api/send-return-request', async (req, res) => {
-  const { email, name } = req.body;
+const MassNotification = require('./models/massNotification.model');
+const User = require('./models/user.model');
+const { protect, authorize } = require('./middlewares/auth.middleware');
+app.post('/api/send-return-request', protect, authorize('admin', 'secretary', 'doctor'), async (req, res) => {
+  const { email, name, patientId } = req.body;
+  const normalizedEmail = typeof email === 'string' ? email.trim() : '';
+  const normalizedPatientId = typeof patientId === 'string' ? patientId.trim() : '';
+  const patientName = name || 'Paciente';
 
-  if (!email || !email.trim()) {
-    return res.status(200).json({ success: true, message: "Nenhum e-mail informado. Nenhum e-mail enviado." });
+  let emailSent = false;
+  let notificationCreated = false;
+
+  if (normalizedEmail) {
+    try {
+      await emailService.sendReturnRequestEmail({ to: normalizedEmail, name: patientName });
+      emailSent = true;
+    } catch (error) {
+      console.error('Erro ao enviar e-mail de retorno:', error);
+    }
   }
 
-  try {
-    await emailService.sendReturnRequestEmail({ to: email, name });
-    return res.status(200).json({ success: true, message: "E-mail enviado com sucesso." });
-  } catch (error) {
-    console.error("Erro ao enviar e-mail de retorno:", error);
-    return res.status(200).json({ success: true, message: "Falha ao enviar e-mail, mas requisição processada." });
+  let recipientPatientId = '';
+  if (normalizedPatientId && mongoose.Types.ObjectId.isValid(normalizedPatientId)) {
+    try {
+      const patientUserById = await User.findOne({ _id: normalizedPatientId, role: 'patient' }).select('_id');
+      if (patientUserById?._id) {
+        recipientPatientId = String(patientUserById._id);
+      }
+    } catch (error) {
+      console.error('Erro ao validar paciente por ID para notificação de retorno:', error);
+    }
+  } else if (normalizedEmail) {
+    try {
+      const patientUser = await User.findOne({ email: normalizedEmail.toLowerCase(), role: 'patient' }).select('_id');
+      if (patientUser?._id) {
+        recipientPatientId = String(patientUser._id);
+      }
+    } catch (error) {
+      console.error('Erro ao resolver paciente para notificação de retorno:', error);
+    }
   }
+
+  if (recipientPatientId) {
+    try {
+      await MassNotification.create({
+        title: 'Solicitação de retorno médico',
+        message: `Olá, ${patientName}. Foi solicitada uma consulta de retorno. Por favor, agende seu atendimento assim que possível.`,
+        targetAll: false,
+        recipients: [recipientPatientId],
+        startsAt: new Date(),
+        createdBy: req.user._id
+      });
+      notificationCreated = true;
+    } catch (error) {
+      console.error('Erro ao criar notificação de retorno no login:', error);
+    }
+  }
+
+  const parts = [];
+  parts.push(emailSent ? 'E-mail enviado com sucesso.' : 'E-mail não enviado.');
+  if (normalizedPatientId || normalizedEmail) {
+    parts.push(notificationCreated ? 'Notificação de login criada com sucesso.' : 'Não foi possível criar a notificação de login.');
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: parts.join(' '),
+    emailSent,
+    notificationCreated
+  });
 });
 
 // Rota específica para imagens de perfil com CORS máximo
