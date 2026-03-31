@@ -647,12 +647,15 @@ Equipe Dr. Paulo Donadel
 exports.sendReturnRequestEmail = async (options) => {
   const { to, name } = options;
 
-  const subject = "Solicitação de Retorno - Dr. Paulo Donadel";
+    const subject = "Solicitação de Agendamento de Consulta. - Dr. Paulo Donadel";
   const patientName = name || "Paciente";
   const textBody = `
-Saudações, ${patientName}!
+  Solicitação de Agendamento de Consulta.
 
-Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo. Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível, para que possamos, juntos, elaborar seu plano terapêutico para os próximos meses.
+  Olá ${patientName}
+
+  Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo.
+  Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que agende uma consulta assim que possível.
 
 Atenciosamente,
 Dr. Paulo Donadel
@@ -661,27 +664,20 @@ Médico Psiquiatra
 
   const htmlContent = `
     <div style="text-align: center; margin-bottom: 30px;">
-        <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">🩺 Solicitação de Retorno</h2>
+      <h2 style="color: #2c5aa0; margin-bottom: 10px; font-size: 24px;">🩺 Solicitação de Agendamento de Consulta.</h2>
         <p style="color: #6c757d; font-size: 14px;">Comunicação importante sobre seu acompanhamento</p>
     </div>
     
     <div style="background-color: rgba(44, 90, 160, 0.05); padding: 25px; border-radius: 8px; border-left: 4px solid #2c5aa0; margin: 25px 0;">
-        <p style="margin-bottom: 20px; font-size: 16px;">Saudações, <strong style="color: #2c5aa0;">${patientName}</strong>!</p>
+      <p style="margin-bottom: 20px; font-size: 16px;">Olá <strong style="color: #2c5aa0;">${patientName}</strong></p>
         
         <div style="background-color: rgba(255, 255, 255, 0.75); padding: 22px; border-radius: 8px; margin: 20px 0; border: 1px solid rgba(44, 90, 160, 0.15);">
             <p style="color: #495057; margin-bottom: 15px; line-height: 1.7; font-weight: 500;">
-                Em revisão do seu prontuário, percebi que sua <strong>última consulta</strong> comigo foi há bastante tempo. 
+          Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo.
             </p>
             
             <p style="color: #495057; margin-bottom: 15px; line-height: 1.7; font-weight: 500;">
-                Para que o seu tratamento continue com <strong style="color: #28a745;">excelência</strong>, e não coloque em risco a sua saúde, 
-                solicito que agende uma consulta assim que possível.
-            </p>
-            
-            <div style="background-color: rgba(227, 242, 253, 0.8); padding: 16px; border-radius: 6px; border-left: 3px solid #2196f3; margin: 15px 0;">
-                <p style="margin: 0; color: #1565c0; font-weight: 600;">
-                    🎯 <strong>Objetivo:</strong> Elaborarmos juntos seu plano terapêutico para os próximos meses
-                </p>
+          Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que <strong>agende uma consulta assim que possível</strong>.
             </div>
         </div>
         

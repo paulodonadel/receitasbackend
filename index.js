@@ -602,8 +602,11 @@ app.post('/api/send-return-request', protect, authorize('admin', 'secretary', 'd
   if (recipientPatientId) {
     try {
       await MassNotification.create({
-        title: 'Solicitação de retorno médico',
-        message: `Olá, ${patientName}. Foi solicitada uma consulta de retorno. Por favor, agende seu atendimento assim que possível.`,
+        title: 'Solicitação de Agendamento de Consulta.',
+        message: `Olá ${patientName}
+
+Em revisão do seu prontuário, percebi que sua última consulta comigo foi há bastante tempo.
+Para que o seu tratamento continue com excelência, e não coloque em risco a sua saúde, solicito que **agende uma consulta assim que possível**.`,
         targetAll: false,
         recipients: [recipientPatientId],
         startsAt: new Date(),
