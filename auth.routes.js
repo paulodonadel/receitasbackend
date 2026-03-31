@@ -36,6 +36,9 @@ const validateRegisterInput = (req, res, next) => {
       required: ['name', 'email', 'password', 'Cpf']
     });
   }
+  if (typeof email === 'string') {
+    req.body.email = email.trim().toLowerCase();
+  }
   // Normaliza o CPF para só números, se fornecido
   if (Cpf) req.body.Cpf = Cpf.replace(/\D/g, '');
   next();
@@ -48,6 +51,9 @@ const validateLoginInput = (req, res, next) => {
       success: false,
       error: 'Email e senha são obrigatórios'
     });
+  }
+  if (typeof email === 'string') {
+    req.body.email = email.trim().toLowerCase();
   }
   next();
 };

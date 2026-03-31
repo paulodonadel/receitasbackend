@@ -13,6 +13,8 @@ const UserSchema = new mongoose.Schema({
     required: false, // E-mail agora é opcional
     unique: true,
     sparse: true, // Permite múltiplos documentos com email null/undefined
+    trim: true,
+    lowercase: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Por favor, informe um e-mail válido'

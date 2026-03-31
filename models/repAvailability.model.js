@@ -70,6 +70,20 @@ const RepAvailabilitySchema = new mongoose.Schema({
     allowWalkIns: {
       type: Boolean, // Permitir encaixes sem pré-reserva
       default: true
+    },
+    dailyUnavailability: {
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      startTime: {
+        type: String,
+        default: '19:00'
+      },
+      endTime: {
+        type: String,
+        default: '07:00'
+      }
     }
   },
   createdAt: {

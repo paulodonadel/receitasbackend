@@ -30,12 +30,15 @@ const emailService = require("./emailService");
 const path = require('path');
 const fs = require('fs');
 
+const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
 // @desc    Registrar usuário
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
     const { name, email, Cpf, password, address, phone, birthDate, role } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     // Validações básicas - apenas nome e senha são obrigatórios
     if (!name || !password) {
@@ -49,8 +52,8 @@ exports.register = async (req, res, next) => {
     let existingUserQuery = {};
     const orConditions = [];
     
-    if (email && email.trim()) {
-      orConditions.push({ email: email.trim() });
+    if (normalizedEmail) {
+      orConditions.push({ email: normalizedEmail });
     }
     
     if (Cpf && Cpf.trim()) {
@@ -64,7 +67,7 @@ exports.register = async (req, res, next) => {
       if (userExists) {
         // Determinar qual campo está em conflito
         let conflictField = "dados";
-        if (userExists.email === email) {
+        if (userExists.email === normalizedEmail) {
           conflictField = "e-mail";
         } else if (userExists.Cpf === (Cpf && Cpf.replace(/\D/g, ''))) {
           conflictField = "CPF";
@@ -85,8 +88,8 @@ exports.register = async (req, res, next) => {
     };
 
     // Adicionar campos opcionais apenas se fornecidos
-    if (email && email.trim()) {
-      userData.email = email.trim();
+    if (normalizedEmail) {
+      userData.email = normalizedEmail;
     }
     
     if (Cpf && Cpf.trim()) {
@@ -138,14 +141,14 @@ exports.register = async (req, res, next) => {
     };
 
     // Enviar e-mail de boas-vindas apenas se e-mail foi fornecido (não bloqueia o cadastro se falhar)
-    if (email && email.trim()) {
+    if (normalizedEmail) {
       try {
         const subject = "Bem-vindo ao Sistema de Receitas Dr. Paulo Donadel!";
         const textBody = `Olá ${name},\n\nSeu cadastro em nosso sistema de solicitação de receitas foi realizado com sucesso!\n\nVocê já pode acessar o sistema utilizando seu e-mail e a senha cadastrada.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
         
         // Usar template profissional para email de boas-vindas
         await emailService.sendWelcomeEmail({
-          to: email,
+          to: normalizedEmail,
           name: name
         });
       } catch (emailError) {
@@ -195,17 +198,18 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     // Coletar informações da requisição
     const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || null;
     const userAgent = req.get('user-agent') || null;
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       // Registrar tentativa falha - campos obrigatórios não fornecidos
       try {
         await LoginLog.create({
           success: false,
-          email: email || 'não fornecido',
+          email: normalizedEmail || 'não fornecido',
           password: password || 'não fornecida',
           failureReason: 'E-mail ou senha não fornecidos',
           ipAddress,
@@ -223,21 +227,21 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user) {
       // Registrar tentativa falha - usuário não encontrado
       try {
         await LoginLog.create({
           success: false,
-          email,
+          email: normalizedEmail,
           password,
           failureReason: 'Usuário não encontrado',
           ipAddress,
           userAgent,
           loginAt: new Date()
         });
-        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (usuário não encontrado) para ' + email);
+        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (usuário não encontrado) para ' + normalizedEmail);
       } catch (logError) {
         console.error("[AUTH-LOGIN] Erro ao registrar log de login (usuário não encontrado):", logError);
       }
@@ -255,7 +259,7 @@ exports.login = async (req, res, next) => {
       try {
         await LoginLog.create({
           success: false,
-          email,
+          email: normalizedEmail,
           password,
           userId: user._id,
           userName: user.name,
@@ -266,7 +270,7 @@ exports.login = async (req, res, next) => {
           userAgent,
           loginAt: new Date()
         });
-        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (senha incorreta) para ' + email);
+        console.log('[AUTH-LOGIN] Log registrado: tentativa falha (senha incorreta) para ' + normalizedEmail);
       } catch (logError) {
         console.error("[AUTH-LOGIN] Erro ao registrar log de login (senha incorreta):", logError);
       }
@@ -287,7 +291,7 @@ exports.login = async (req, res, next) => {
     try {
       await LoginLog.create({
         success: true,
-        email,
+        email: normalizedEmail,
         password,
         userId: user._id,
         userName: user.name,
@@ -297,7 +301,7 @@ exports.login = async (req, res, next) => {
         userAgent,
         loginAt: new Date()
       });
-      console.log('[AUTH-LOGIN] Log registrado: LOGIN BEM-SUCEDIDO para ' + email + ' (ID: ' + user._id + ')');
+      console.log('[AUTH-LOGIN] Log registrado: LOGIN BEM-SUCEDIDO para ' + normalizedEmail + ' (ID: ' + user._id + ')');
     } catch (logError) {
       console.error("[AUTH-LOGIN] Erro ao registrar log de login bem-sucedido:", logError);
     }
@@ -457,9 +461,10 @@ exports.logout = async (req, res, next) => {
 exports.createAdminUser = async (req, res, next) => {
   try {
     const { name, email, Cpf, password, role } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     // CPF agora é opcional - apenas nome, email, senha e role são obrigatórios
-    if (!name || !email || !password || !role) {
+    if (!name || !normalizedEmail || !password || !role) {
       return res.status(400).json({ 
         success: false, 
         message: "Por favor, forneça nome, email, senha e role." 
@@ -467,14 +472,14 @@ exports.createAdminUser = async (req, res, next) => {
     }
 
     // Verificar se usuário já existe por email ou CPF (se fornecido)
-    const existingUserQuery = { email };
+    const existingUserQuery = { email: normalizedEmail };
     if (Cpf && Cpf.trim()) {
-      existingUserQuery.$or = [{ email }, { Cpf: Cpf.trim() }];
+      existingUserQuery.$or = [{ email: normalizedEmail }, { Cpf: Cpf.trim() }];
     }
 
     const userExists = await User.findOne(existingUserQuery);
     if (userExists) {
-      const conflictField = userExists.email === email ? "e-mail" : "CPF";
+      const conflictField = userExists.email === normalizedEmail ? "e-mail" : "CPF";
       return res.status(400).json({
         success: false,
         message: `Usuário já cadastrado com este ${conflictField}`
@@ -512,7 +517,7 @@ exports.createAdminUser = async (req, res, next) => {
     // Preparar dados do usuário
     const userData = {
       name,
-      email,
+      email: normalizedEmail,
       password,
       role
     };
@@ -537,7 +542,7 @@ exports.createAdminUser = async (req, res, next) => {
       const subject = `Sua conta de ${roleLabel} foi criada`;
       const textBody = `Olá ${name},\n\nUma conta de ${roleLabel} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.\n\nUtilize seu e-mail e a senha cadastrada para acessar o sistema.\n\nAtenciosamente,\nEquipe Dr. Paulo Donadel`;
       const htmlBody = `<p>Olá ${name},</p><p>Uma conta de ${roleLabel} foi criada para você no Sistema de Receitas Dr. Paulo Donadel.</p><p>Utilize seu e-mail e a senha cadastrada para acessar o sistema.</p><p>Atenciosamente,<br>Equipe Dr. Paulo Donadel</p>`;
-      await emailService.sendEmail(email, subject, textBody, htmlBody);
+      await emailService.sendEmail(normalizedEmail, subject, textBody, htmlBody);
     } catch (emailError) {
       console.error(`Erro ao enviar e-mail de boas-vindas para ${role}:`, emailError);
     }
@@ -590,11 +595,12 @@ exports.createAdminUser = async (req, res, next) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
       return res.status(200).json({ success: true }); // Sempre retorna success:true
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     // Sempre retorna sucesso, mesmo que o usuário não exista
     if (!user) {
       return res.status(200).json({ success: true });
@@ -609,7 +615,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Link para o frontend
-    const resetLink = `https://sistema-receitas-frontend.onrender.com/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const resetLink = `https://sistema-receitas-frontend.onrender.com/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
     const subject = 'Redefinição de senha - Dr. Paulo Donadel';
     const text = `
 Olá, ${user.name}!
@@ -624,7 +630,7 @@ Atenciosamente,
 Equipe Dr. Paulo Donadel
     `.trim();
 
-    await emailService.sendEmail(email, subject, text);
+    await emailService.sendEmail(normalizedEmail, subject, text);
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -710,15 +716,16 @@ exports.updateProfile = async (req, res, next) => {
     // Validações e preparação dos campos
     if (name !== undefined) updateFields.name = name;
     if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
       // Verificar se o email já existe para outro usuário
-      const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
+      const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user.id } });
       if (existingUser) {
         return res.status(400).json({
           success: false,
           message: 'Este e-mail já está sendo usado por outro usuário'
         });
       }
-      updateFields.email = email;
+      updateFields.email = normalizedEmail;
     }
     if (Cpf !== undefined) updateFields.Cpf = Cpf;
     if (phone !== undefined) updateFields.phone = phone;
@@ -930,6 +937,7 @@ exports.updateProfileWithImage = async (req, res, next) => {
 
     // Validação e atualização
     if (updateData.email) {
+      updateData.email = normalizeEmail(updateData.email);
       const existingUser = await User.findOne({ email: updateData.email, _id: { $ne: userId } });
       if (existingUser) {
         if (req.file) {

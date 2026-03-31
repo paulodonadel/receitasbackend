@@ -2,6 +2,87 @@ const RepAvailability = require('./models/repAvailability.model');
 const User = require('./models/user.model');
 const mongoose = require('mongoose');
 
+const parseTimeToMinutes = (value) => {
+  if (typeof value !== 'string' || !value.includes(':')) return null;
+  const [hoursRaw, minutesRaw] = value.split(':');
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return (hours * 60) + minutes;
+};
+
+const minutesToTime = (value) => {
+  const normalized = ((value % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalized / 60).toString().padStart(2, '0');
+  const minutes = (normalized % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+const buildRanges = (start, end) => {
+  if (start === null || end === null || start === end) return [];
+  if (start < end) return [[start, end]];
+  return [[0, end], [start, 1440]];
+};
+
+const subtractRanges = (baseRange, blockedRanges) => {
+  let segments = [baseRange];
+
+  blockedRanges.forEach(([blockedStart, blockedEnd]) => {
+    segments = segments.flatMap(([segmentStart, segmentEnd]) => {
+      const overlapStart = Math.max(segmentStart, blockedStart);
+      const overlapEnd = Math.min(segmentEnd, blockedEnd);
+
+      if (overlapStart >= overlapEnd) {
+        return [[segmentStart, segmentEnd]];
+      }
+
+      const next = [];
+      if (segmentStart < overlapStart) next.push([segmentStart, overlapStart]);
+      if (overlapEnd < segmentEnd) next.push([overlapEnd, segmentEnd]);
+      return next;
+    });
+  });
+
+  return segments;
+};
+
+const isMinuteInsideRanges = (minuteValue, ranges) => ranges.some(([start, end]) => minuteValue >= start && minuteValue < end);
+
+const applyDailyUnavailabilityToTimeSlots = (timeSlots = [], dailyUnavailability = {}) => {
+  if (!dailyUnavailability?.enabled) return timeSlots;
+
+  const blockedStart = parseTimeToMinutes(dailyUnavailability.startTime);
+  const blockedEnd = parseTimeToMinutes(dailyUnavailability.endTime);
+  if (blockedStart === null || blockedEnd === null || blockedStart === blockedEnd) return timeSlots;
+
+  const blockedRanges = buildRanges(blockedStart, blockedEnd);
+  const adjusted = [];
+
+  timeSlots.forEach((slot) => {
+    const slotStart = parseTimeToMinutes(slot.startTime);
+    const slotEnd = parseTimeToMinutes(slot.endTime);
+
+    if (slotStart === null || slotEnd === null || slotStart === slotEnd) return;
+
+    const slotRanges = buildRanges(slotStart, slotEnd);
+    slotRanges.forEach((slotRange) => {
+      const freeSegments = subtractRanges(slotRange, blockedRanges);
+      freeSegments.forEach(([freeStart, freeEnd]) => {
+        if (freeEnd > freeStart) {
+          adjusted.push({
+            ...slot,
+            startTime: minutesToTime(freeStart),
+            endTime: minutesToTime(freeEnd)
+          });
+        }
+      });
+    });
+  });
+
+  return adjusted;
+};
+
 // @desc    Obter ou criar disponibilidade do médico
 // @route   GET /api/rep-availability/:doctorId
 // @access  Admin/Secretary/Representante
@@ -22,7 +103,12 @@ exports.getAvailability = async (req, res) => {
           defaultVisitDuration: 15,
           advanceBookingDays: 30,
           minAdvanceBookingHours: 24,
-          allowWalkIns: true
+          allowWalkIns: true,
+          dailyUnavailability: {
+            enabled: false,
+            startTime: '19:00',
+            endTime: '07:00'
+          }
         }
       });
     }
@@ -350,15 +436,36 @@ exports.checkAvailability = async (req, res) => {
         reason: 'Médico não atende neste dia da semana'
       });
     }
+
+    const dailyUnavailability = availability.settings?.dailyUnavailability;
+    if (dailyUnavailability?.enabled) {
+      const targetMinute = parseTimeToMinutes(time);
+      const blockStart = parseTimeToMinutes(dailyUnavailability.startTime);
+      const blockEnd = parseTimeToMinutes(dailyUnavailability.endTime);
+      const blockRanges = buildRanges(blockStart, blockEnd);
+
+      if (targetMinute !== null && isMinuteInsideRanges(targetMinute, blockRanges)) {
+        return res.status(200).json({
+          success: true,
+          available: false,
+          reason: `Indisponível diariamente entre ${dailyUnavailability.startTime} e ${dailyUnavailability.endTime}`
+        });
+      }
+    }
     
     if (weeklyPattern.timeSlots && weeklyPattern.timeSlots.length > 0) {
-      const isTimeAvailable = weeklyPattern.timeSlots.some(slot => {
+      const adjustedSlots = applyDailyUnavailabilityToTimeSlots(
+        weeklyPattern.timeSlots,
+        availability.settings?.dailyUnavailability
+      );
+
+      const isTimeAvailable = adjustedSlots.some(slot => {
         return time >= slot.startTime && time <= slot.endTime;
       });
       return res.status(200).json({
         success: true,
         available: isTimeAvailable,
-        timeSlots: weeklyPattern.timeSlots
+        timeSlots: adjustedSlots
       });
     }
     
@@ -471,10 +578,17 @@ exports.getAvailableSlots = async (req, res) => {
       console.log(`      Padrão semanal:`, weeklyPattern ? 'Encontrado' : 'Não encontrado');
       
       if (weeklyPattern && weeklyPattern.isAvailable && weeklyPattern.timeSlots) {
-        console.log(`      ✅ Padrão disponível com ${weeklyPattern.timeSlots.length} slots`);
+        const adjustedSlots = applyDailyUnavailabilityToTimeSlots(
+          weeklyPattern.timeSlots,
+          availability.settings?.dailyUnavailability
+        );
+        if (!adjustedSlots.length) {
+          continue;
+        }
+        console.log(`      ✅ Padrão disponível com ${adjustedSlots.length} slots`);
         slots.push({
           date: dateStr,
-          timeSlots: weeklyPattern.timeSlots
+          timeSlots: adjustedSlots
         });
       }
     }
