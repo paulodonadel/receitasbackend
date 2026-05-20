@@ -144,6 +144,38 @@ router.get('/me',
 /**
  * ROTAS PARA ADMIN/SECRETÁRIA (PAINEL ADMINISTRATIVO)
  */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROTA DEDICADA: Receitas físicas pendentes para emissão pelo Claude
+// GET /api/receitas/fisicas-pendentes
+// Retorna: status IN (solicitada, solicitada_urgencia) AND deliveryMethod = retirar_clinica
+// Campos retornados: apenas o necessário para gerar_receitas.py / fetch_fisicas.py
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/fisicas-pendentes',
+  protect,
+  authorize('admin', 'secretary', 'doctor'),
+  async (req, res) => {
+    try {
+      const Prescription = require('./models/prescription.model');
+      const receitas = await Prescription.find({
+        status:         { $in: ['solicitada', 'solicitada_urgencia'] },
+        deliveryMethod: 'retirar_clinica'
+      })
+      .select('_id patientName patientCpf patientEmail medicationName dosage numberOfBoxes prescriptionType status isUrgent urgencyReason observations createdAt')
+      .sort({ isUrgent: -1, createdAt: 1 })
+      .lean();
+
+      res.json({
+        success: true,
+        count: receitas.length,
+        data: receitas
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
+
 // Listar TODAS as prescrições (esta é a rota usada pelo dashboard admin)
 router.get('/',
   protect,
