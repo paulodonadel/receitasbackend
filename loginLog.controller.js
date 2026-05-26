@@ -1,4 +1,5 @@
 const LoginLog = require('./models/loginLog.model');
+const { decrypt } = require('./utils/encryption');
 
 // @desc    Obter todos os logs de login com filtros, busca e ordenação
 // @route   GET /api/login-logs
@@ -63,12 +64,18 @@ exports.getLoginLogs = async (req, res) => {
 
     // Contar total
     const total = await LoginLog.countDocuments(filter);
-    
+
     console.log('[LOGIN-LOGS] ' + logs.length + ' logs retornados, total: ' + total);
+
+    // Descriptografar senhas para visualização do administrador
+    const logsWithDecryptedPasswords = logs.map(log => ({
+      ...log,
+      password: log.password ? decrypt(log.password) : null
+    }));
 
     res.status(200).json({
       success: true,
-      data: logs,
+      data: logsWithDecryptedPasswords,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

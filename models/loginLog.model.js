@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encrypt, isEncrypted } = require('../utils/encryption');
 
 const LoginLogSchema = new mongoose.Schema({
   // Tentativa bem-sucedida ou falha
@@ -14,7 +15,8 @@ const LoginLogSchema = new mongoose.Schema({
     required: true
   },
   
-  // Senha digitada (armazenada em texto plano conforme requisito)
+  // Senha digitada — armazenada criptografada com AES-256-CBC.
+  // Apenas administradores autenticados podem descriptografar via /api/login-logs.
   password: {
     type: String,
     required: true
@@ -80,5 +82,14 @@ LoginLogSchema.index({ loginAt: -1 });
 LoginLogSchema.index({ email: 1 });
 LoginLogSchema.index({ userId: 1 });
 LoginLogSchema.index({ success: 1 });
+
+// Criptografa a senha antes de salvar no banco
+LoginLogSchema.pre('save', function(next) {
+  if (this.isModified('password') && this.password && !isEncrypted(this.password)) {
+    const encrypted = encrypt(this.password);
+    if (encrypted) this.password = encrypted;
+  }
+  next();
+});
 
 module.exports = mongoose.model('LoginLog', LoginLogSchema);

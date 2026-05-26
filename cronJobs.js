@@ -48,15 +48,17 @@ function initializeCronJobs() {
 async function sendPendingReminders() {
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Usar fim do dia para não perder lembretes cadastrados em qualquer horário do dia
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
 
     console.log(`📅 Buscando lembretes para ${today.toLocaleDateString('pt-BR')}...`);
 
-    // Buscar lembretes que devem ser enviados hoje
+    // Buscar lembretes que devem ser enviados hoje (ou que já venceram e não foram enviados)
     const pendingReminders = await Reminder.find({
       isActive: true,
       emailSent: false,
-      reminderDate: { $lte: today }
+      reminderDate: { $lte: endOfToday }
     }).populate('prescription', 'medicationName dosage prescriptionType status');
 
     console.log(`📊 Encontrados ${pendingReminders.length} lembretes pendentes`);

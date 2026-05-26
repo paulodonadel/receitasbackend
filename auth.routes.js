@@ -16,7 +16,8 @@ const {
   forgotPassword,
   resetPassword,
   logout,
-  createAdminUser
+  createAdminUser,
+  refreshAccessToken
 } = require('./auth.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
@@ -72,6 +73,9 @@ router.put('/updatepassword', protect, updatePassword);
 // Rotas de recuperação de senha
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+
+// Renovação de sessão ("Continuar logado")
+router.post('/refresh-token', refreshAccessToken);
 
 // Rotas administrativas - Admin e Secretary podem criar usuários
 router.post('/admin/create', protect, authorize('admin', 'secretary'), createAdminUser);

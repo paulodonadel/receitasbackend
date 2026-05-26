@@ -23,12 +23,17 @@ function parseAddressString(addressStr = '', cep = '') {
 }
 const User = require('./models/user.model');
 const LoginLog = require('./models/loginLog.model');
+const RevokedToken = require('./models/revokedToken.model');
+const RefreshToken = require('./models/refreshToken.model');
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const emailService = require("./emailService");
 const path = require('path');
 const fs = require('fs');
+
+// Constante para rate limiting de login via banco de dados
+const LOGIN_RATE_LIMIT = { windowMs: 15 * 60 * 1000, maxAttempts: 5 };
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
@@ -197,12 +202,33 @@ exports.register = async (req, res, next) => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe = false } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     // Coletar informações da requisição
     const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || null;
     const userAgent = req.get('user-agent') || null;
+
+    // Rate limiting persistente baseado em banco de dados (resiste a reinicializações)
+    if (ipAddress) {
+      try {
+        const windowStart = new Date(Date.now() - LOGIN_RATE_LIMIT.windowMs);
+        const recentFailures = await LoginLog.countDocuments({
+          ipAddress,
+          success: false,
+          loginAt: { $gte: windowStart }
+        });
+        if (recentFailures >= LOGIN_RATE_LIMIT.maxAttempts) {
+          return res.status(429).json({
+            success: false,
+            message: `Muitas tentativas de login falhas. Tente novamente em 15 minutos.`
+          });
+        }
+      } catch (rateLimitError) {
+        // Se a verificação falhar, permite a requisição (fail open)
+        console.error('[AUTH-LOGIN] Erro no rate limiting:', rateLimitError.message);
+      }
+    }
 
     if (!normalizedEmail || !password) {
       // Registrar tentativa falha - campos obrigatórios não fornecidos
@@ -330,9 +356,22 @@ exports.login = async (req, res, next) => {
       birthDate: user.birthDate || user.dateOfBirth
     };
 
+    // "Continuar logado": gerar refresh token de 30 dias
+    let refreshTokenValue = null;
+    if (rememberMe) {
+      try {
+        const refreshTokenDoc = await RefreshToken.createForUser(user._id);
+        refreshTokenValue = refreshTokenDoc.token;
+      } catch (rtError) {
+        console.error('[AUTH-LOGIN] Erro ao criar refresh token:', rtError.message);
+        // Não bloqueia o login — só não terá "continuar logado"
+      }
+    }
+
     res.status(200).json({
       success: true,
       token,
+      refreshToken: refreshTokenValue, // null se rememberMe = false
       user: userResponse
     });
   } catch (error) {
@@ -391,13 +430,34 @@ exports.getMe = async (req, res, next) => {
 // @access  Private
 exports.updateDetails = async (req, res, next) => {
   try {
-    const fieldsToUpdate = {
-      name: req.body.name,
-      email: req.body.email,
-      address: req.body.address,
-      phone: req.body.phone,
-      birthDate: req.body.birthDate
-    };
+    const fieldsToUpdate = {};
+
+    // Atualiza apenas os campos que foram realmente enviados
+    if (req.body.name !== undefined) fieldsToUpdate.name = req.body.name;
+    if (req.body.phone !== undefined) fieldsToUpdate.phone = req.body.phone;
+    if (req.body.birthDate !== undefined) fieldsToUpdate.birthDate = req.body.birthDate;
+
+    // E-mail: normaliza (trim + lowercase) e verifica conflito
+    if (req.body.email !== undefined) {
+      const normalizedEmail = normalizeEmail(req.body.email);
+      if (normalizedEmail) {
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user.id } });
+        if (existing) {
+          return res.status(400).json({ success: false, message: 'Este e-mail já está em uso por outro usuário' });
+        }
+        fieldsToUpdate.email = normalizedEmail;
+      }
+    }
+
+    // Endereço: campo no banco é "endereco", não "address"
+    const addressSource = req.body.endereco || req.body.address;
+    if (addressSource && typeof addressSource === 'object') {
+      fieldsToUpdate.endereco = addressSource;
+    }
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return res.status(400).json({ success: false, message: 'Nenhum campo válido para atualizar.' });
+    }
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
       new: true,
@@ -406,9 +466,17 @@ exports.updateDetails = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: user
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.endereco,
+        birthDate: user.birthDate
+      }
     });
   } catch (error) {
+    console.error('Erro ao atualizar dados do usuário:', error);
     res.status(500).json({ success: false, message: "Erro ao atualizar dados do usuário." });
   }
 };
@@ -446,6 +514,24 @@ exports.updatePassword = async (req, res, next) => {
 // @access  Private
 exports.logout = async (req, res, next) => {
   try {
+    // Persiste o access token revogado no MongoDB
+    if (req.token) {
+      await RevokedToken.create({ token: req.token }).catch(err => {
+        if (err.code !== 11000) {
+          console.error('[AUTH-LOGOUT] Erro ao revogar access token:', err.message);
+        }
+      });
+    }
+
+    // Revogar o refresh token se enviado pelo frontend
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await RefreshToken.updateOne(
+        { token: refreshToken },
+        { isRevoked: true }
+      ).catch(err => console.error('[AUTH-LOGOUT] Erro ao revogar refresh token:', err.message));
+    }
+
     res.status(200).json({
       success: true,
       message: "Logout realizado com sucesso"
@@ -708,7 +794,7 @@ exports.updateProfile = async (req, res, next) => {
       state
     } = req.body;
 
-    console.log('📥 [PROFILE UPDATE] Dados recebidos COMPLETOS:', JSON.stringify(req.body, null, 2));
+    console.log('📥 [PROFILE UPDATE] Campos recebidos:', Object.keys(req.body).join(', '));
 
     // Campos que podem ser atualizados
     const updateFields = {};
@@ -735,8 +821,6 @@ exports.updateProfile = async (req, res, next) => {
     
     // Prioridade 1: Campo 'address' como objeto
     if (address && typeof address === 'object') {
-      console.log('📥 [ADDRESS] Usando campo address:', JSON.stringify(address, null, 2));
-      console.log('📥 [ADDRESS] Campos específicos - number:', address.number, 'complement:', address.complement);
       addressData = {
         cep: address.cep || '',
         street: address.street || '',
@@ -749,8 +833,6 @@ exports.updateProfile = async (req, res, next) => {
     }
     // Prioridade 2: Campo 'endereco' como objeto  
     else if (endereco && typeof endereco === 'object') {
-      console.log('📥 [ADDRESS] Usando campo endereco:', JSON.stringify(endereco, null, 2));
-      console.log('📥 [ADDRESS] Campos específicos - number:', endereco.number, 'complement:', endereco.complement);
       addressData = {
         cep: endereco.cep || '',
         street: endereco.street || '',
@@ -763,8 +845,6 @@ exports.updateProfile = async (req, res, next) => {
     }
     // Prioridade 3: Campos diretos de endereço
     else if (cep || street || city || state || number || complement) {
-      console.log('📥 [ADDRESS] Usando campos diretos de endereço');
-      console.log('📥 [ADDRESS] Campos diretos - number:', number, 'complement:', complement);
       addressData = {
         cep: cep || '',
         street: street || '',
@@ -777,9 +857,7 @@ exports.updateProfile = async (req, res, next) => {
     }
     
     if (addressData) {
-      console.log('💾 [ADDRESS] Dados FINAIS de endereço a serem salvos:', JSON.stringify(addressData, null, 2));
-      console.log('💾 [ADDRESS] Verificação number:', addressData.number, 'complement:', addressData.complement);
-      updateFields.endereco = addressData; // Salvar no campo correto do schema
+      updateFields.endereco = addressData;
     }
     
     if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
@@ -789,7 +867,7 @@ exports.updateProfile = async (req, res, next) => {
     if (medicalInfo !== undefined) updateFields.medicalInfo = medicalInfo;
     if (preferences !== undefined) updateFields.preferences = preferences;
 
-    console.log('💾 [PROFILE UPDATE] Campos finais para atualizar:', JSON.stringify(updateFields, null, 2));
+    console.log('💾 [PROFILE UPDATE] Campos a atualizar:', Object.keys(updateFields).join(', '));
 
     // Atualizar o usuário
     const user = await User.findByIdAndUpdate(
@@ -808,10 +886,7 @@ exports.updateProfile = async (req, res, next) => {
       });
     }
 
-    console.log('✅ [PROFILE UPDATE] Usuário atualizado com sucesso!');
-    console.log('📋 [PROFILE UPDATE] ID do usuário:', user._id);
-    console.log('📍 [PROFILE UPDATE] Endereço salvo no banco:', user.endereco);
-    console.log('📍 [PROFILE UPDATE] Todos os campos do usuário:', Object.keys(user.toObject()));
+    console.log('✅ [PROFILE UPDATE] Usuário atualizado com sucesso! ID:', user._id);
 
     // Retornar dados do usuário sem campos sensíveis
     const userResponse = {
@@ -836,7 +911,6 @@ exports.updateProfile = async (req, res, next) => {
       updatedAt: user.updatedAt
     };
 
-    console.log('📤 [PROFILE UPDATE] Resposta enviada com address:', userResponse.address);
 
     res.status(200).json({
       success: true,
@@ -919,9 +993,9 @@ exports.updateProfileWithImage = async (req, res, next) => {
       delete updateData.removeProfileImage;
     }
     
-    // Processar endereço FormData
+    // Processar endereço FormData — salva no campo correto "endereco"
     if (req.body['address[cep]']) {
-      updateData.address = {
+      updateData.endereco = {
         cep: req.body['address[cep]'],
         street: req.body['address[street]'],
         number: req.body['address[number]'],
@@ -933,6 +1007,11 @@ exports.updateProfileWithImage = async (req, res, next) => {
       Object.keys(updateData).forEach(key => {
         if (key.startsWith('address[')) delete updateData[key];
       });
+    }
+    // Garante que campo "address" do body (se for objeto) também vá para "endereco"
+    if (updateData.address && typeof updateData.address === 'object') {
+      updateData.endereco = updateData.address;
+      delete updateData.address;
     }
 
     // Validação e atualização
@@ -976,7 +1055,7 @@ exports.updateProfileWithImage = async (req, res, next) => {
       email: updatedUser.email,
       Cpf: updatedUser.Cpf,
       phone: updatedUser.phone,
-      address: updatedUser.address,
+      address: updatedUser.endereco,   // campo correto no banco é "endereco"
       dateOfBirth: updatedUser.dateOfBirth,
       gender: updatedUser.gender,
       profession: updatedUser.profession,
@@ -1016,9 +1095,100 @@ exports.updateProfileWithImage = async (req, res, next) => {
       });
     }
     
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor ao atualizar perfil' 
+      message: 'Erro interno do servidor ao atualizar perfil'
+    });
+  }
+};
+
+// @desc    Renovar access token usando refresh token ("Continuar logado")
+// @route   POST /api/auth/refresh-token
+// @access  Public
+exports.refreshAccessToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        code: 'MISSING_REFRESH_TOKEN',
+        message: 'Refresh token não fornecido.'
+      });
+    }
+
+    // Buscar o token válido no banco
+    const tokenDoc = await RefreshToken.findOne({
+      token: refreshToken,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!tokenDoc) {
+      return res.status(401).json({
+        success: false,
+        code: 'REFRESH_TOKEN_INVALID',
+        message: 'Sessão expirada. Faça login novamente.'
+      });
+    }
+
+    // Verificar se o usuário ainda existe e está ativo
+    const user = await User.findById(tokenDoc.userId);
+    if (!user || user.isActive === false) {
+      await RefreshToken.updateOne({ _id: tokenDoc._id }, { isRevoked: true });
+      return res.status(401).json({
+        success: false,
+        code: 'USER_INACTIVE',
+        message: 'Usuário inativo ou não encontrado.'
+      });
+    }
+
+    // Rotação: revogar o token atual e gerar um novo par
+    const newRefreshTokenValue = RefreshToken.generateToken();
+
+    tokenDoc.isRevoked = true;
+    tokenDoc.replacedByToken = newRefreshTokenValue;
+    await tokenDoc.save();
+
+    const newRefreshTokenDoc = await RefreshToken.create({
+      token: newRefreshTokenValue,
+      userId: user._id,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias
+    });
+
+    const newAccessToken = user.getSignedJwtToken();
+
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      Cpf: user.Cpf,
+      phone: user.phone,
+      address: user.endereco,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      profession: user.profession,
+      profileImage: user.profileImage,
+      profileImageAPI: user.profileImageAPI,
+      profilePhoto: user.profilePhoto,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      birthDate: user.birthDate || user.dateOfBirth
+    };
+
+    return res.status(200).json({
+      success: true,
+      token: newAccessToken,
+      refreshToken: newRefreshTokenDoc.token,
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('[AUTH] Erro ao renovar token:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao renovar sessão.'
     });
   }
 };

@@ -1,10 +1,8 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
+const RevokedToken = require("../models/revokedToken.model");
 const { createRateLimiter } = require("../utils/rateLimiter");
 const { logSecurityEvent } = require("../utils/securityLogger");
-
-// Cache para tokens revogados
-const revokedTokens = new Set();
 
 // Configurações de segurança
 const SECURITY_CONFIG = {
@@ -55,8 +53,9 @@ exports.protect = async (req, res, next) => {
       });
     }
 
-    // 2. Verificação se o token foi revogado
-    if (revokedTokens.has(token)) {
+    // 2. Verificação se o token foi revogado (persiste entre reinicializações do servidor)
+    const revoked = await RevokedToken.findOne({ token }).lean();
+    if (revoked) {
       console.log(`🔐 [AUTH] Token revogado para ${req.originalUrl}`);
       return res.status(401).json({
         success: false,
@@ -151,16 +150,23 @@ exports.authorize = (...roles) => {
 };
 
 /**
- * Middleware para revogação de tokens
+ * Middleware para revogação de tokens — persiste no MongoDB
  */
 exports.revokeToken = () => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (req.token) {
-      revokedTokens.add(req.token);
-      logSecurityEvent('TOKEN_REVOKED', {
-        userId: req.user._id,
-        tokenId: req.token
-      });
+      try {
+        await RevokedToken.create({ token: req.token });
+        logSecurityEvent('TOKEN_REVOKED', {
+          userId: req.user?._id,
+          tokenId: req.token.substring(0, 20) + '...'
+        });
+      } catch (err) {
+        // Ignora erro de duplicação (token já revogado) — continua o fluxo
+        if (err.code !== 11000) {
+          console.error('[AUTH] Erro ao revogar token:', err.message);
+        }
+      }
     }
     next();
   };

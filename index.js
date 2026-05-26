@@ -4,6 +4,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
+const { protect, authorize } = require('./middlewares/auth.middleware');
 
 const app = express();
 
@@ -23,8 +24,6 @@ app.set('trust proxy', 1);
 // CORS MÁXIMO PERMISSIVO PARA RESOLVER PROBLEMAS DE ACESSO
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir qualquer origem durante debug
-    console.log(`🌐 [CORS] Origin: ${origin}`);
     callback(null, true);
   },
   credentials: true,
@@ -48,28 +47,7 @@ const corsOptions = {
 // Aplicar CORS como primeiro middleware
 app.use(cors(corsOptions));
 
-// SOLUÇÃO DEFINITIVA PARA CORS DE IMAGENS - Aplicar ANTES de qualquer outra rota
-app.use('/uploads', (req, res, next) => {
-  // Headers mais permissivos possível
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', '*');
-  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.header('Cross-Origin-Opener-Policy', 'unsafe-none');
-  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.header('Referrer-Policy', 'no-referrer-when-downgrade');
-  res.header('X-Content-Type-Options', 'nosniff');
-  
-  // Log para debug
-  console.log(`🖼️ [UPLOADS] ${req.method} ${req.originalUrl} - UA: ${req.headers['user-agent']?.substring(0, 20)}...`);
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  next();
-});
+// Upload CORS — tratado pelo middleware unificado abaixo
 
 // Middleware para lidar com preflight OPTIONS para todas as rotas
 app.options('*', cors(corsOptions));
@@ -81,46 +59,13 @@ const TIMEOUT_MS = 120000; // 2 minutos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware adicional para debug de uploads
-app.use('/uploads', (req, res, next) => {
-  console.log(`📁 [UPLOAD DEBUG] ${req.method} ${req.originalUrl}`);
-  console.log(`📁 [UPLOAD DEBUG] Origin: ${req.headers.origin}`);
-  console.log(`📁 [UPLOAD DEBUG] User-Agent: ${req.headers['user-agent']?.substring(0, 50)}...`);
-  next();
-});
+// Middlewares redundantes removidos — usando apenas o middleware unificado abaixo
 
-// Servir arquivos estáticos (uploads) com CORS headers corretos
-app.use('/uploads', (req, res, next) => {
-  // Log para debug
-  console.log(`📁 Upload request: ${req.method} ${req.path} - Origin: ${req.headers.origin}`);
-  
-  // Headers CORS mais específicos
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.header('Cache-Control', 'public, max-age=86400');
-  res.header('Vary', 'Origin');
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  next();
-}, express.static(path.join(__dirname, '../uploads'), {
-  // Configurações adicionais para express.static
-  setHeaders: (res, path, stat) => {
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.set('Access-Control-Allow-Origin', '*');
-  }
-}));
-
-// Middleware para logging de requisições
+// Logging de requisições — apenas erros e rotas de API relevantes
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - IP: ${req.ip} - Origin: ${req.headers.origin}`);
+  if (req.path.startsWith('/api/')) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -154,25 +99,16 @@ if (!fs.existsSync(profilesDir)) {
   fs.mkdirSync(profilesDir, { recursive: true });
 }
 
-// Serve static files with proper CORS headers
+// Middleware único para servir arquivos estáticos (uploads)
 app.use('/uploads', (req, res, next) => {
-  // Set CORS headers for all uploads
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', '*');
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
   res.header('Cache-Control', 'public, max-age=86400');
-  
-  console.log(`📁 [UPLOADS] ${req.method} ${req.originalUrl}`);
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
+  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
   next();
 }, express.static(uploadsDir, {
-  setHeaders: (res, filePath) => {
+  setHeaders: (res) => {
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Access-Control-Allow-Origin', '*');
   }
@@ -183,17 +119,8 @@ app.get('/uploads/profiles/:filename', (req, res) => {
   const filename = req.params.filename;
   const imagePath = path.join(__dirname, '..', 'uploads', 'profiles', filename);
   
-  console.log(`🖼️ [PROFILE-IMAGE] Solicitação para: ${filename}`);
-  console.log(`🖼️ [PROFILE-IMAGE] Caminho completo: ${imagePath}`);
-  
-  // Check if file exists
   if (!fs.existsSync(imagePath)) {
-    console.log(`❌ [PROFILE-IMAGE] Arquivo não encontrado: ${imagePath}`);
-    return res.status(404).json({ 
-      error: 'Imagem não encontrada',
-      filename: filename,
-      path: imagePath 
-    });
+    return res.status(404).json({ error: 'Imagem não encontrada' });
   }
   
   // Set appropriate headers
@@ -215,9 +142,6 @@ app.get('/uploads/profiles/:filename', (req, res) => {
   const contentType = mimeTypes[ext] || 'image/jpeg';
   res.setHeader('Content-Type', contentType);
   
-  console.log(`✅ [PROFILE-IMAGE] Servindo: ${filename} (${contentType})`);
-  
-  // Send file
   res.sendFile(imagePath);
 });
 
@@ -283,65 +207,22 @@ app.get('/api/image/:filename', (req, res) => {
   fileStream.pipe(res);
 });
 
-// Debug endpoint to check uploads directory
-app.get('/debug/uploads', (req, res) => {
+// Debug de uploads — apenas para administradores autenticados
+app.get('/debug/uploads', protect, authorize('admin'), (req, res) => {
   const uploadsPath = path.join(__dirname, '..', 'uploads', 'profiles');
-  
   try {
     const files = fs.existsSync(uploadsPath) ? fs.readdirSync(uploadsPath) : [];
     res.json({
       status: 'ok',
-      uploadsPath: uploadsPath,
-      exists: fs.existsSync(uploadsPath),
       filesCount: files.length,
-      files: files.slice(0, 10) // Show first 10 files
+      files: files.slice(0, 10)
     });
   } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-      uploadsPath: uploadsPath
-    });
+    res.status(500).json({ status: 'error', message: error.message });
   }
 });
 
-// Middleware específico para debug de rotas problemáticas
-app.use('/api/reminders', (req, res, next) => {
-  console.log(`🔔 [REMINDERS-DEBUG] ${req.method} ${req.originalUrl}`);
-  console.log(`🔔 [REMINDERS-DEBUG] Origin: ${req.headers.origin}`);
-  console.log(`🔔 [REMINDERS-DEBUG] Headers:`, Object.keys(req.headers));
-  
-  // Headers CORS específicos para lembretes
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  
-  if (req.method === 'OPTIONS') {
-    console.log(`🔔 [REMINDERS-DEBUG] Respondendo OPTIONS`);
-    return res.status(200).end();
-  }
-  
-  next();
-});
-
-app.use('/api/reports', (req, res, next) => {
-  console.log(`📊 [REPORTS-DEBUG] ${req.method} ${req.originalUrl}`);
-  console.log(`📊 [REPORTS-DEBUG] Origin: ${req.headers.origin}`);
-  
-  // Headers CORS específicos para relatórios
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  
-  if (req.method === 'OPTIONS') {
-    console.log(`📊 [REPORTS-DEBUG] Respondendo OPTIONS`);
-    return res.status(200).end();
-  }
-  
-  next();
-});
+// CORS já está configurado globalmente — middlewares de debug por rota removidos
 
 // Rotas
 const authRoutes = require('./auth.routes');
@@ -404,78 +285,8 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Endpoint específico para testar lembretes sem autenticação
-app.get('/api/test-reminders', (req, res) => {
-  console.log('🔔 [TEST-REMINDERS] Endpoint de teste de lembretes acessado');
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  res.json({
-    status: 'success',
-    message: 'Rota de lembretes funcionando',
-    timestamp: new Date().toISOString(),
-    testData: {
-      medicationName: 'Teste',
-      dailyPills: 1,
-      totalPills: 30,
-      reminderDays: 7
-    }
-  });
-});
-
-// Endpoint específico para testar relatórios sem autenticação
-app.get('/api/test-reports', (req, res) => {
-  console.log('📊 [TEST-REPORTS] Endpoint de teste de relatórios acessado');
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  res.json({
-    status: 'success',
-    message: 'Rota de relatórios funcionando',
-    timestamp: new Date().toISOString(),
-    testData: {
-      totalPrescriptions: 150,
-      totalPatients: 75,
-      pendingPrescriptions: 25
-    }
-  });
-});
-
-// Endpoint de diagnóstico para logs de login (SEM AUTENTICAÇÃO - apenas para testes)
-app.get('/api/test-login-logs', async (req, res) => {
-  console.log('[TEST-LOGIN-LOGS] Acessando logs de login para diagnóstico');
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  try {
-    const LoginLog = require('./models/loginLog.model');
-    
-    const total = await LoginLog.countDocuments();
-    const recent = await LoginLog.find().sort({ loginAt: -1 }).limit(10).lean();
-    
-    console.log('[TEST-LOGIN-LOGS] Total de logs: ' + total);
-    console.log('[TEST-LOGIN-LOGS] Últimos 10 logs:', JSON.stringify(recent, null, 2));
-    
-    res.json({
-      status: 'success',
-      message: 'Diagnóstico de logs de login',
-      timestamp: new Date().toISOString(),
-      totalLogs: total,
-      recentLogs: recent,
-      note: 'Este endpoint é apenas para diagnóstico. Use /api/login-logs com autenticação em produção.'
-    });
-  } catch (error) {
-    console.error('[TEST-LOGIN-LOGS] Erro:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Erro ao buscar logs de login',
-      error: error.message
-    });
-  }
-});
+// Endpoints de teste sem autenticação removidos por segurança.
+// Use /api/login-logs (autenticado, admin) para acessar os logs.
 
 // Rotas básicas de status
 app.get('/', (req, res) => {
@@ -531,35 +342,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Endpoint de teste para uploads
-app.get('/test-uploads', (req, res) => {
-  const uploadsPath = path.join(__dirname, '../uploads/profiles');
-  
-  try {
-    const files = fs.existsSync(uploadsPath) ? fs.readdirSync(uploadsPath) : [];
-    res.json({
-      status: 'ok',
-      uploadsPath: uploadsPath,
-      filesCount: files.length,
-      files: files.slice(0, 5), // Mostrar apenas os primeiros 5 arquivos
-      corsHeaders: {
-        'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'cross-origin'
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message
-    });
-  }
-});
+// /test-uploads removido — use /debug/uploads (requer autenticação admin)
 
-// NOVO ENDPOINT: Enviar solicitação de retorno por e-mail
+// Endpoint: Enviar solicitação de retorno por e-mail
 const emailService = require('./emailService');
 const MassNotification = require('./models/massNotification.model');
 const User = require('./models/user.model');
-const { protect, authorize } = require('./middlewares/auth.middleware');
 app.post('/api/send-return-request', protect, authorize('admin', 'secretary', 'doctor'), async (req, res) => {
   const { email, name, patientId } = req.body;
   const normalizedEmail = typeof email === 'string' ? email.trim() : '';
@@ -632,61 +420,9 @@ Para que o seu tratamento continue com excelência, e não coloque em risco a su
   });
 });
 
-// Rota específica para imagens de perfil com CORS máximo
-app.get('/uploads/profiles/:filename', (req, res, next) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, '../uploads/profiles', filename);
-  
-  console.log(`🎯 [DIRECT-IMAGE] Solicitação direta para: ${filename}`);
-  
-  // Verificar se arquivo existe
-  if (!fs.existsSync(filePath)) {
-    console.log(`❌ [DIRECT-IMAGE] Arquivo não encontrado: ${filePath}`);
-    return res.status(404).json({ error: 'Imagem não encontrada' });
-  }
-  
-  // Headers CORS máximos
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.setHeader('Content-Type', 'image/jpeg'); // Assumindo JPEG por padrão
-  res.setHeader('Cache-Control', 'public, max-age=86400');
-  
-  console.log(`✅ [DIRECT-IMAGE] Servindo: ${filename}`);
-  
-  // Servir arquivo diretamente
-  res.sendFile(filePath);
-});
+// Rota de imagens de perfil — tratada pela rota única definida acima
 
-// Endpoint de teste para verificar se uma imagem específica existe
-app.get('/check-image/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const imagePath = path.join(__dirname, '../uploads/profiles', filename);
-  
-  console.log('🔍 [CHECK-IMAGE] Verificando:', imagePath);
-  
-  if (fs.existsSync(imagePath)) {
-    const stats = fs.statSync(imagePath);
-    res.json({
-      exists: true,
-      filename: filename,
-      path: imagePath,
-      size: stats.size,
-      created: stats.birthtime,
-      modified: stats.mtime,
-      url: `${req.protocol}://${req.get('host')}/uploads/profiles/${filename}`
-    });
-  } else {
-    res.status(404).json({
-      exists: false,
-      filename: filename,
-      path: imagePath,
-      message: 'Imagem não encontrada'
-    });
-  }
-});
+// /check-image removido — expunha caminhos internos do servidor
 
 // Tratamento específico de erros de upload
 app.use((error, req, res, next) => {
@@ -705,11 +441,17 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-// Tratamento global de erros
+// Tratamento global de erros — CORS corrigido: credentials requer origin específico, não '*'
 app.use((err, req, res, next) => {
-  // Garante que o erro também devolve CORS!
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
+  const origin = req.headers.origin;
+  if (origin) {
+    // Com origin presente (chamada de browser): reflete origin + permite credentials
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // Sem origin (chamada direta de API): wildcard sem credentials
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
   console.error(`[${new Date().toISOString()}] ERRO:`, err.message);
