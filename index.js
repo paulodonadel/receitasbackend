@@ -245,6 +245,7 @@ const chatRoutes = require('./chat.routes'); // Rotas do chat
 const pushNotificationRoutes = require('./pushNotification.routes'); // Rotas de web push
 const massNotificationRoutes = require('./massNotification.routes'); // Rotas de notificacao em massa
 const prescriptionScheduleRoutes = require('./prescriptionSchedule.routes'); // Rotas de tabelas de prescrição
+const whatsappBotRoutes = require('./whatsappBot.routes'); // Rotas do bot WhatsApp (webhook Meta)
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -268,6 +269,22 @@ app.use('/api/chat', chatRoutes); // Rotas do chat
 app.use('/api/push', pushNotificationRoutes); // Rotas de web push
 app.use('/api/mass-notifications', massNotificationRoutes); // Rotas de notificacao em massa
 app.use('/api/prescription-schedules', prescriptionScheduleRoutes); // Rotas de tabelas de prescrição
+app.use('/api/whatsapp', whatsappBotRoutes); // Bot WhatsApp (webhook Meta — sem autenticação)
+
+// Endpoint protegido: verificar janela de 24h do WhatsApp para um paciente
+const WhatsappSession = require('./models/whatsappSession.model');
+const { normalizePhone } = require('./services/whatsappService');
+app.get('/api/whatsapp/window-status/:phone', protect, async (req, res) => {
+  try {
+    const phone = normalizePhone(req.params.phone);
+    const session = await WhatsappSession.findOne({ phone }).lean();
+    const now = new Date();
+    const active = session ? new Date(session.windowExpiresAt) > now : false;
+    res.json({ success: true, active, expiresAt: session?.windowExpiresAt || null, phone });
+  } catch (err) {
+    res.json({ success: true, active: false, expiresAt: null });
+  }
+});
 
 // Endpoint de teste para verificar se o backend está funcionando
 app.get('/api/test', (req, res) => {

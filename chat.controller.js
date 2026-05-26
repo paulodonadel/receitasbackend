@@ -836,7 +836,7 @@ exports.getThreadById = async (req, res, next) => {
 exports.addMessage = async (req, res, next) => {
   try {
     const threadId = req.params.id;
-    const { content = '', attachments = [], replyToMessageId = null } = req.body;
+    const { content = '', attachments = [], replyToMessageId = null, sendViaWhatsapp = false } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
     const trimmedContent = (content || '').trim();
@@ -1026,6 +1026,27 @@ exports.addMessage = async (req, res, next) => {
       actorRole: userRole,
       preview: thread.lastMessage
     });
+
+    // Optional: send via WhatsApp if requested and 24h window is active
+    if (sendViaWhatsapp === true && userRole !== 'patient' && userRole !== 'representante') {
+      try {
+        const whatsappService = require('./services/whatsappService');
+        const fullThread = await ChatThread.findById(threadId).populate('patient', 'phone name');
+        const patientPhone = fullThread && fullThread.patient ? fullThread.patient.phone : null;
+        if (patientPhone) {
+          const windowInfo = await whatsappService.getWindowInfo(patientPhone);
+          if (windowInfo.active) {
+            const senderDisplayName = req.user && req.user.name ? req.user.name : 'Clínica Dr. Paulo Donadel';
+            await whatsappService.sendText(
+              patientPhone,
+              `💬 *${senderDisplayName}:*\n\n${storedContent}`
+            );
+          }
+        }
+      } catch (wpErr) {
+        console.error('❌ WhatsApp send error (non-blocking):', wpErr.message);
+      }
+    }
 
     // Populate referências
     await message.populate('sender', 'name email');
