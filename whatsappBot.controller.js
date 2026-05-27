@@ -181,6 +181,8 @@ exports.handleIncoming = (req, res) => {
   // Always respond 200 immediately — Meta requires < 5s response
   res.sendStatus(200);
 
+  console.log('[WhatsApp] POST /webhook recebido:', JSON.stringify(req.body).substring(0, 200));
+
   // Process asynchronously
   processIncomingMessage(req.body).catch((err) => {
     console.error('[WhatsApp Bot] Unhandled error in processIncomingMessage:', err.message);
@@ -192,6 +194,7 @@ exports.handleIncoming = (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const processIncomingMessage = async (body) => {
   try {
+    console.log('[WhatsApp] Processando mensagem...');
     const entry = body?.entry?.[0];
     const change = entry?.changes?.[0];
     const value = change?.value;
