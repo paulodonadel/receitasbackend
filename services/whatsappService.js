@@ -22,7 +22,7 @@ const normalizePhone = (phone) => {
 const sendText = async (to, text) => {
   try {
     const phone = normalizePhone(to);
-    const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    const url = `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
     await axios.post(
       url,
       {
@@ -55,7 +55,7 @@ const sendText = async (to, text) => {
 const sendInteractiveList = async (to, headerText, bodyText, footerText, buttonLabel, sections) => {
   try {
     const phone = normalizePhone(to);
-    const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    const url = `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
     await axios.post(
       url,
       {
@@ -94,7 +94,7 @@ const sendInteractiveList = async (to, headerText, bodyText, footerText, buttonL
 const sendInteractiveButtons = async (to, bodyText, buttons) => {
   try {
     const phone = normalizePhone(to);
-    const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    const url = `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
     await axios.post(
       url,
       {
