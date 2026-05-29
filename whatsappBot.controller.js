@@ -274,13 +274,28 @@ const processIncomingMessage = async (body) => {
         break;
       }
 
-      case 'PRESCRIPTION_DELIVERY': {
-        await handlePrescriptionDeliveryStep(session, phone, interactiveReplyId);
+      case 'PRESCRIPTION_MEDICATION': {
+        await handlePrescriptionMedicationStep(session, phone, textContent);
         break;
       }
 
-      case 'PRESCRIPTION_MEDICATION': {
-        await handlePrescriptionMedicationStep(session, phone, textContent);
+      case 'PRESCRIPTION_DOSAGE': {
+        await handlePrescriptionDosageStep(session, phone, textContent);
+        break;
+      }
+
+      case 'PRESCRIPTION_BOXES': {
+        await handlePrescriptionBoxesStep(session, phone, interactiveReplyId, textContent);
+        break;
+      }
+
+      case 'PRESCRIPTION_TYPE': {
+        await handlePrescriptionTypeStep(session, phone, interactiveReplyId);
+        break;
+      }
+
+      case 'PRESCRIPTION_DELIVERY': {
+        await handlePrescriptionDeliveryStep(session, phone, interactiveReplyId, linkedUser);
         break;
       }
 
@@ -524,18 +539,15 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
 
     case 'MENU_PRESCRIPTION': {
       if (linkedUser) {
-        await sendInteractiveButtons(
-          phone,
-          'Como deseja receber sua receita? Escolha uma opção:',
-          [
-            { id: 'DELIVERY_WHATSAPP', title: 'Pelo WhatsApp' },
-            { id: 'DELIVERY_SYSTEM', title: 'Acessar o sistema' }
-          ]
-        );
-        session.step = 'PRESCRIPTION_DELIVERY';
+        session.step = 'PRESCRIPTION_MEDICATION';
         session.flow = 'prescription';
         session.userId = linkedUser._id;
         session.data = {};
+        session.markModified('data');
+        await sendText(
+          phone,
+          `💊 Vamos solicitar sua receita.\n\nInforme o *nome do medicamento* (apenas o nome, sem dosagem):\n_(ex: Reconter, Venvanse, Quetiapina, Lamotrigina)_`
+        );
       } else {
         await sendText(
           phone,
@@ -544,6 +556,7 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
         session.step = 'AWAITING_REGISTRATION';
         session.flow = 'prescription';
         session.data = { pendingFlow: 'prescription' };
+        session.markModified('data');
       }
       break;
     }
@@ -596,127 +609,306 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
   await session.save();
 };
 
-const handlePrescriptionDeliveryStep = async (session, phone, replyId) => {
-  if (replyId === 'DELIVERY_WHATSAPP') {
-    await sendText(
-      phone,
-      'Informe o medicamento e a dosagem (ex: Ritalina 10mg):'
-    );
-    session.step = 'PRESCRIPTION_MEDICATION';
-    session.data = { ...(session.data || {}), delivery: 'whatsapp' };
-  } else if (replyId === 'DELIVERY_SYSTEM') {
-    await sendText(
-      phone,
-      `Para solicitar sua receita pelo sistema, acesse:\n\n👉 *paulodonadel.com.br*\n\nFaça login e crie sua solicitação de receita diretamente.`
-    );
-    session.step = 'IDLE';
-    session.flow = null;
-  } else {
-    // No recognized reply — re-prompt
-    await sendInteractiveButtons(
-      phone,
-      'Como deseja receber sua receita?',
-      [
-        { id: 'DELIVERY_WHATSAPP', title: 'Pelo WhatsApp' },
-        { id: 'DELIVERY_SYSTEM', title: 'Acessar o sistema' }
-      ]
-    );
-  }
-
-  session.updatedAt = new Date();
-  await session.save();
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: next Thursday date string (DD/MM/YYYY) — prescriptions are ready on Thursdays
+// ─────────────────────────────────────────────────────────────────────────────
+const getNextThursdayDate = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+  let daysUntil = (4 - day + 7) % 7;
+  if (daysUntil === 0) daysUntil = 7; // if today IS Thursday, go to next Thursday
+  const next = new Date(now);
+  next.setDate(now.getDate() + daysUntil);
+  const dd = String(next.getDate()).padStart(2, '0');
+  const mm = String(next.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${next.getFullYear()}`;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: build prescription summary text from session.data
+// ─────────────────────────────────────────────────────────────────────────────
+const buildPrescriptionSummary = (data) => {
+  const d = data || {};
+  return (
+    `📋 *Resumo da solicitação:*\n\n` +
+    `💊 *Medicamento:* ${d.medication || '?'}\n` +
+    `📏 *Dosagem:* ${d.dosage || '?'}\n` +
+    `📦 *Caixas:* ${d.boxes || '?'}\n` +
+    `📄 *Receituário:* ${d.prescriptionTypeLabel || '?'}\n` +
+    `🚚 *Recebimento:* ${d.deliveryLabel || '?'}`
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_MEDICATION → PRESCRIPTION_DOSAGE
+// ─────────────────────────────────────────────────────────────────────────────
 const handlePrescriptionMedicationStep = async (session, phone, textContent) => {
   if (!textContent || !textContent.trim()) {
-    await sendText(phone, 'Por favor, informe o medicamento e dosagem (ex: Ritalina 10mg):');
+    await sendText(phone, '💊 Informe o *nome do medicamento* (ex: Reconter):');
     return;
   }
 
   const medication = textContent.trim();
-
   session.data = { ...(session.data || {}), medication };
-  session.step = 'PRESCRIPTION_CONFIRM';
+  session.markModified('data');
+  session.step = 'PRESCRIPTION_DOSAGE';
+  session.updatedAt = new Date();
+  await session.save();
+
+  await sendText(
+    phone,
+    `📏 Informe a *dosagem* de *${medication}*:\n_(ex: 50mg, 150mg, 10mg 2x ao dia...)_`
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_DOSAGE → PRESCRIPTION_BOXES
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePrescriptionDosageStep = async (session, phone, textContent) => {
+  if (!textContent || !textContent.trim()) {
+    await sendText(phone, '📏 Informe a dosagem (ex: 50mg, 2x ao dia):');
+    return;
+  }
+
+  const dosage = textContent.trim();
+  session.data = { ...(session.data || {}), dosage };
+  session.markModified('data');
+  session.step = 'PRESCRIPTION_BOXES';
   session.updatedAt = new Date();
   await session.save();
 
   await sendInteractiveButtons(
     phone,
-    `Confirmar solicitação de receita?\n\n💊 *${medication}*`,
+    `📦 Quantas caixas de *${session.data.medication}* (${dosage})?`,
     [
-      { id: 'CONFIRM_YES', title: 'Sim, confirmar' },
-      { id: 'CONFIRM_NO', title: 'Não, cancelar' }
+      { id: 'BOXES_1', title: '1 caixa' },
+      { id: 'BOXES_2', title: '2 caixas' },
+      { id: 'BOXES_3', title: '3 caixas' }
     ]
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_BOXES → PRESCRIPTION_TYPE
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePrescriptionBoxesStep = async (session, phone, replyId, textContent) => {
+  const boxMap = { BOXES_1: '1', BOXES_2: '2', BOXES_3: '3' };
+  let boxes = boxMap[replyId];
+
+  if (!boxes) {
+    // Allow free-text number fallback
+    const n = parseInt(textContent || '');
+    if (n >= 1 && n <= 10) {
+      boxes = String(n);
+    } else {
+      await sendInteractiveButtons(
+        phone,
+        '📦 Selecione a quantidade de caixas:',
+        [
+          { id: 'BOXES_1', title: '1 caixa' },
+          { id: 'BOXES_2', title: '2 caixas' },
+          { id: 'BOXES_3', title: '3 caixas' }
+        ]
+      );
+      return;
+    }
+  }
+
+  session.data = { ...(session.data || {}), boxes };
+  session.markModified('data');
+  session.step = 'PRESCRIPTION_TYPE';
+  session.updatedAt = new Date();
+  await session.save();
+
+  await sendInteractiveButtons(
+    phone,
+    `📄 *Tipo de receituário* para *${session.data.medication}*?\n\n• *Branco* — antidepressivos, antipsicóticos comuns\n• *Azul B1* — Venvanse, Ritalina, Concerta...\n• *Amarelo A* — opioides fortes`,
+    [
+      { id: 'TYPE_BRANCO', title: 'Branco controlado' },
+      { id: 'TYPE_AZUL', title: 'Azul (B1)' },
+      { id: 'TYPE_AMARELO', title: 'Amarelo (A)' }
+    ]
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_TYPE → PRESCRIPTION_DELIVERY
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePrescriptionTypeStep = async (session, phone, replyId) => {
+  const typeMap = {
+    TYPE_BRANCO: { code: 'branco',  label: 'Branco controlado' },
+    TYPE_AZUL:   { code: 'azul',    label: 'Azul (B1)'         },
+    TYPE_AMARELO:{ code: 'amarelo', label: 'Amarelo (A)'        }
+  };
+
+  const selected = typeMap[replyId];
+  if (!selected) {
+    await sendInteractiveButtons(
+      phone,
+      '📄 Selecione o tipo de receituário:',
+      [
+        { id: 'TYPE_BRANCO', title: 'Branco controlado' },
+        { id: 'TYPE_AZUL', title: 'Azul (B1)' },
+        { id: 'TYPE_AMARELO', title: 'Amarelo (A)' }
+      ]
+    );
+    return;
+  }
+
+  session.data = {
+    ...(session.data || {}),
+    prescriptionType: selected.code,
+    prescriptionTypeLabel: selected.label
+  };
+  session.markModified('data');
+  session.step = 'PRESCRIPTION_DELIVERY';
+  session.updatedAt = new Date();
+  await session.save();
+
+  await sendInteractiveButtons(
+    phone,
+    '🚚 Como deseja receber sua receita?',
+    [
+      { id: 'DELIVERY_CLINICA', title: 'Retirar na clínica' },
+      { id: 'DELIVERY_EMAIL', title: 'Envio por e-mail' }
+    ]
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_DELIVERY → PRESCRIPTION_CONFIRM (builds summary)
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePrescriptionDeliveryStep = async (session, phone, replyId, linkedUser) => {
+  const user = linkedUser || (session.userId ? await User.findById(session.userId).lean() : null);
+
+  if (replyId === 'DELIVERY_EMAIL') {
+    // Check required fields for email delivery
+    const missing = [];
+    if (!user?.email)           missing.push('e-mail');
+    if (!user?.Cpf)             missing.push('CPF');
+    if (!user?.endereco?.cep)   missing.push('CEP');
+    if (!user?.endereco?.street)missing.push('endereço');
+
+    if (missing.length > 0) {
+      await sendText(
+        phone,
+        `⚠️ Para receber por e-mail, os seguintes dados precisam estar no seu cadastro:\n` +
+        missing.map(f => `❌ ${f}`).join('\n') +
+        `\n\nAtualize em *paulodonadel.com.br* (Perfil) e tente novamente.\n\n` +
+        `Por enquanto, configurei como *retirada na clínica*:`
+      );
+      session.data = { ...(session.data || {}), delivery: 'retirar_clinica', deliveryLabel: 'Retirar na clínica' };
+    } else {
+      session.data = {
+        ...(session.data || {}),
+        delivery: 'email',
+        deliveryLabel: `Envio por e-mail (${user.email})`,
+        userEmail: user.email
+      };
+    }
+  } else {
+    // DELIVERY_CLINICA or unknown
+    session.data = { ...(session.data || {}), delivery: 'retirar_clinica', deliveryLabel: 'Retirar na clínica' };
+  }
+
+  session.markModified('data');
+  session.step = 'PRESCRIPTION_CONFIRM';
+  session.updatedAt = new Date();
+  await session.save();
+
+  const summary = buildPrescriptionSummary(session.data);
+  await sendInteractiveButtons(
+    phone,
+    `${summary}\n\n_Confirmar solicitação?_`,
+    [
+      { id: 'CONFIRM_YES', title: '✅ Sim, confirmar' },
+      { id: 'CONFIRM_NO', title: '❌ Não, cancelar' }
+    ]
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_CONFIRM → create Prescription + send completion message
+// ─────────────────────────────────────────────────────────────────────────────
 const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser) => {
   if (replyId === 'CONFIRM_YES') {
     try {
-      // Get full user data
       const user = linkedUser || (session.userId ? await User.findById(session.userId).lean() : null);
+      const d = session.data || {};
 
       if (user) {
         const endereco = user.endereco || {};
         const addressStr = [
-          endereco.street,
-          endereco.number,
-          endereco.neighborhood,
-          endereco.city,
-          endereco.state
+          endereco.street, endereco.number, endereco.neighborhood, endereco.city, endereco.state
         ].filter(Boolean).join(', ');
 
         await Prescription.create({
-          patient: user._id,
-          medicationName: session.data?.medication || 'Via WhatsApp',
-          dosage: session.data?.dosage || 'A confirmar',
-          deliveryMethod: 'retirar_clinica',
-          patientName: user.name,
-          patientCpf: user.Cpf || '',
-          patientEmail: user.email || '',
-          patientPhone: phone,
-          patientCEP: endereco.cep || '',
-          patientAddress: addressStr,
-          status: 'solicitada',
-          createdBy: user._id,
-          observations: 'Solicitação via WhatsApp',
-          prescriptionType: 'comum'
+          patient:          user._id,
+          medicationName:   d.medication    || 'Via WhatsApp',
+          dosage:           d.dosage        || 'A confirmar',
+          numberOfBoxes:    d.boxes         || '1',
+          prescriptionType: d.prescriptionType || 'branco',   // ← enum correto
+          deliveryMethod:   d.delivery      || 'retirar_clinica',
+          patientName:      user.name,
+          patientCpf:       user.Cpf        || '',
+          patientEmail:     user.email      || '',
+          patientPhone:     phone,
+          patientCEP:       endereco.cep    || '',
+          patientAddress:   addressStr      || '',
+          status:           'solicitada',
+          createdBy:        user._id,
+          observations:     'Solicitação via WhatsApp Bot'
         });
+
+        const nextThursday = getNextThursdayDate();
+        const isEmail = d.delivery === 'email';
+        const deliveryMsg = isEmail
+          ? `📧 Você receberá a receita no e-mail cadastrado: *${user.email}*`
+          : `🏥 A receita estará disponível para retirada na *recepção da clínica*.\nAcompanhe em *paulodonadel.com.br*`;
 
         await sendText(
           phone,
-          `✅ Solicitação registrada!\n\nAcompanhe em *paulodonadel.com.br*.\n\nO Dr. Paulo responderá em até 2 dias úteis.`
+          `✅ *Solicitação registrada com sucesso!*\n\n` +
+          `📅 Sua receita deverá ser elaborada até a *quinta-feira, dia ${nextThursday}*.\n\n` +
+          `${deliveryMsg}\n\n` +
+          `_Clinipampa Centro Clínico — (53) 3241-6966_`
         );
       } else {
-        // User not found — create a manual record
+        // Unlinked fallback
+        const d = session.data || {};
         await createFallbackWhatsappMessage(
           'Paciente WhatsApp',
           phone,
-          `Solicitação de receita via WhatsApp: ${session.data?.medication || 'Não informado'}`,
+          `Receita via WhatsApp: ${d.medication || '?'} ${d.dosage || ''} — ${d.boxes || '1'} cx — ${d.prescriptionTypeLabel || 'Branco'} — ${d.deliveryLabel || 'Clínica'}`,
           null
         );
-
+        const nextThursday = getNextThursdayDate();
         await sendText(
           phone,
-          `✅ Sua solicitação foi registrada!\n\nPara acompanhar, acesse *paulodonadel.com.br*.\n\nO Dr. Paulo responderá em até 2 dias úteis.`
+          `✅ Solicitação recebida!\n\n` +
+          `📅 Sua receita deverá ser elaborada até a *quinta-feira, dia ${nextThursday}*.\n\n` +
+          `🏥 A receita estará disponível na clínica.\n\n` +
+          `_Clinipampa Centro Clínico — (53) 3241-6966_`
         );
       }
     } catch (err) {
       console.error('[WhatsApp Bot] Prescription creation error:', err.message);
       await sendText(
         phone,
-        `✅ Sua solicitação foi recebida! Entre em contato pela clínica para confirmação:\n📞 (53) 3241-6966`
+        `✅ Sua solicitação foi recebida!\n\nEntre em contato para confirmação:\n📞 (53) 3241-6966`
       );
     }
   } else if (replyId === 'CONFIRM_NO') {
-    await sendText(phone, 'Solicitação cancelada. Se precisar de ajuda, pode enviar uma mensagem a qualquer momento.');
+    await sendText(phone, 'Solicitação cancelada. Envie uma mensagem a qualquer momento se precisar de ajuda. 😊');
   } else {
+    // Resend summary
+    const summary = buildPrescriptionSummary(session.data);
     await sendInteractiveButtons(
       phone,
-      `Confirmar solicitação de receita?\n\n💊 *${session.data?.medication || 'Medicamento informado'}*`,
+      `${summary}\n\n_Confirmar solicitação?_`,
       [
-        { id: 'CONFIRM_YES', title: 'Sim, confirmar' },
-        { id: 'CONFIRM_NO', title: 'Não, cancelar' }
+        { id: 'CONFIRM_YES', title: '✅ Sim, confirmar' },
+        { id: 'CONFIRM_NO', title: '❌ Não, cancelar' }
       ]
     );
     return;
@@ -725,6 +917,7 @@ const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser
   session.step = 'IDLE';
   session.flow = null;
   session.data = {};
+  session.markModified('data');
   session.updatedAt = new Date();
   await session.save();
 };
