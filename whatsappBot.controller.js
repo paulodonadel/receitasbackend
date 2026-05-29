@@ -143,7 +143,7 @@ const createFallbackWhatsappMessage = async (patientName, patientPhone, messageC
     }
     if (!adminUser) return null;
 
-    await WhatsAppMessage.create({
+    const record = await WhatsAppMessage.create({
       patientName: patientName || 'Paciente WhatsApp',
       patientPhone: patientPhone,
       message: messageContent,
@@ -152,6 +152,20 @@ const createFallbackWhatsappMessage = async (patientName, patientPhone, messageC
       priority: 'media',
       createdBy: adminUser._id
     });
+
+    // Notify admin via socket so the badge updates in real-time
+    if (global.socketManager && typeof global.socketManager.emitToRoles === 'function') {
+      global.socketManager.emitToRoles(['admin', 'secretary'], 'whatsapp:bot_message', {
+        type: 'new_bot_message',
+        messageId: record._id.toString(),
+        patientName: patientName || 'Paciente WhatsApp',
+        patientPhone: patientPhone,
+        content: messageContent.substring(0, 80),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return record;
   } catch (err) {
     console.error('[WhatsApp Bot] createFallbackWhatsappMessage error:', err.message);
   }
@@ -290,6 +304,11 @@ const processIncomingMessage = async (body) => {
         break;
       }
 
+      case 'AWAITING_REGISTRATION': {
+        await handleAwaitingRegistrationStep(session, phone, textContent, linkedUser);
+        break;
+      }
+
       case 'IDLE':
       default: {
         // Send main menu and move to MENU step
@@ -329,10 +348,11 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
       } else {
         await sendText(
           phone,
-          `Para solicitar receitas, você precisa estar cadastrado no sistema.\n\n👉 Acesse: *paulodonadel.com.br/register* para criar sua conta.\n\nApós o cadastro, envie uma mensagem novamente.`
+          `Para solicitar receitas, você precisa estar cadastrado no sistema.\n\n👉 Acesse: *paulodonadel.com.br/register* para criar sua conta.\n\nSe *já se cadastrou*, envie qualquer mensagem que verificarei seu registro e continuaremos. 📋`
         );
-        session.step = 'IDLE';
-        session.flow = null;
+        session.step = 'AWAITING_REGISTRATION';
+        session.flow = 'prescription';
+        session.data = { pendingFlow: 'prescription' };
       }
       break;
     }
@@ -588,6 +608,55 @@ const handleExamStep = async (session, phone, textContent, type, msg, linkedUser
 
   session.step = 'IDLE';
   session.flow = null;
+  session.updatedAt = new Date();
+  await session.save();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AWAITING_REGISTRATION: user was told to register — retry phone lookup
+// ─────────────────────────────────────────────────────────────────────────────
+const handleAwaitingRegistrationStep = async (session, phone, textContent, linkedUser) => {
+  const user = linkedUser || await findUserByPhone(phone);
+
+  if (user) {
+    session.userId = user._id;
+    const firstName = user.name ? user.name.split(' ')[0] : 'Paciente';
+
+    // If the user had started a prescription flow, continue it
+    if (session.data?.pendingFlow === 'prescription') {
+      await sendText(phone, `✅ Cadastro confirmado, ${firstName}! Vamos continuar com a sua receita.`);
+      await sendInteractiveButtons(
+        phone,
+        'Como deseja receber sua receita? Escolha uma opção:',
+        [
+          { id: 'DELIVERY_WHATSAPP', title: 'Pelo WhatsApp' },
+          { id: 'DELIVERY_SYSTEM', title: 'Acessar o sistema' }
+        ]
+      );
+      session.step = 'PRESCRIPTION_DELIVERY';
+      session.flow = 'prescription';
+      session.data = {};
+    } else {
+      await sendText(phone, `✅ Cadastro encontrado! Olá, ${firstName}. Selecione uma opção:`);
+      await sendMainMenu(phone);
+      session.step = 'MENU';
+      session.flow = null;
+      session.data = {};
+    }
+  } else {
+    // Still not found — give phone hint
+    const digitsOnly = phone.replace(/\D/g, '');
+    const local = digitsOnly.startsWith('55') ? digitsOnly.slice(2) : digitsOnly;
+    const formatted = local.length === 11
+      ? `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`
+      : local;
+    await sendText(
+      phone,
+      `Ainda não encontrei seu cadastro. 🔍\n\n🔹 Verifique se usou o número *${formatted}* ao se cadastrar.\n🔹 Caso contrário, acesse *paulodonadel.com.br/register* e crie sua conta.\n\nEnvie outra mensagem depois do cadastro.`
+    );
+    // Keep AWAITING_REGISTRATION so next message retries automatically
+  }
+
   session.updatedAt = new Date();
   await session.save();
 };
