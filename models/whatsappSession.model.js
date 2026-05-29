@@ -25,6 +25,7 @@ const WhatsappSessionSchema = new mongoose.Schema(
         'PRESCRIPTION_BOXES',
         'PRESCRIPTION_TYPE',
         'PRESCRIPTION_DELIVERY',
+        'PRESCRIPTION_EMAIL_COLLECT',
         'PRESCRIPTION_CONFIRM',
         'QUESTION_AWAIT',
         'EXAM_AWAIT',

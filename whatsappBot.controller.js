@@ -299,6 +299,11 @@ const processIncomingMessage = async (body) => {
         break;
       }
 
+      case 'PRESCRIPTION_EMAIL_COLLECT': {
+        await handlePrescriptionEmailCollectStep(session, phone, textContent);
+        break;
+      }
+
       case 'PRESCRIPTION_CONFIRM': {
         await handlePrescriptionConfirmStep(session, phone, interactiveReplyId, linkedUser);
         break;
@@ -657,7 +662,7 @@ const handlePrescriptionMedicationStep = async (session, phone, textContent) => 
 
   await sendText(
     phone,
-    `📏 Informe a *dosagem* de *${medication}*:\n_(ex: 50mg, 150mg, 10mg 2x ao dia...)_`
+    `📏 Informe a *dosagem* de *${medication}*:\n_(ex: 10mg, 50mg, 150mg, 300mg...)_`
   );
 };
 
@@ -666,7 +671,7 @@ const handlePrescriptionMedicationStep = async (session, phone, textContent) => 
 // ─────────────────────────────────────────────────────────────────────────────
 const handlePrescriptionDosageStep = async (session, phone, textContent) => {
   if (!textContent || !textContent.trim()) {
-    await sendText(phone, '📏 Informe a dosagem (ex: 50mg, 2x ao dia):');
+    await sendText(phone, '📏 Informe a dosagem (ex: 10mg, 50mg, 150mg):');
     return;
   }
 
@@ -722,7 +727,7 @@ const handlePrescriptionBoxesStep = async (session, phone, replyId, textContent)
 
   await sendInteractiveButtons(
     phone,
-    `📄 *Tipo de receituário* para *${session.data.medication}*?\n\n• *Branco* — antidepressivos, antipsicóticos comuns\n• *Azul B1* — Venvanse, Ritalina, Concerta...\n• *Amarelo A* — opioides fortes`,
+    `📄 *Tipo de receituário* para *${session.data.medication}*?\n\n• *Branco* — antidepressivos, antipsicóticos, anticonvulsivantes...\n• *Azul B1* — Zolpidem, Clonazepam, Alprazolam, Diazepam...\n• *Amarelo A* — Ritalina, Venvanse, Concerta, psicoestimulantes...`,
     [
       { id: 'TYPE_BRANCO', title: 'Branco controlado' },
       { id: 'TYPE_AZUL', title: 'Azul (B1)' },
@@ -776,55 +781,143 @@ const handlePrescriptionTypeStep = async (session, phone, replyId) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PRESCRIPTION_DELIVERY → PRESCRIPTION_CONFIRM (builds summary)
+// Helper: send next email-collect prompt
+// ─────────────────────────────────────────────────────────────────────────────
+const sendEmailCollectPrompt = async (phone, field) => {
+  const prompts = {
+    email:   '📧 Informe seu *e-mail* para receber a receita:',
+    cep:     '📮 Informe seu *CEP* (apenas números, ex: 96400110):',
+    address: '🏠 Informe seu *endereço completo*\n(ex: Rua das Flores, 123 - Centro, Bagé - RS):'
+  };
+  await sendText(phone, prompts[field] || 'Informe os dados:');
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_DELIVERY → PRESCRIPTION_EMAIL_COLLECT or PRESCRIPTION_CONFIRM
 // ─────────────────────────────────────────────────────────────────────────────
 const handlePrescriptionDeliveryStep = async (session, phone, replyId, linkedUser) => {
   const user = linkedUser || (session.userId ? await User.findById(session.userId).lean() : null);
 
   if (replyId === 'DELIVERY_EMAIL') {
-    // Check required fields for email delivery
+    // Collect which fields are missing
     const missing = [];
-    if (!user?.email)           missing.push('e-mail');
-    if (!user?.Cpf)             missing.push('CPF');
-    if (!user?.endereco?.cep)   missing.push('CEP');
-    if (!user?.endereco?.street)missing.push('endereço');
+    if (!user?.email)            missing.push('email');
+    if (!user?.endereco?.cep)    missing.push('cep');
+    if (!user?.endereco?.street) missing.push('address');
 
-    if (missing.length > 0) {
-      await sendText(
-        phone,
-        `⚠️ Para receber por e-mail, os seguintes dados precisam estar no seu cadastro:\n` +
-        missing.map(f => `❌ ${f}`).join('\n') +
-        `\n\nAtualize em *paulodonadel.com.br* (Perfil) e tente novamente.\n\n` +
-        `Por enquanto, configurei como *retirada na clínica*:`
-      );
-      session.data = { ...(session.data || {}), delivery: 'retirar_clinica', deliveryLabel: 'Retirar na clínica' };
-    } else {
+    if (missing.length === 0) {
+      // All data present — go straight to summary
       session.data = {
         ...(session.data || {}),
         delivery: 'email',
         deliveryLabel: `Envio por e-mail (${user.email})`,
         userEmail: user.email
       };
+      session.markModified('data');
+      session.step = 'PRESCRIPTION_CONFIRM';
+      session.updatedAt = new Date();
+      await session.save();
+      const summary = buildPrescriptionSummary(session.data);
+      await sendInteractiveButtons(phone, `${summary}\n\n_Confirmar solicitação?_`, [
+        { id: 'CONFIRM_YES', title: '✅ Sim, confirmar' },
+        { id: 'CONFIRM_NO', title: '❌ Não, cancelar' }
+      ]);
+      return;
     }
-  } else {
-    // DELIVERY_CLINICA or unknown
-    session.data = { ...(session.data || {}), delivery: 'retirar_clinica', deliveryLabel: 'Retirar na clínica' };
+
+    // Some fields missing — collect them one by one
+    const missingLabels = {
+      email:   'e-mail',
+      cep:     'CEP',
+      address: 'endereço'
+    };
+    await sendText(
+      phone,
+      `⚠️ Para envio por e-mail faltam:\n` +
+      missing.map(f => `❌ ${missingLabels[f]}`).join('\n') +
+      `\n\nVamos preencher agora (só para esta receita).\n` +
+      `💡 _Para não precisar informar novamente, atualize seu perfil em paulodonadel.com.br_`
+    );
+
+    session.data = {
+      ...(session.data || {}),
+      delivery: 'email',
+      deliveryLabel: 'Envio por e-mail',
+      emailMissingFields: missing,
+      emailCollectStep: 0,
+      emailCollectValues: {}
+    };
+    session.markModified('data');
+    session.step = 'PRESCRIPTION_EMAIL_COLLECT';
+    session.updatedAt = new Date();
+    await session.save();
+    await sendEmailCollectPrompt(phone, missing[0]);
+    return;
   }
 
+  // DELIVERY_CLINICA or unknown
+  session.data = { ...(session.data || {}), delivery: 'retirar_clinica', deliveryLabel: 'Retirar na clínica' };
   session.markModified('data');
   session.step = 'PRESCRIPTION_CONFIRM';
   session.updatedAt = new Date();
   await session.save();
 
   const summary = buildPrescriptionSummary(session.data);
-  await sendInteractiveButtons(
-    phone,
-    `${summary}\n\n_Confirmar solicitação?_`,
-    [
+  await sendInteractiveButtons(phone, `${summary}\n\n_Confirmar solicitação?_`, [
+    { id: 'CONFIRM_YES', title: '✅ Sim, confirmar' },
+    { id: 'CONFIRM_NO', title: '❌ Não, cancelar' }
+  ]);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION_EMAIL_COLLECT — gathers missing fields one by one
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePrescriptionEmailCollectStep = async (session, phone, textContent) => {
+  const d = session.data || {};
+  const missing  = d.emailMissingFields || [];
+  const stepIdx  = d.emailCollectStep   || 0;
+  const field    = missing[stepIdx];
+
+  if (!textContent || !textContent.trim()) {
+    await sendEmailCollectPrompt(phone, field);
+    return;
+  }
+
+  const value = textContent.trim();
+  const collected = { ...(d.emailCollectValues || {}), [field]: value };
+  const nextIdx   = stepIdx + 1;
+
+  if (nextIdx >= missing.length) {
+    // All collected — build final delivery info and go to confirm
+    const finalEmail   = collected.email   || d.userEmail       || '';
+    const finalCep     = collected.cep     || d.userCep         || '';
+    const finalAddress = collected.address || d.userAddress     || '';
+
+    session.data = {
+      ...d,
+      emailCollectValues: collected,
+      deliveryLabel: `Envio por e-mail (${finalEmail})`,
+      userEmail:   finalEmail,
+      userCep:     finalCep,
+      userAddress: finalAddress
+    };
+    session.markModified('data');
+    session.step = 'PRESCRIPTION_CONFIRM';
+    session.updatedAt = new Date();
+    await session.save();
+
+    const summary = buildPrescriptionSummary(session.data);
+    await sendInteractiveButtons(phone, `${summary}\n\n_Confirmar solicitação?_`, [
       { id: 'CONFIRM_YES', title: '✅ Sim, confirmar' },
       { id: 'CONFIRM_NO', title: '❌ Não, cancelar' }
-    ]
-  );
+    ]);
+  } else {
+    session.data = { ...d, emailCollectStep: nextIdx, emailCollectValues: collected };
+    session.markModified('data');
+    session.updatedAt = new Date();
+    await session.save();
+    await sendEmailCollectPrompt(phone, missing[nextIdx]);
+  }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -842,19 +935,27 @@ const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser
           endereco.street, endereco.number, endereco.neighborhood, endereco.city, endereco.state
         ].filter(Boolean).join(', ');
 
+        // Use inline-collected data if present, else fall back to profile data
+        const finalEmail   = d.userEmail   || user.email      || '';
+        const finalCep     = d.userCep     || endereco.cep    || '';
+        const finalAddress = d.userAddress || addressStr      || '';
+
+        // Strip country code from phone (model accepts 10-11 digits only)
+        const cleanPhone = phone.startsWith('55') ? phone.slice(2) : phone;
+
         await Prescription.create({
           patient:          user._id,
-          medicationName:   d.medication    || 'Via WhatsApp',
-          dosage:           d.dosage        || 'A confirmar',
-          numberOfBoxes:    d.boxes         || '1',
-          prescriptionType: d.prescriptionType || 'branco',   // ← enum correto
-          deliveryMethod:   d.delivery      || 'retirar_clinica',
+          medicationName:   d.medication       || 'Via WhatsApp',
+          dosage:           d.dosage           || 'A confirmar',
+          numberOfBoxes:    d.boxes            || '1',
+          prescriptionType: d.prescriptionType || 'branco',
+          deliveryMethod:   d.delivery         || 'retirar_clinica',
           patientName:      user.name,
-          patientCpf:       user.Cpf        || '',
-          patientEmail:     user.email      || '',
-          patientPhone:     phone,
-          patientCEP:       endereco.cep    || '',
-          patientAddress:   addressStr      || '',
+          patientCpf:       user.Cpf           || '',
+          patientEmail:     finalEmail,
+          patientPhone:     cleanPhone,
+          patientCEP:       finalCep,
+          patientAddress:   finalAddress,
           status:           'solicitada',
           createdBy:        user._id,
           observations:     'Solicitação via WhatsApp Bot'
@@ -863,7 +964,7 @@ const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser
         const nextThursday = getNextThursdayDate();
         const isEmail = d.delivery === 'email';
         const deliveryMsg = isEmail
-          ? `📧 Você receberá a receita no e-mail cadastrado: *${user.email}*`
+          ? `📧 Você receberá a receita no e-mail cadastrado: *${finalEmail}*`
           : `🏥 A receita estará disponível para retirada na *recepção da clínica*.\nAcompanhe em *paulodonadel.com.br*`;
 
         await sendText(
