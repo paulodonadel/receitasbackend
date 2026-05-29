@@ -2,6 +2,7 @@ const WhatsAppMessage = require('./models/whatsappMessage.model');
 const User = require('./models/user.model');
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
+const { sendText } = require('./services/whatsappService');
 
 /**
  * Criar uma nova mensagem WhatsApp
@@ -370,6 +371,63 @@ exports.deleteWhatsAppMessage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao deletar mensagem',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Responder a uma mensagem WhatsApp diretamente pelo sistema
+ * POST /api/whatsapp-messages/:id/reply
+ */
+exports.replyToMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    console.log(`📱 [WHATSAPP] Respondendo mensagem: ${id} - User: ${req.user._id}`);
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ success: false, message: 'Texto da resposta é obrigatório' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const waMsg = await WhatsAppMessage.findById(id);
+    if (!waMsg) {
+      return res.status(404).json({ success: false, message: 'Mensagem não encontrada' });
+    }
+
+    // Send via WhatsApp Cloud API
+    await sendText(waMsg.patientPhone, String(message).trim());
+
+    // Update record
+    waMsg.status = 'respondida';
+    waMsg.respondedAt = new Date();
+    waMsg.updatedBy = req.user._id;
+    // Append reply to observations for audit trail
+    const replyLog = `\n\n[Resposta enviada em ${new Date().toLocaleString('pt-BR')} por ${req.user.name || req.user.email}]:\n${String(message).trim()}`;
+    waMsg.observations = (waMsg.observations || '') + replyLog;
+    await waMsg.save();
+
+    console.log(`📱 [WHATSAPP] Resposta enviada com sucesso para ${waMsg.patientPhone}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Resposta enviada com sucesso via WhatsApp',
+      data: {
+        _id: waMsg._id,
+        status: waMsg.status,
+        respondedAt: waMsg.respondedAt
+      }
+    });
+  } catch (error) {
+    console.error(`📱 [WHATSAPP] Erro ao responder mensagem:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao enviar resposta. Verifique se o número está correto e a janela de 24h está ativa.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

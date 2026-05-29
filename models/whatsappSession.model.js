@@ -16,6 +16,8 @@ const WhatsappSessionSchema = new mongoose.Schema(
       default: 'IDLE',
       enum: [
         'IDLE',
+        'IDENTITY_VERIFY',
+        'AWAITING_REGISTRATION',
         'MENU',
         'PRESCRIPTION_DELIVERY',
         'PRESCRIPTION_MEDICATION',
@@ -30,6 +32,22 @@ const WhatsappSessionSchema = new mongoose.Schema(
     flow: {
       type: String,
       enum: ['prescription', 'appointment', 'question', 'exam', null],
+      default: null
+    },
+
+    // Identity verification
+    verified: {
+      type: Boolean,
+      default: false
+    },
+
+    verifyAttempts: {
+      type: Number,
+      default: 0
+    },
+
+    verifiedAt: {
+      type: Date,
       default: null
     },
 

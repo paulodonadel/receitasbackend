@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const whatsappMessageController = require('./whatsappMessage.controller');
-const { 
-  validateCreateWhatsAppMessage, 
+const {
+  validateCreateWhatsAppMessage,
   validateUpdateWhatsAppMessage,
   validateWhatsAppQueryParams
 } = require('./whatsappMessage.validator');
@@ -41,6 +41,13 @@ router.get('/:id', whatsappMessageController.getWhatsAppMessageById);
  * @access  Admin
  */
 router.post('/', validateCreateWhatsAppMessage, whatsappMessageController.createWhatsAppMessage);
+
+/**
+ * @route   POST /api/whatsapp-messages/:id/reply
+ * @desc    Enviar resposta WhatsApp diretamente pelo sistema
+ * @access  Admin
+ */
+router.post('/:id/reply', whatsappMessageController.replyToMessage);
 
 /**
  * @route   PUT /api/whatsapp-messages/:id

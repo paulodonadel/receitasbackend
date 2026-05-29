@@ -309,18 +309,129 @@ const processIncomingMessage = async (body) => {
         break;
       }
 
+      case 'IDENTITY_VERIFY': {
+        await handleIdentityVerifyStep(session, phone, textContent, linkedUser);
+        break;
+      }
+
       case 'IDLE':
       default: {
-        // Send main menu and move to MENU step
-        await sendMainMenu(phone);
-        session.step = 'MENU';
-        session.updatedAt = new Date();
-        await session.save();
+        await handleIdleStep(session, phone, linkedUser);
         break;
       }
     }
   } catch (err) {
     console.error('[WhatsApp Bot] processIncomingMessage error:', err.message, err.stack);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: normalize CPF (digits only)
+// ─────────────────────────────────────────────────────────────────────────────
+const normalizeCpf = (cpf) => String(cpf || '').replace(/\D/g, '');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDLE: entry point — checks registration and verification
+// ─────────────────────────────────────────────────────────────────────────────
+const handleIdleStep = async (session, phone, linkedUser) => {
+  // 1. Not registered → ask to register
+  if (!linkedUser) {
+    await sendText(
+      phone,
+      `👋 Olá! Bem-vindo à *Clínica Dr. Paulo Donadel*.\n\n` +
+      `Para usar este serviço, você precisa criar sua conta no sistema:\n\n` +
+      `👉 *paulodonadel.com.br/register*\n\n` +
+      `Cadastre-se informando seu *número de telefone* e *CPF*. Depois, envie qualquer mensagem aqui para continuar. 😊`
+    );
+    // Stay IDLE — next message will retry
+    session.updatedAt = new Date();
+    await session.save();
+    return;
+  }
+
+  // 2. Registered but not verified this session → ask CPF
+  if (!session.verified) {
+    session.userId = linkedUser._id;
+    session.step = 'IDENTITY_VERIFY';
+    session.verifyAttempts = 0;
+    session.updatedAt = new Date();
+    await session.save();
+
+    await sendText(
+      phone,
+      `👋 Olá! Identificamos seu número como *${linkedUser.name}*.\n\n` +
+      `Por segurança, informe seu *CPF* (apenas números) para confirmar sua identidade:`
+    );
+    return;
+  }
+
+  // 3. Registered + verified → show menu
+  session.step = 'MENU';
+  session.updatedAt = new Date();
+  await session.save();
+  await sendMainMenu(phone);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDENTITY_VERIFY: user enters CPF to confirm identity
+// ─────────────────────────────────────────────────────────────────────────────
+const handleIdentityVerifyStep = async (session, phone, textContent, linkedUser) => {
+  const user = linkedUser || (session.userId ? await User.findById(session.userId).lean() : null);
+
+  if (!user) {
+    // User was deleted — reset
+    session.step = 'IDLE';
+    session.verified = false;
+    session.updatedAt = new Date();
+    await session.save();
+    await sendText(phone, 'Não encontrei seu cadastro. Entre em contato com a clínica: 📞 (53) 3241-6966');
+    return;
+  }
+
+  const inputCpf = normalizeCpf(textContent);
+  const userCpf  = normalizeCpf(user.Cpf);
+
+  if (!inputCpf) {
+    await sendText(phone, 'Por favor, informe seu *CPF* (apenas números):');
+    return;
+  }
+
+  if (inputCpf === userCpf && userCpf.length > 0) {
+    // ✅ Verified
+    const firstName = user.name ? user.name.split(' ')[0] : 'Paciente';
+    session.verified   = true;
+    session.verifiedAt = new Date();
+    session.verifyAttempts = 0;
+    session.step = 'MENU';
+    session.updatedAt = new Date();
+    await session.save();
+
+    await sendText(phone, `✅ Identidade confirmada! Olá, *${firstName}*! Selecione uma opção:`);
+    await sendMainMenu(phone);
+  } else {
+    // ❌ Wrong CPF
+    session.verifyAttempts = (session.verifyAttempts || 0) + 1;
+
+    if (session.verifyAttempts >= 3) {
+      session.step = 'IDLE';
+      session.verified = false;
+      session.verifyAttempts = 0;
+      session.updatedAt = new Date();
+      await session.save();
+      await sendText(
+        phone,
+        `❌ CPF incorreto por 3 vezes. Por segurança, a sessão foi encerrada.\n\n` +
+        `Se precisar de ajuda, entre em contato com a clínica:\n📞 (53) 3241-6966`
+      );
+    } else {
+      const restantes = 3 - session.verifyAttempts;
+      session.updatedAt = new Date();
+      await session.save();
+      await sendText(
+        phone,
+        `❌ CPF incorreto. Tente novamente (${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}):`
+      );
+    }
   }
 };
 
