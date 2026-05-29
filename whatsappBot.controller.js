@@ -29,11 +29,14 @@ Para agendamentos, entre em contato pelos telefones acima ou acesse: paulodonade
 // ─────────────────────────────────────────────────────────────────────────────
 // Send main menu
 // ─────────────────────────────────────────────────────────────────────────────
-const sendMainMenu = async (phone) => {
+const sendMainMenu = async (phone, firstName = null) => {
+  const greeting = firstName
+    ? `Olá, *${firstName}*! Como posso ajudar você hoje?`
+    : 'Olá! Como posso ajudar você hoje?';
   await sendInteractiveList(
     phone,
     'Clínica Dr. Paulo Donadel',
-    'Olá! Como posso ajudar você hoje?',
+    greeting,
     'Selecione uma opção',
     'Ver opções',
     [
@@ -425,7 +428,7 @@ const handlePhoneLinkCpfStep = async (session, phone, textContent) => {
     `✅ Pronto, *${firstName}*! Seu WhatsApp foi vinculado à sua conta.\n\n` +
     `Da próxima vez, basta informar seu *CPF* para entrar. Veja o menu abaixo:`
   );
-  await sendMainMenu(phone);
+  await sendMainMenu(phone, firstName);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -469,7 +472,8 @@ const handleIdleStep = async (session, phone, linkedUser) => {
   session.step = 'MENU';
   session.updatedAt = new Date();
   await session.save();
-  await sendMainMenu(phone);
+  const idleFirstName = linkedUser?.name ? linkedUser.name.split(' ')[0] : null;
+  await sendMainMenu(phone, idleFirstName);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -507,7 +511,7 @@ const handleIdentityVerifyStep = async (session, phone, textContent, linkedUser)
     await session.save();
 
     await sendText(phone, `✅ Identidade confirmada! Olá, *${firstName}*! Selecione uma opção:`);
-    await sendMainMenu(phone);
+    await sendMainMenu(phone, firstName);
   } else {
     // ❌ Wrong CPF
     session.verifyAttempts = (session.verifyAttempts || 0) + 1;
@@ -547,7 +551,7 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
         session.step = 'PRESCRIPTION_MEDICATION';
         session.flow = 'prescription';
         session.userId = linkedUser._id;
-        session.data = {};
+        session.data = { patientName: linkedUser.name || '' };
         session.markModified('data');
         await sendText(
           phone,
@@ -604,7 +608,8 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
 
     default: {
       // Unknown reply — re-send menu
-      await sendMainMenu(phone);
+      const menuFirstName = linkedUser?.name ? linkedUser.name.split(' ')[0] : null;
+      await sendMainMenu(phone, menuFirstName);
       session.step = 'MENU';
       break;
     }
@@ -634,8 +639,10 @@ const getNextThursdayDate = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 const buildPrescriptionSummary = (data) => {
   const d = data || {};
+  const nameLine = d.patientName ? `👤 *Paciente:* ${d.patientName}\n` : '';
   return (
     `📋 *Resumo da solicitação:*\n\n` +
+    nameLine +
     `💊 *Medicamento:* ${d.medication || '?'}\n` +
     `📏 *Dosagem:* ${d.dosage || '?'}\n` +
     `📦 *Caixas:* ${d.boxes || '?'}\n` +
@@ -964,15 +971,20 @@ const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser
         const nextThursday = getNextThursdayDate();
         const isEmail = d.delivery === 'email';
         const deliveryMsg = isEmail
-          ? `📧 Você receberá a receita no e-mail cadastrado: *${finalEmail}*`
-          : `🏥 A receita estará disponível para retirada na *recepção da clínica*.\nAcompanhe em *paulodonadel.com.br*`;
+          ? `📧 Você receberá a receita no e-mail cadastrado: ${finalEmail}`
+          : `🏥 A receita estará disponível para retirada na *recepção da clínica*.\n` +
+            `Acompanhe o status da sua solicitação em paulodonadel.com.br`;
 
         await sendText(
           phone,
           `✅ *Solicitação registrada com sucesso!*\n\n` +
           `📅 Sua receita deverá ser elaborada até a *quinta-feira, dia ${nextThursday}*.\n\n` +
           `${deliveryMsg}\n\n` +
-          `_Clinipampa Centro Clínico — (53) 3241-6966_`
+          `📍 *Clinipampa Centro Clínico*\n` +
+          `Av. Tupi Silveira, 1926 - Centro, Bagé - RS\n` +
+          `⏰ Seg a Sex, das 08h às 19h (sem fechar ao meio-dia)\n` +
+          `🗺️ https://maps.google.com/?q=Clinipampa+Centro+Clinico+Bage+RS\n\n` +
+          `📞 (53) 3241-6966`
         );
       } else {
         // Unlinked fallback
@@ -988,8 +1000,13 @@ const handlePrescriptionConfirmStep = async (session, phone, replyId, linkedUser
           phone,
           `✅ Solicitação recebida!\n\n` +
           `📅 Sua receita deverá ser elaborada até a *quinta-feira, dia ${nextThursday}*.\n\n` +
-          `🏥 A receita estará disponível na clínica.\n\n` +
-          `_Clinipampa Centro Clínico — (53) 3241-6966_`
+          `🏥 A receita estará disponível para retirada na recepção da clínica.\n` +
+          `Acompanhe o status da sua solicitação em paulodonadel.com.br\n\n` +
+          `📍 *Clinipampa Centro Clínico*\n` +
+          `Av. Tupi Silveira, 1926 - Centro, Bagé - RS\n` +
+          `⏰ Seg a Sex, das 08h às 19h (sem fechar ao meio-dia)\n` +
+          `🗺️ https://maps.google.com/?q=Clinipampa+Centro+Clinico+Bage+RS\n\n` +
+          `📞 (53) 3241-6966`
         );
       }
     } catch (err) {
@@ -1123,7 +1140,7 @@ const handleAwaitingRegistrationStep = async (session, phone, textContent, linke
       session.data = {};
     } else {
       await sendText(phone, `✅ Cadastro encontrado! Olá, ${firstName}. Selecione uma opção:`);
-      await sendMainMenu(phone);
+      await sendMainMenu(phone, firstName);
       session.step = 'MENU';
       session.flow = null;
       session.data = {};
