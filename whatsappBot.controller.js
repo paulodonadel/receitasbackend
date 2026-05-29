@@ -44,9 +44,10 @@ const sendMainMenu = async (phone, firstName = null) => {
         title: 'Serviços',
         rows: [
           { id: 'MENU_PRESCRIPTION', title: '💊 Renovação de receita', description: 'Solicitar renovação' },
-          { id: 'MENU_APPOINTMENT', title: '📅 Agendamento', description: 'Consultas e retornos' },
+          { id: 'MENU_APPOINTMENT', title: '📅 Agendamento', description: 'Marcar uma consulta' },
           { id: 'MENU_QUESTION', title: '💬 Dúvida médica', description: 'Enviar uma dúvida' },
           { id: 'MENU_EXAM', title: '📋 Resultado de exames', description: 'Enviar resultado' },
+          { id: 'MENU_RECEPTION', title: '🗣️ Falar com a recepção', description: 'Atendimento geral' },
           { id: 'MENU_INFO', title: 'ℹ️ Informações', description: 'Endereço e telefones' }
         ]
       }
@@ -73,10 +74,15 @@ const findUserByPhone = async (normalizedPhone) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Create chat thread + first message (for question/exam/appointment)
 // ─────────────────────────────────────────────────────────────────────────────
-const createBotChatThread = async (user, categoryNameHint, messageContent) => {
+const createBotChatThread = async (user, categoryNameHint, messageContent, destinee = null, subjectOverride = null) => {
   try {
-    // Try to find a matching category
-    let category = await ChatCategory.findOne({ name: new RegExp(categoryNameHint, 'i') }).lean();
+    // Try to find a matching category (try multiple hints)
+    const hints = Array.isArray(categoryNameHint) ? categoryNameHint : [categoryNameHint];
+    let category = null;
+    for (const hint of hints) {
+      category = await ChatCategory.findOne({ name: new RegExp(hint, 'i') }).lean();
+      if (category) break;
+    }
     if (!category) {
       category = await ChatCategory.findOne().sort({ order: 1 }).lean();
     }
@@ -88,8 +94,8 @@ const createBotChatThread = async (user, categoryNameHint, messageContent) => {
       patientName: user.name,
       patientEmail: user.email || '',
       category: category._id,
-      categoryName: category.name,
-      currentDestinee: category.defaultDirector || 'secretary',
+      categoryName: subjectOverride || category.name,
+      currentDestinee: destinee || category.defaultDirector || 'secretary',
       status: 'recebido',
       internalPendingLevel: 'pending'
     });
@@ -265,6 +271,28 @@ const processIncomingMessage = async (body) => {
         interactiveReplyId = msg.interactive.button_reply?.id || '';
         interactiveReplyTitle = msg.interactive.button_reply?.title || '';
       }
+    }
+
+    // ─── Reject audio/voice — not supported ─────────────────────────────────
+    if (type === 'audio' || type === 'voice') {
+      await sendText(
+        phone,
+        `🎤 Não consigo processar mensagens de *áudio*.\n\nPor favor, envie sua mensagem por *texto*. 😊`
+      );
+      session.updatedAt = new Date();
+      await session.save();
+      return;
+    }
+
+    // ─── MENU_* reply always resets any in-progress flow ────────────────────
+    // Allows the patient to restart from the menu even mid-flow
+    if (interactiveReplyId && interactiveReplyId.startsWith('MENU_')) {
+      session.step = 'MENU';
+      session.flow = null;
+      session.data = {};
+      session.markModified('data');
+      session.updatedAt = new Date();
+      await session.save();
     }
 
     const currentStep = session.step || 'IDLE';
@@ -571,12 +599,11 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
     }
 
     case 'MENU_APPOINTMENT': {
-      await sendText(phone, CLINIC_INFO);
       await sendInteractiveButtons(
         phone,
-        'Deseja falar com a secretaria para agendar ou ver mais informações?',
+        `📅 *Agendamento de consulta*\n\nDescreva o motivo do agendamento (ex: "primeira consulta", "estou com crise") ou clique no botão para chamar a secretaria diretamente:`,
         [
-          { id: 'APPT_SECRETARY', title: 'Falar com secretaria' },
+          { id: 'APPT_SECRETARY', title: 'Chamar secretaria' },
           { id: 'APPT_INFO', title: 'Ver informações' }
         ]
       );
@@ -585,8 +612,21 @@ const handleMenuStep = async (session, phone, replyId, linkedUser) => {
       break;
     }
 
+    case 'MENU_RECEPTION': {
+      await sendInteractiveButtons(
+        phone,
+        `🗣️ *Falar com a recepção*\n\nDescreva o que você precisa ou clique no botão para chamar a recepção diretamente:`,
+        [
+          { id: 'APPT_SECRETARY', title: 'Chamar a recepção' }
+        ]
+      );
+      session.step = 'APPOINTMENT_AWAIT';
+      session.flow = 'reception';
+      break;
+    }
+
     case 'MENU_QUESTION': {
-      await sendText(phone, 'Por favor, digite sua dúvida médica e enviarei para o Dr. Paulo responder:');
+      await sendText(phone, '💬 Digite sua dúvida médica e ela será encaminhada ao *Dr. Paulo* para resposta:');
       session.step = 'QUESTION_AWAIT';
       session.flow = 'question';
       break;
@@ -1052,14 +1092,16 @@ const handleQuestionStep = async (session, phone, textContent, type, linkedUser)
   if (user) {
     const thread = await createBotChatThread(
       user,
-      'dúvida',
-      `[Via WhatsApp] ${questionText}`
+      ['dúvida', 'duvida', 'médic', 'medic', 'questão'],
+      `[Via WhatsApp] ${questionText}`,
+      'doctor',          // ← destinatário: médico
+      'Dúvida Médica'    // ← assunto fixo independente da categoria do BD
     );
 
     if (thread) {
       await sendText(
         phone,
-        `✅ Sua dúvida foi registrada no sistema!\n\nO Dr. Paulo responderá em breve. Acompanhe em *paulodonadel.com.br*.`
+        `✅ Sua dúvida foi registrada!\n\nO *Dr. Paulo* responderá em breve. Acompanhe o status em *paulodonadel.com.br*.`
       );
     } else {
       await createFallbackWhatsappMessage(user.name, phone, `Dúvida médica: ${questionText}`, null);
@@ -1069,7 +1111,6 @@ const handleQuestionStep = async (session, phone, textContent, type, linkedUser)
       );
     }
   } else {
-    // No user found — use fallback
     await createFallbackWhatsappMessage('Paciente WhatsApp', phone, `Dúvida médica: ${questionText}`, null);
     await sendText(
       phone,
@@ -1093,9 +1134,13 @@ const handleExamStep = async (session, phone, textContent, type, msg, linkedUser
     : `[Via WhatsApp] Aviso de exame: ${textContent || 'Arquivo enviado pelo WhatsApp'}`;
 
   if (user) {
-    const thread = await createBotChatThread(user, 'exam', noteContent) ||
-                   await createBotChatThread(user, 'resultado', noteContent);
-
+    const thread = await createBotChatThread(
+      user,
+      ['exame', 'exam', 'resultado', 'result'],
+      noteContent,
+      'doctor',
+      'Resultado de Exame'
+    );
     if (!thread) {
       await createFallbackWhatsappMessage(user.name, phone, noteContent, null);
     }
@@ -1165,6 +1210,7 @@ const handleAwaitingRegistrationStep = async (session, phone, textContent, linke
 
 const handleAppointmentStep = async (session, phone, replyId, textContent, linkedUser) => {
   const user = linkedUser || (session.userId ? await User.findById(session.userId).lean() : null);
+  const isReception = session.flow === 'reception';
 
   if (replyId === 'APPT_INFO') {
     await sendText(phone, CLINIC_INFO);
@@ -1175,13 +1221,36 @@ const handleAppointmentStep = async (session, phone, replyId, textContent, linke
     return;
   }
 
-  // APPT_SECRETARY or any text — register scheduling request
-  const noteContent = `[Via WhatsApp] Solicitação de agendamento. Paciente pediu contato da secretaria.`;
+  // Build note content — use patient's typed message if available
+  let noteContent;
+  if (replyId === 'APPT_SECRETARY' && !textContent?.trim()) {
+    noteContent = isReception
+      ? '[Via WhatsApp] Paciente solicitou atendimento na recepção.'
+      : '[Via WhatsApp] Paciente solicitou agendamento de consulta.';
+  } else if (textContent && textContent.trim()) {
+    const prefix = isReception ? 'Recepção' : 'Agendamento';
+    noteContent = `[Via WhatsApp] ${prefix}: ${textContent.trim()}`;
+  } else {
+    // Nothing typed and no button — re-prompt
+    const promptText = isReception
+      ? `🗣️ Descreva o que você precisa ou clique no botão para chamar a recepção:`
+      : `📅 Descreva o motivo do agendamento ou clique no botão para chamar a secretaria:`;
+    await sendInteractiveButtons(phone, promptText, [
+      { id: 'APPT_SECRETARY', title: isReception ? 'Chamar a recepção' : 'Chamar secretaria' }
+    ]);
+    return;
+  }
+
+  const subject = isReception ? 'Falar com a Recepção' : 'Agendamento de Consulta';
 
   if (user) {
-    const thread = await createBotChatThread(user, 'agendamento', noteContent) ||
-                   await createBotChatThread(user, 'consulta', noteContent);
-
+    const thread = await createBotChatThread(
+      user,
+      ['agendamento', 'consulta', 'marcação', 'recepção'],
+      noteContent,
+      'secretary',
+      subject
+    );
     if (!thread) {
       await createFallbackWhatsappMessage(user.name, phone, noteContent, null);
     }
@@ -1189,10 +1258,11 @@ const handleAppointmentStep = async (session, phone, replyId, textContent, linke
     await createFallbackWhatsappMessage('Paciente WhatsApp', phone, noteContent, null);
   }
 
-  await sendText(
-    phone,
-    `✅ Sua solicitação foi encaminhada para a secretaria!\n\nAguarde o contato pelos telefones:\n📞 (53) 3241-6966 | (53) 3311-0444\n\nOu agende diretamente em *paulodonadel.com.br*.`
-  );
+  const confirmMsg = isReception
+    ? `✅ Sua mensagem foi encaminhada para a *recepção*!\n\nAguarde o contato:\n📞 (53) 3241-6966 | (53) 3311-0444`
+    : `✅ Solicitação de agendamento encaminhada para a *secretaria*!\n\nAguarde o contato:\n📞 (53) 3241-6966 | (53) 3311-0444\n\nOu agende diretamente em *paulodonadel.com.br*.`;
+
+  await sendText(phone, confirmMsg);
 
   session.step = 'IDLE';
   session.flow = null;
