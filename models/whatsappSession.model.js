@@ -18,6 +18,7 @@ const WhatsappSessionSchema = new mongoose.Schema(
         'IDLE',
         'IDENTITY_VERIFY',
         'AWAITING_REGISTRATION',
+        'PHONE_LINK_CPF',
         'MENU',
         'PRESCRIPTION_DELIVERY',
         'PRESCRIPTION_MEDICATION',

@@ -314,6 +314,11 @@ const processIncomingMessage = async (body) => {
         break;
       }
 
+      case 'PHONE_LINK_CPF': {
+        await handlePhoneLinkCpfStep(session, phone, textContent);
+        break;
+      }
+
       case 'IDLE':
       default: {
         await handleIdleStep(session, phone, linkedUser);
@@ -331,19 +336,94 @@ const processIncomingMessage = async (body) => {
 const normalizeCpf = (cpf) => String(cpf || '').replace(/\D/g, '');
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHONE_LINK_CPF: already-registered user links their WhatsApp number
+// ─────────────────────────────────────────────────────────────────────────────
+const handlePhoneLinkCpfStep = async (session, phone, textContent) => {
+  const inputCpf = normalizeCpf(textContent);
+
+  if (!inputCpf || inputCpf.length < 11) {
+    await sendText(
+      phone,
+      `Por favor, informe seu *CPF* (apenas números, 11 dígitos) para vincular sua conta.\n\n` +
+      `Ou acesse *paulodonadel.com.br/register* para criar uma conta nova.`
+    );
+    session.updatedAt = new Date();
+    await session.save();
+    return;
+  }
+
+  // Search user by CPF
+  const user = await User.findOne({ Cpf: inputCpf }).lean();
+
+  if (!user) {
+    session.step = 'IDLE';
+    session.updatedAt = new Date();
+    await session.save();
+    await sendText(
+      phone,
+      `❌ CPF *${inputCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}* não encontrado no sistema.\n\n` +
+      `Verifique se digitou corretamente, ou crie sua conta em:\n👉 *paulodonadel.com.br/register*`
+    );
+    return;
+  }
+
+  // Check if this phone is already linked to another account
+  const phoneAlreadyUsed = await User.findOne({
+    _id: { $ne: user._id },
+    phone: { $regex: phone.replace(/^55/, ''), $options: 'i' }
+  }).lean();
+
+  if (phoneAlreadyUsed) {
+    session.step = 'IDLE';
+    session.updatedAt = new Date();
+    await session.save();
+    await sendText(
+      phone,
+      `⚠️ Este número de WhatsApp já está vinculado a outra conta.\n` +
+      `Se houver algum problema, entre em contato com a clínica:\n📞 (53) 3241-6966`
+    );
+    return;
+  }
+
+  // Link the phone to this user account
+  await User.findByIdAndUpdate(user._id, {
+    phone: phone.startsWith('55') ? phone.slice(2) : phone
+  });
+
+  const firstName = user.name ? user.name.split(' ')[0] : 'Paciente';
+
+  session.userId = user._id;
+  session.verified = true;
+  session.verifiedAt = new Date();
+  session.verifyAttempts = 0;
+  session.step = 'MENU';
+  session.updatedAt = new Date();
+  await session.save();
+
+  await sendText(
+    phone,
+    `✅ Pronto, *${firstName}*! Seu WhatsApp foi vinculado à sua conta.\n\n` +
+    `Da próxima vez, basta informar seu *CPF* para entrar. Veja o menu abaixo:`
+  );
+  await sendMainMenu(phone);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // IDLE: entry point — checks registration and verification
 // ─────────────────────────────────────────────────────────────────────────────
 const handleIdleStep = async (session, phone, linkedUser) => {
-  // 1. Not registered → ask to register
+  // 1. Phone not in database
   if (!linkedUser) {
     await sendText(
       phone,
       `👋 Olá! Bem-vindo à *Clínica Dr. Paulo Donadel*.\n\n` +
-      `Para usar este serviço, você precisa criar sua conta no sistema:\n\n` +
-      `👉 *paulodonadel.com.br/register*\n\n` +
-      `Cadastre-se informando seu *número de telefone* e *CPF*. Depois, envie qualquer mensagem aqui para continuar. 😊`
+      `Este número não está vinculado a nenhuma conta.\n\n` +
+      `*Opção 1 — Criar conta nova:*\n` +
+      `👉 paulodonadel.com.br/register\n\n` +
+      `*Opção 2 — Já tem conta?*\n` +
+      `Digite seu *CPF* (apenas números) para vincular este WhatsApp à sua conta existente:`
     );
-    // Stay IDLE — next message will retry
+    session.step = 'PHONE_LINK_CPF';
     session.updatedAt = new Date();
     await session.save();
     return;
