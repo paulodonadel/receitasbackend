@@ -7,6 +7,7 @@ const {
   addWeeklyPattern,
   removeWeeklyPattern,
   addException,
+  addExceptionsBatch,
   removeException,
   checkAvailability,
   getAvailableSlots
@@ -30,6 +31,7 @@ router.delete('/:doctorId/weekly-pattern/:dayOfWeek', authorize('admin'), remove
 
 // Exceções
 router.post('/:doctorId/exception', authorize('admin'), addException);
+router.post('/:doctorId/exceptions/batch', authorize('admin'), addExceptionsBatch);
 router.delete('/:doctorId/exception/:exceptionId', authorize('admin'), removeException);
 
 // Obter e atualizar disponibilidade

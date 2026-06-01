@@ -332,6 +332,47 @@ exports.addException = async (req, res) => {
   }
 };
 
+// @desc    Adicionar múltiplas exceções de uma vez (batch)
+// @route   POST /api/rep-availability/:doctorId/exceptions/batch
+// @access  Admin
+exports.addExceptionsBatch = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { dates, isAvailable, reason, timeSlots } = req.body;
+
+    if (!Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ success: false, error: 'Informe ao menos uma data' });
+    }
+
+    let availability = await RepAvailability.findOne({ doctorId });
+    if (!availability) {
+      availability = await RepAvailability.create({ doctorId });
+    }
+
+    dates.forEach((dateStr) => {
+      const targetDate = new Date(dateStr);
+      // Remove exceção existente para o mesmo dia, se houver
+      availability.exceptions = availability.exceptions.filter(exc => {
+        const excDate = new Date(exc.date);
+        return excDate.toDateString() !== targetDate.toDateString();
+      });
+      availability.exceptions.push({
+        date: targetDate,
+        isAvailable: isAvailable ?? false,
+        reason: reason || '',
+        timeSlots: timeSlots || []
+      });
+    });
+
+    await availability.save();
+
+    res.status(200).json({ success: true, data: availability });
+  } catch (error) {
+    console.error('Erro ao adicionar exceções em batch:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Remover exceção
 // @route   DELETE /api/rep-availability/:doctorId/exception/:exceptionId
 // @access  Admin

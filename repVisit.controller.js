@@ -482,12 +482,37 @@ exports.getTodayVisits = async (req, res) => {
 exports.checkIn = async (req, res) => {
   try {
     console.log('🔵 [CHECK-IN] Iniciando check-in para visita:', req.params.id);
-    
+
     const visit = await RepVisit.findById(req.params.id);
-    
+
     if (!visit) {
       console.log('❌ [CHECK-IN] Visita não encontrada:', req.params.id);
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
+    }
+
+    // Verificar se o médico está disponível para receber representantes
+    const availability = await RepAvailability.findOne({ doctorId: visit.doctorId });
+    if (availability) {
+      // Bloquear se status geral estiver indisponível
+      if (!availability.isAvailable) {
+        return res.status(400).json({
+          success: false,
+          error: 'O médico está indisponível para receber representantes no momento.'
+        });
+      }
+      // Bloquear se hoje tiver exceção de indisponibilidade
+      const today = new Date();
+      const todayException = availability.exceptions.find(exc => {
+        const excDate = new Date(exc.date);
+        return excDate.toDateString() === today.toDateString();
+      });
+      if (todayException && !todayException.isAvailable) {
+        const reason = todayException.reason ? ` (${todayException.reason})` : '';
+        return res.status(400).json({
+          success: false,
+          error: `O médico está indisponível hoje${reason}.`
+        });
+      }
     }
     
     console.log('📋 [CHECK-IN] Visita atual:', {
