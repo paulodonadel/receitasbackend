@@ -31,6 +31,12 @@ const medicationDatabase = {
     variations: ['exodus', 'exodos', 'reconter', 'esc', 'lexapro', 'literata'],
     commercialNames: ['Exodus', 'Reconter', 'Lexapro', 'Literata']
   },
+  'fluvoxamina': {
+    activeIngredient: 'Fluvoxamina',
+    class: 'Antidepressivo ISRS',
+    variations: ['revoc', 'semtri'],
+    commercialNames: ['Revoc', 'Semtri']
+  },
   'fluoxetina': {
     activeIngredient: 'Fluoxetina',
     class: 'Antidepressivo ISRS',
@@ -46,8 +52,8 @@ const medicationDatabase = {
   'paroxetina': {
     activeIngredient: 'Paroxetina',
     class: 'Antidepressivo ISRS',
-    variations: ['paxil', 'aropax', 'cebrilin', 'pexeva'],
-    commercialNames: ['Paxil', 'Aropax', 'Cebrilin', 'Pexeva']
+    variations: ['paxil', 'aropax', 'cebrilin', 'pexeva', 'paxtrat'],
+    commercialNames: ['Paxil', 'Aropax', 'Cebrilin', 'Pexeva', 'Paxtrat']
   },
   'citalopram': {
     activeIngredient: 'Citalopram',
@@ -268,8 +274,8 @@ const medicationDatabase = {
   'quetiapina': {
     activeIngredient: 'Quetiapina',
     class: 'Antipsicótico Atípico',
-    variations: ['seroquel', 'quetidin', 'zargus'],
-    commercialNames: ['Seroquel', 'Quetidin', 'Zargus']
+    variations: ['seroquel', 'quetidin', 'zargus', 'quepsia'],
+    commercialNames: ['Seroquel', 'Quetidin', 'Zargus', 'Quepsia']
   },
   'risperidona': {
     activeIngredient: 'Risperidona',
@@ -286,8 +292,8 @@ const medicationDatabase = {
   'aripiprazol': {
     activeIngredient: 'Aripiprazol',
     class: 'Antipsicótico Atípico',
-    variations: ['abilify', 'aristab'],
-    commercialNames: ['Abilify', 'Aristab']
+    variations: ['abilify', 'aristab', 'arpejo', 'biquiz'],
+    commercialNames: ['Abilify', 'Aristab', 'Arpejo', 'Biquiz']
   },
   'ziprasidona': {
     activeIngredient: 'Ziprasidona',
@@ -310,8 +316,8 @@ const medicationDatabase = {
   'lurasidona': {
     activeIngredient: 'Lurasidona',
     class: 'Antipsicótico Atípico',
-    variations: ['latuda'],
-    commercialNames: ['Latuda']
+    variations: ['latuda', 'lubip'],
+    commercialNames: ['Latuda', 'Lubip']
   },
   'cariprazina': {
     activeIngredient: 'Cariprazina',
@@ -330,8 +336,8 @@ const medicationDatabase = {
   'valproato': {
     activeIngredient: 'Ácido Valproico',
     class: 'Estabilizador de Humor',
-    variations: ['depakote', 'depakene', 'valproato de sodio'],
-    commercialNames: ['Depakote', 'Depakene']
+    variations: ['depakote', 'depakene', 'valproato de sodio', 'torval', 'duepoli'],
+    commercialNames: ['Depakote', 'Depakene', 'Torval', 'Duepoli']
   },
   'topiramato': {
     activeIngredient: 'Topiramato',
@@ -360,8 +366,8 @@ const medicationDatabase = {
   'pregabalina': {
     activeIngredient: 'Pregabalina',
     class: 'Anticonvulsivante / Ansiolítico',
-    variations: ['lyrica'],
-    commercialNames: ['Lyrica']
+    variations: ['lyrica', 'mobale'],
+    commercialNames: ['Lyrica', 'Mobale']
   },
 
   // Hipnóticos / Indutores de sono
