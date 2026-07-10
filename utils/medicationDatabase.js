@@ -354,8 +354,14 @@ const medicationDatabase = {
   'lamotrigina': {
     activeIngredient: 'Lamotrigina',
     class: 'Anticonvulsivante / Estabilizador de Humor',
-    variations: ['lamictal', 'neurin'],
-    commercialNames: ['Lamictal', 'Neurin']
+    variations: ['lamictal', 'neurin', 'neural'],
+    commercialNames: ['Lamictal', 'Neurin', 'Neural']
+  },
+  'pregabalina': {
+    activeIngredient: 'Pregabalina',
+    class: 'Anticonvulsivante / Ansiolítico',
+    variations: ['lyrica'],
+    commercialNames: ['Lyrica']
   },
 
   // Hipnóticos / Indutores de sono
@@ -467,6 +473,15 @@ function normalizeMedicationName(name) {
 }
 
 /**
+ * Verdadeiro se o trecho é só uma dosagem (com ou sem unidade), sem
+ * nenhuma letra que possa ser o nome de um medicamento. Ex: "200mg", "75 MG".
+ */
+function isPureDosageFragment(text) {
+  if (!text || typeof text !== 'string') return false;
+  return /^[\d.,\s-]+\s*(mg|mcg|ug|µg|ml|g|ui|iu|cp|comprimidos?|capsulas?|gotas)?\.?$/i.test(text.trim());
+}
+
+/**
  * Procura uma correspondência EXATA (após normalização) de uma única
  * palavra/trecho contra as chaves e variações do catálogo fixo.
  */
@@ -524,7 +539,7 @@ function maxAllowedDistance(len) {
  * para reduzir falsos positivos entre medicamentos não relacionados.
  */
 function findFuzzyMatch(normalizedTerm, customMappingsCache) {
-  if (!normalizedTerm || normalizedTerm.length < 5) return null;
+  if (!normalizedTerm || normalizedTerm.length < 4) return null;
 
   let best = null;
   let bestDistance = Infinity;
@@ -648,6 +663,22 @@ function identifyActiveIngredient(medicationName, customMappingsCache = null) {
     const unmatchedParts = [];
 
     for (const part of parts) {
+      // Fragmento que é só dosagem (ex: "200mg", "75 mg" sobrando de uma lista
+      // "Medicamento X 100mg, 200mg" com duas caixas do mesmo remédio). Não dá
+      // para identificar um medicamento a partir só de um número, então junta
+      // ao medicamento identificado imediatamente antes, em vez de reportar
+      // como "não identificado" (que seria ruído, não um remédio desconhecido).
+      if (isPureDosageFragment(part)) {
+        if (identifiedParts.length > 0) {
+          const previous = identifiedParts[identifiedParts.length - 1];
+          identifiedParts.push({ name: part, activeIngredient: previous.activeIngredient, class: previous.class });
+        }
+        // Sem medicamento identificado antes dele, um fragmento só de dosagem
+        // não tem como ser cadastrado (não há nome nenhum) - é descartado
+        // silenciosamente em vez de poluir a lista de não identificados.
+        continue;
+      }
+
       const partInfo = identifyActiveIngredient(part, customMappingsCache);
       if (partInfo.matchType === 'not_found') {
         unmatchedParts.push(part);
@@ -813,5 +844,6 @@ module.exports = {
   identifyActiveIngredient,
   groupByActiveIngredient,
   splitCompoundMedication,
-  levenshteinDistance
+  levenshteinDistance,
+  isPureDosageFragment
 };

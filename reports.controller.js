@@ -1,7 +1,7 @@
 const Prescription = require('./models/prescription.model');
 const User = require('./models/user.model');
 const Reminder = require('./models/reminder.model');
-const { identifyActiveIngredient, groupByActiveIngredient } = require('./utils/medicationDatabase');
+const { identifyActiveIngredient, groupByActiveIngredient, isPureDosageFragment } = require('./utils/medicationDatabase');
 
 // @desc    Obter estatísticas gerais do sistema
 // @route   GET /api/reports/overview
@@ -523,7 +523,10 @@ exports.getMedicationStats = async (req, res) => {
         topMedications: topMedications,
         unidentified: {
           count: grouped.unidentified.length,
-          list: [...new Set(grouped.unidentified)].slice(0, 20) // Primeiros 20 únicos
+          // Fragmentos que são só dosagem (ex: "200mg" sobrando de uma receita
+          // sem nome de medicamento) entram na contagem, mas não fazem sentido
+          // como chip "cadastrar medicamento" - não há nome nenhum ali.
+          list: [...new Set(grouped.unidentified.filter(m => !isPureDosageFragment(m)))].slice(0, 20)
         }
       }
     });
