@@ -8,14 +8,14 @@ const medicationDatabase = {
   'lisdexanfetamina': {
     activeIngredient: 'Lisdexanfetamina',
     class: 'Estimulante',
-    variations: ['venvanse', 'venvance', 'vyvanse', 'elvanse', 'lyberdia', 'lysdexa'],
-    commercialNames: ['Venvanse', 'Vyvanse', 'Elvanse', 'Lyberdia', 'Lysdexa']
+    variations: ['venvanse', 'venvance', 'vyvanse', 'elvanse', 'lyberdia', 'lysdexa', 'lind'],
+    commercialNames: ['Venvanse', 'Vyvanse', 'Elvanse', 'Lyberdia', 'Lysdexa', 'Lind']
   },
   'metilfenidato': {
     activeIngredient: 'Metilfenidato',
     class: 'Estimulante',
-    variations: ['ritalina', 'ritalin', 'concerta', 'ritrocel'],
-    commercialNames: ['Ritalina', 'Concerta', 'Ritrocel']
+    variations: ['ritalina', 'ritalin', 'concerta', 'ritrocel', 'medato'],
+    commercialNames: ['Ritalina', 'Concerta', 'Ritrocel', 'Medato']
   },
   'atomoxetina': {
     activeIngredient: 'Atomoxetina',
@@ -28,8 +28,8 @@ const medicationDatabase = {
   'escitalopram': {
     activeIngredient: 'Escitalopram',
     class: 'Antidepressivo ISRS',
-    variations: ['exodus', 'exodos', 'reconter', 'esc', 'lexapro', 'literata'],
-    commercialNames: ['Exodus', 'Reconter', 'Lexapro', 'Literata']
+    variations: ['exodus', 'exodos', 'reconter', 'esc', 'lexapro', 'literata', 'eficentus'],
+    commercialNames: ['Exodus', 'Reconter', 'Lexapro', 'Literata', 'Eficentus']
   },
   'fluvoxamina': {
     activeIngredient: 'Fluvoxamina',
@@ -46,14 +46,14 @@ const medicationDatabase = {
   'sertralina': {
     activeIngredient: 'Sertralina',
     class: 'Antidepressivo ISRS',
-    variations: ['zoloft', 'tolrest', 'serenata', 'assert', 'sercerin', 'novativ'],
-    commercialNames: ['Zoloft', 'Tolrest', 'Serenata', 'Assert', 'Sercerin', 'Novativ']
+    variations: ['zoloft', 'tolrest', 'serenata', 'assert', 'sercerin', 'novativ', 'afetus'],
+    commercialNames: ['Zoloft', 'Tolrest', 'Serenata', 'Assert', 'Sercerin', 'Novativ', 'Afetus']
   },
   'paroxetina': {
     activeIngredient: 'Paroxetina',
     class: 'Antidepressivo ISRS',
-    variations: ['paxil', 'aropax', 'cebrilin', 'pexeva', 'paxtrat'],
-    commercialNames: ['Paxil', 'Aropax', 'Cebrilin', 'Pexeva', 'Paxtrat']
+    variations: ['paxil', 'aropax', 'cebrilin', 'pexeva', 'paxtrat', 'sincro', 'syncro'],
+    commercialNames: ['Paxil', 'Aropax', 'Cebrilin', 'Pexeva', 'Paxtrat', 'Sincro']
   },
   'citalopram': {
     activeIngredient: 'Citalopram',
@@ -74,8 +74,8 @@ const medicationDatabase = {
     class: 'Antidepressivo IRSN',
     // NOTA: "Pondera" estava mapeado como Paroxetina no banco anterior - corrigido
     // aqui para Desvenlafaxina (marca da Zydus/EMS). Por favor confirme.
-    variations: ['pondera', 'desduo', 'pristiq'],
-    commercialNames: ['Pondera', 'Pondera XR', 'Desduo', 'Pristiq']
+    variations: ['pondera', 'desduo', 'pristiq', 'deller'],
+    commercialNames: ['Pondera', 'Pondera XR', 'Desduo', 'Pristiq', 'Deller']
   },
   'duloxetina': {
     activeIngredient: 'Duloxetina',
@@ -170,8 +170,8 @@ const medicationDatabase = {
   'trazodona': {
     activeIngredient: 'Trazodona',
     class: 'Antagonista e inibidor da recaptação da serotonina - SARI',
-    variations: ['donaren'],
-    commercialNames: ['Donaren']
+    variations: ['donaren', 'inseris'],
+    commercialNames: ['Donaren', 'Inseris']
   },
 
   // Ansiolíticos - Benzodiazepínicos
@@ -286,8 +286,8 @@ const medicationDatabase = {
   'olanzapina': {
     activeIngredient: 'Olanzapina',
     class: 'Antipsicótico Atípico',
-    variations: ['zyprexa'],
-    commercialNames: ['Zyprexa']
+    variations: ['zyprexa', 'crisapina'],
+    commercialNames: ['Zyprexa', 'Crisapina']
   },
   'aripiprazol': {
     activeIngredient: 'Aripiprazol',
@@ -386,8 +386,22 @@ const medicationDatabase = {
   'eszopiclona': {
     activeIngredient: 'Eszopiclona',
     class: 'Hipnótico',
-    variations: ['lunesta'],
-    commercialNames: ['Lunesta']
+    variations: ['lunesta', 'hezo'],
+    commercialNames: ['Lunesta', 'Hezo']
+  },
+
+  // Outros usados em psiquiatria / neurologia
+  'donepezila': {
+    activeIngredient: 'Donepezila',
+    class: 'Inibidor da Acetilcolinesterase',
+    variations: ['epez'],
+    commercialNames: ['Epez']
+  },
+  'tioridazina': {
+    activeIngredient: 'Tioridazina',
+    class: 'Antipsicótico Típico',
+    variations: ['unitidazin'],
+    commercialNames: ['Unitidazin']
   },
 
   // Dependência química
@@ -440,9 +454,12 @@ const medicationDatabase = {
 // Palavras que aparecem junto ao nome do medicamento mas não ajudam a
 // identificá-lo (preposições, forma farmacêutica, liberação prolongada etc.)
 const STOPWORDS = new Set([
-  'de', 'do', 'da', 'para', 'com', 'e',
-  'xr', 'cr', 'sr', 'er', 'lp', 'rp', 'od', 'oros', 'ret', 'retard',
-  'gotas', 'gota', 'comprimido', 'comprimidos', 'capsula', 'capsulas', 'cp'
+  'de', 'do', 'da', 'em', 'para', 'com', 'e',
+  'xr', 'cr', 'sr', 'er', 'lp', 'rp', 'od', 'oros', 'ret', 'retard', 'soltab',
+  'gotas', 'gota', 'comprimido', 'comprimidos', 'capsula', 'capsulas', 'cp',
+  // Sufixos de sal farmacêutico (ex: "cloridrato de X", "oxalato de Y") que
+  // não ajudam a identificar o princípio ativo em si
+  'cloridrato', 'oxalato', 'succinato', 'besilato', 'maleato', 'tartarato'
 ]);
 
 /**
