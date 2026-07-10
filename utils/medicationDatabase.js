@@ -34,20 +34,20 @@ const medicationDatabase = {
   'fluoxetina': {
     activeIngredient: 'Fluoxetina',
     class: 'Antidepressivo ISRS',
-    variations: ['prozac', 'daforin', 'fluxene'],
-    commercialNames: ['Prozac', 'Daforin', 'Fluxene']
+    variations: ['prozac', 'daforin', 'fluxene', 'verotina', 'eufor'],
+    commercialNames: ['Prozac', 'Daforin', 'Fluxene', 'Verotina', 'Eufor']
   },
   'sertralina': {
     activeIngredient: 'Sertralina',
     class: 'Antidepressivo ISRS',
-    variations: ['zoloft', 'tolrest', 'serenata'],
-    commercialNames: ['Zoloft', 'Tolrest', 'Serenata']
+    variations: ['zoloft', 'tolrest', 'serenata', 'assert', 'sercerin', 'novativ'],
+    commercialNames: ['Zoloft', 'Tolrest', 'Serenata', 'Assert', 'Sercerin', 'Novativ']
   },
   'paroxetina': {
     activeIngredient: 'Paroxetina',
     class: 'Antidepressivo ISRS',
-    variations: ['paxil', 'aropax'],
-    commercialNames: ['Paxil', 'Aropax']
+    variations: ['paxil', 'aropax', 'cebrilin', 'pexeva'],
+    commercialNames: ['Paxil', 'Aropax', 'Cebrilin', 'Pexeva']
   },
   'citalopram': {
     activeIngredient: 'Citalopram',
@@ -60,8 +60,8 @@ const medicationDatabase = {
   'venlafaxina': {
     activeIngredient: 'Venlafaxina',
     class: 'Antidepressivo IRSN',
-    variations: ['efexor', 'venlift', 'alenthus', 'velanfaxina'],
-    commercialNames: ['Efexor', 'Venlift', 'Alenthus']
+    variations: ['efexor', 'venlift', 'alenthus', 'velanfaxina', 'vencax'],
+    commercialNames: ['Efexor', 'Venlift', 'Alenthus', 'Vencax']
   },
   'desvenlafaxina': {
     activeIngredient: 'Desvenlafaxina',
@@ -74,8 +74,54 @@ const medicationDatabase = {
   'duloxetina': {
     activeIngredient: 'Duloxetina',
     class: 'Antidepressivo IRSN',
-    variations: ['cymbalta', 'velija'],
-    commercialNames: ['Cymbalta', 'Velija']
+    variations: ['cymbalta', 'velija', 'xevalin'],
+    commercialNames: ['Cymbalta', 'Velija', 'Xevalin']
+  },
+
+  // Antidepressivos - Tricíclicos
+  'amitriptilina': {
+    activeIngredient: 'Amitriptilina',
+    class: 'Antidepressivo Tricíclico',
+    variations: ['tryptanol', 'amytril', 'neurotrip'],
+    commercialNames: ['Tryptanol', 'Amytril']
+  },
+  'nortriptilina': {
+    activeIngredient: 'Nortriptilina',
+    class: 'Antidepressivo Tricíclico',
+    variations: ['pamelor'],
+    commercialNames: ['Pamelor']
+  },
+  'clomipramina': {
+    activeIngredient: 'Clomipramina',
+    class: 'Antidepressivo Tricíclico',
+    variations: ['anafranil'],
+    commercialNames: ['Anafranil']
+  },
+  'imipramina': {
+    activeIngredient: 'Imipramina',
+    class: 'Antidepressivo Tricíclico',
+    variations: ['tofranil'],
+    commercialNames: ['Tofranil']
+  },
+  'maprotilina': {
+    activeIngredient: 'Maprotilina',
+    class: 'Antidepressivo Tetracíclico',
+    variations: ['ludiomil'],
+    commercialNames: ['Ludiomil']
+  },
+
+  // Antidepressivos - IMAO
+  'moclobemida': {
+    activeIngredient: 'Moclobemida',
+    class: 'Antidepressivo IMAO',
+    variations: ['aurorix'],
+    commercialNames: ['Aurorix']
+  },
+  'tranilcipromina': {
+    activeIngredient: 'Tranilcipromina',
+    class: 'Antidepressivo IMAO',
+    variations: ['parnate'],
+    commercialNames: ['Parnate']
   },
 
   // Antidepressivos - outras classes
@@ -84,6 +130,12 @@ const medicationDatabase = {
     class: 'Antidepressivo NDRI',
     variations: ['wellbutrin', 'zetron'],
     commercialNames: ['Wellbutrin', 'Zetron']
+  },
+  'tianeptina': {
+    activeIngredient: 'Tianeptina',
+    class: 'Antidepressivo Atípico',
+    variations: ['stablon'],
+    commercialNames: ['Stablon']
   },
   'mirtazapina': {
     activeIngredient: 'Mirtazapina',
@@ -141,6 +193,30 @@ const medicationDatabase = {
     variations: ['lorax', 'ativan'],
     commercialNames: ['Lorax', 'Ativan']
   },
+  'bromazepam': {
+    activeIngredient: 'Bromazepam',
+    class: 'Benzodiazepínico',
+    variations: ['lexotan', 'somalium', 'norzepam'],
+    commercialNames: ['Lexotan', 'Somalium', 'Norzepam']
+  },
+  'clobazam': {
+    activeIngredient: 'Clobazam',
+    class: 'Benzodiazepínico',
+    variations: ['frisium', 'urbanil'],
+    commercialNames: ['Frisium', 'Urbanil']
+  },
+  'cloxazolam': {
+    activeIngredient: 'Cloxazolam',
+    class: 'Benzodiazepínico',
+    variations: ['olcadil'],
+    commercialNames: ['Olcadil']
+  },
+  'midazolam': {
+    activeIngredient: 'Midazolam',
+    class: 'Benzodiazepínico',
+    variations: ['dormonid'],
+    commercialNames: ['Dormonid']
+  },
 
   // Ansiolíticos - outras classes
   'buspirona': {
@@ -150,7 +226,45 @@ const medicationDatabase = {
     commercialNames: ['Ansitec']
   },
 
-  // Antipsicóticos
+  // Antipsicóticos - Típicos
+  'haloperidol': {
+    activeIngredient: 'Haloperidol',
+    class: 'Antipsicótico Típico',
+    variations: ['haldol'],
+    commercialNames: ['Haldol']
+  },
+  'clorpromazina': {
+    activeIngredient: 'Clorpromazina',
+    class: 'Antipsicótico Típico',
+    variations: ['amplictil'],
+    commercialNames: ['Amplictil']
+  },
+  'levomepromazina': {
+    activeIngredient: 'Levomepromazina',
+    class: 'Antipsicótico Típico',
+    variations: ['neozine'],
+    commercialNames: ['Neozine']
+  },
+  'periciazina': {
+    activeIngredient: 'Periciazina',
+    class: 'Antipsicótico Típico',
+    variations: ['neuleptil'],
+    commercialNames: ['Neuleptil']
+  },
+  'pimozida': {
+    activeIngredient: 'Pimozida',
+    class: 'Antipsicótico Típico',
+    variations: ['orap'],
+    commercialNames: ['Orap']
+  },
+  'zuclopentixol': {
+    activeIngredient: 'Zuclopentixol',
+    class: 'Antipsicótico Típico',
+    variations: ['clopixol'],
+    commercialNames: ['Clopixol']
+  },
+
+  // Antipsicóticos - Atípicos
   'quetiapina': {
     activeIngredient: 'Quetiapina',
     class: 'Antipsicótico Atípico',
@@ -175,6 +289,36 @@ const medicationDatabase = {
     variations: ['abilify', 'aristab'],
     commercialNames: ['Abilify', 'Aristab']
   },
+  'ziprasidona': {
+    activeIngredient: 'Ziprasidona',
+    class: 'Antipsicótico Atípico',
+    variations: ['geodon', 'zipsydon'],
+    commercialNames: ['Geodon', 'Zipsydon']
+  },
+  'clozapina': {
+    activeIngredient: 'Clozapina',
+    class: 'Antipsicótico Atípico',
+    variations: ['leponex'],
+    commercialNames: ['Leponex']
+  },
+  'paliperidona': {
+    activeIngredient: 'Paliperidona',
+    class: 'Antipsicótico Atípico',
+    variations: ['invega'],
+    commercialNames: ['Invega']
+  },
+  'lurasidona': {
+    activeIngredient: 'Lurasidona',
+    class: 'Antipsicótico Atípico',
+    variations: ['latuda'],
+    commercialNames: ['Latuda']
+  },
+  'cariprazina': {
+    activeIngredient: 'Cariprazina',
+    class: 'Antipsicótico Atípico',
+    variations: ['vraylar'],
+    commercialNames: ['Vraylar']
+  },
 
   // Estabilizadores de humor / anticonvulsivantes
   'carbonato de lítio': {
@@ -195,19 +339,43 @@ const medicationDatabase = {
     variations: ['topamax'],
     commercialNames: ['Topamax']
   },
+  'carbamazepina': {
+    activeIngredient: 'Carbamazepina',
+    class: 'Anticonvulsivante / Estabilizador de Humor',
+    variations: ['tegretol'],
+    commercialNames: ['Tegretol']
+  },
+  'oxcarbazepina': {
+    activeIngredient: 'Oxcarbazepina',
+    class: 'Anticonvulsivante / Estabilizador de Humor',
+    variations: ['trileptal'],
+    commercialNames: ['Trileptal']
+  },
+  'lamotrigina': {
+    activeIngredient: 'Lamotrigina',
+    class: 'Anticonvulsivante / Estabilizador de Humor',
+    variations: ['lamictal', 'neurin'],
+    commercialNames: ['Lamictal', 'Neurin']
+  },
 
   // Hipnóticos / Indutores de sono
   'zolpidem': {
     activeIngredient: 'Zolpidem',
     class: 'Hipnótico',
-    variations: ['stilnox', 'lioram'],
-    commercialNames: ['Stilnox', 'Lioram']
+    variations: ['stilnox', 'lioram', 'patz'],
+    commercialNames: ['Stilnox', 'Lioram', 'Patz']
   },
   'zopiclona': {
     activeIngredient: 'Zopiclona',
     class: 'Hipnótico',
     variations: ['imovane'],
     commercialNames: ['Imovane']
+  },
+  'eszopiclona': {
+    activeIngredient: 'Eszopiclona',
+    class: 'Hipnótico',
+    variations: ['lunesta'],
+    commercialNames: ['Lunesta']
   },
 
   // Dependência química
@@ -217,19 +385,43 @@ const medicationDatabase = {
     variations: ['revia'],
     commercialNames: ['Revia']
   },
+  'dissulfiram': {
+    activeIngredient: 'Dissulfiram',
+    class: 'Antagonista Opioide / Aversivo ao Álcool',
+    variations: ['antietanol'],
+    commercialNames: ['Antietanol']
+  },
+  'acamprosato': {
+    activeIngredient: 'Acamprosato',
+    class: 'Antagonista Opioide / Aversivo ao Álcool',
+    variations: ['campral'],
+    commercialNames: ['Campral']
+  },
 
   // Sexologia / hormônios (linha de atuação da clínica)
   'testosterona': {
     activeIngredient: 'Testosterona',
     class: 'Reposição Hormonal',
-    variations: ['durateston', 'deposteron', 'nebido'],
-    commercialNames: ['Durateston', 'Deposteron', 'Nebido']
+    variations: ['durateston', 'deposteron', 'nebido', 'androgel'],
+    commercialNames: ['Durateston', 'Deposteron', 'Nebido', 'Androgel']
   },
   'tadalafila': {
     activeIngredient: 'Tadalafila',
     class: 'Inibidor da PDE5',
     variations: ['cialis'],
     commercialNames: ['Cialis']
+  },
+  'sildenafila': {
+    activeIngredient: 'Sildenafila',
+    class: 'Inibidor da PDE5',
+    variations: ['viagra'],
+    commercialNames: ['Viagra']
+  },
+  'vardenafila': {
+    activeIngredient: 'Vardenafila',
+    class: 'Inibidor da PDE5',
+    variations: ['levitra'],
+    commercialNames: ['Levitra']
   }
 };
 
