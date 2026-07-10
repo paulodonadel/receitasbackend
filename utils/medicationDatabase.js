@@ -8,8 +8,8 @@ const medicationDatabase = {
   'lisdexanfetamina': {
     activeIngredient: 'Lisdexanfetamina',
     class: 'Estimulante',
-    variations: ['venvanse', 'venvance', 'vyvanse', 'elvanse', 'lyberdia'],
-    commercialNames: ['Venvanse', 'Vyvanse', 'Elvanse', 'Lyberdia']
+    variations: ['venvanse', 'venvance', 'vyvanse', 'elvanse', 'lyberdia', 'lysdexa'],
+    commercialNames: ['Venvanse', 'Vyvanse', 'Elvanse', 'Lyberdia', 'Lysdexa']
   },
   'metilfenidato': {
     activeIngredient: 'Metilfenidato',
@@ -68,8 +68,8 @@ const medicationDatabase = {
     class: 'Antidepressivo IRSN',
     // NOTA: "Pondera" estava mapeado como Paroxetina no banco anterior - corrigido
     // aqui para Desvenlafaxina (marca da Zydus/EMS). Por favor confirme.
-    variations: ['pondera', 'desduo'],
-    commercialNames: ['Pondera', 'Pondera XR', 'Desduo']
+    variations: ['pondera', 'desduo', 'pristiq'],
+    commercialNames: ['Pondera', 'Pondera XR', 'Desduo', 'Pristiq']
   },
   'duloxetina': {
     activeIngredient: 'Duloxetina',
@@ -210,6 +210,14 @@ const medicationDatabase = {
     commercialNames: ['Imovane']
   },
 
+  // Dependência química
+  'naltrexona': {
+    activeIngredient: 'Naltrexona',
+    class: 'Antagonista Opioide',
+    variations: ['revia'],
+    commercialNames: ['Revia']
+  },
+
   // Sexologia / hormônios (linha de atuação da clínica)
   'testosterona': {
     activeIngredient: 'Testosterona',
@@ -229,7 +237,7 @@ const medicationDatabase = {
 // identificá-lo (preposições, forma farmacêutica, liberação prolongada etc.)
 const STOPWORDS = new Set([
   'de', 'do', 'da', 'para', 'com', 'e',
-  'xr', 'cr', 'sr', 'er', 'lp', 'rp', 'oros', 'ret', 'retard',
+  'xr', 'cr', 'sr', 'er', 'lp', 'rp', 'od', 'oros', 'ret', 'retard',
   'gotas', 'gota', 'comprimido', 'comprimidos', 'capsula', 'capsulas', 'cp'
 ]);
 
