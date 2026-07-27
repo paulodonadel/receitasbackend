@@ -1180,6 +1180,9 @@ exports.updateThreadStatus = async (req, res, next) => {
 
     if (status !== 'urgente') {
       thread.isUrgent = false;
+      if (thread.internalPendingLevel === 'urgent_pending') {
+        thread.internalPendingLevel = 'pending';
+      }
     }
 
     await thread.save();
