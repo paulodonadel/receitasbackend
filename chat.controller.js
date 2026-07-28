@@ -25,6 +25,10 @@ const CHAT_ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain'
 ];
+// Transições de status que realmente importam para o paciente saber por push/e-mail.
+// iniciado/recebido/visualizado são bookkeeping interno (leitura pela equipe) e não notificam.
+const PATIENT_NOTIFIABLE_STATUSES = ['iniciado_atendimento', 'aguardando_resposta_paciente', 'resolvido', 'arquivado', 'urgente'];
+
 const INTERNAL_PENDING_PRIORITY = {
   none: 0,
   pending: 1,
@@ -627,6 +631,7 @@ exports.getThreads = async (req, res, next) => {
       search = '',
       patientId = '',
       destinee = '', // 'secretary' ou 'doctor'
+      internalPendingLevel = '', // lista separada por vírgula, ex: 'pending,urgent_pending'
       sortBy = 'recent'
     } = req.query;
 
@@ -680,6 +685,15 @@ exports.getThreads = async (req, res, next) => {
     // Filtro por destinatário
     if (destinee && (destinee === 'secretary' || destinee === 'doctor')) {
       query.currentDestinee = destinee;
+    }
+
+    // Filtro por pendência interna (usado pelos chips de filtro rápido do dashboard)
+    if (internalPendingLevel) {
+      const validLevels = ['none', 'pending', 'awaiting_patient', 'awaiting_internal', 'urgent_pending'];
+      const requestedLevels = internalPendingLevel.split(',').map((level) => level.trim()).filter((level) => validLevels.includes(level));
+      if (requestedLevels.length > 0) {
+        query.internalPendingLevel = { $in: requestedLevels };
+      }
     }
 
     // Busca por nome do paciente
@@ -1006,8 +1020,21 @@ exports.addMessage = async (req, res, next) => {
         title: 'Nova resposta da equipe',
         body: `Voce recebeu uma resposta em ${thread.categoryName}.`,
         threadId: thread._id?.toString(),
-        url: '/patient/chat'
+        url: `/patient/chat?thread=${thread._id?.toString()}`
       });
+
+      if (thread.patientEmail && thread.patientEmail.includes('@')) {
+        emailService.sendChatNewReplyEmail({
+          to: thread.patientEmail,
+          patientName: thread.patientName,
+          categoryName: thread.categoryName,
+          senderName: user.name,
+          messageExcerpt: storedContent.substring(0, 200),
+          threadId: thread._id?.toString()
+        }).catch((emailError) => {
+          console.error('❌ Erro ao enviar e-mail de nova resposta do chat:', emailError);
+        });
+      }
     } else if ((userRole === 'patient' || userRole === 'representante') && !thread.isInternalStaffChat) {
       await notifyStaffNativePush(thread, {
         type: 'new_patient_message',
@@ -1208,11 +1235,13 @@ exports.updateThreadStatus = async (req, res, next) => {
 
     await systemMessage.save();
 
-    if (userRole !== 'patient') {
+    if (userRole !== 'patient' && PATIENT_NOTIFIABLE_STATUSES.includes(status)) {
+      const friendlyStatus = emailService.CHAT_STATUS_LABELS_PT[status] || status;
+
       notifyPatientPush(thread, {
         type: 'status_changed',
         title: 'Status da sua conversa foi atualizado',
-        message: `Status alterado de ${oldStatus} para ${status}.`,
+        message: `Sua conversa agora esta: ${friendlyStatus}.`,
         oldStatus,
         newStatus: status
       });
@@ -1220,11 +1249,11 @@ exports.updateThreadStatus = async (req, res, next) => {
       await notifyPatientNativePush(thread, {
         type: 'status_changed',
         title: 'Status da conversa atualizado',
-        body: `Seu chat foi atualizado para ${status}.`,
+        body: `Seu chat agora esta: ${friendlyStatus}.`,
         oldStatus,
         newStatus: status,
         threadId: thread._id?.toString(),
-        url: '/patient/chat'
+        url: `/patient/chat?thread=${thread._id?.toString()}`
       });
 
       if (thread.patientEmail && thread.patientEmail.includes('@')) {
@@ -1232,9 +1261,9 @@ exports.updateThreadStatus = async (req, res, next) => {
           to: thread.patientEmail,
           patientName: thread.patientName,
           categoryName: thread.categoryName,
-          oldStatus,
           newStatus: status,
-          updatedBy: req.user?.name || userRole
+          updatedBy: req.user?.name || userRole,
+          threadId: thread._id?.toString()
         }).catch((emailError) => {
           console.error('❌ Erro ao enviar e-mail de status do chat:', emailError);
         });
