@@ -36,6 +36,25 @@ const INTERNAL_PENDING_PRIORITY = {
   awaiting_internal: 1,
   urgent_pending: 2
 };
+// Palavras-chave associadas a risco de suicídio, usadas na detecção automática
+// de urgência tanto ao criar uma thread quanto ao enviar mensagens numa existente.
+const SUICIDE_RISK_KEYWORDS = [
+  'morrer', 'morte', 'morto', 'não aguento mais',
+  'queria estar morto', 'queria morrer', 'não quero mais viver',
+  'dormir e nunca mais acordar', 'peso para os outros', 'melhor sem mim',
+  'vocês ficariam melhor sem mim', 'não vejo saída', 'não aguento sofrimento',
+  'não tenho motivos para viver', 'não tenho mais motivos', 'vou me matar',
+  'vou acabar com tudo', 'não vejo futuro', 'o que adianta'
+];
+
+const normalizeForKeywordMatch = (text) =>
+  (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const detectSuicideRiskKeywords = (text) => {
+  const normalizedMessage = normalizeForKeywordMatch(text);
+  return SUICIDE_RISK_KEYWORDS.filter((keyword) => normalizedMessage.includes(normalizeForKeywordMatch(keyword)));
+};
+
 const STATUS_SORT_PRIORITY = {
   urgente: 0,
   recebido: 1,
@@ -403,6 +422,7 @@ exports.createThread = async (req, res, next) => {
     const normalizedAttachments = normalizeAttachments(attachments);
     const fallbackContent = normalizedAttachments.some((item) => item.fileType === 'image') ? '[Imagem]' : '[Anexo]';
     const storedContent = trimmedMessage || fallbackContent;
+    const detectedKeywords = detectSuicideRiskKeywords(trimmedMessage);
 
     // Validações
     if (!categoryId || (!trimmedMessage && normalizedAttachments.length === 0)) {
@@ -454,6 +474,8 @@ exports.createThread = async (req, res, next) => {
       senderRole: userRole,
       content: storedContent,
       attachments: normalizedAttachments,
+      containsSuicideKeywords: detectedKeywords.length > 0,
+      suicideKeywordsDetected: detectedKeywords,
       isSystemMessage: false
     });
 
@@ -465,17 +487,67 @@ exports.createThread = async (req, res, next) => {
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = patientId;
     thread.lastMessageUserName = patient.name;
-    thread.status = 'recebido';
-    thread.internalPendingLevel = 'pending';
+
+    if (detectedKeywords.length > 0) {
+      thread.isUrgent = true;
+      thread.urgentReason = 'automatic_detection';
+      thread.status = 'urgente';
+      thread.internalPendingLevel = 'urgent_pending';
+      thread.containsSuicideKeywords = true;
+      thread.suicideKeywordsDetected = detectedKeywords;
+    } else {
+      thread.status = 'recebido';
+      thread.internalPendingLevel = 'pending';
+    }
 
     await thread.save();
 
     // Populate referencias
     await thread.populate('category');
 
+    if (detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante')) {
+      const crisisRecipientIds = await getStaffPushRecipientIds(thread);
+
+      await Promise.all(
+        crisisRecipientIds.map((recipientId) =>
+          notifySingleStaffNativePush(recipientId, {
+            type: 'crisis_alert',
+            title: '🚨 Possível urgência detectada',
+            body: `Detecção automática de risco na mensagem de ${thread.patientName} (${thread.categoryName}).`,
+            threadId: thread._id?.toString(),
+            url: '/admin/chat',
+            requireInteraction: true,
+            tag: `chat-crisis-${thread._id?.toString()}`,
+            vibrate: [500, 100, 500, 100, 500, 100, 900]
+          })
+        )
+      );
+
+      if (crisisRecipientIds.length > 0) {
+        const crisisRecipients = await User.find({ _id: { $in: crisisRecipientIds } }).select('email');
+        const crisisEmails = crisisRecipients.map((recipient) => recipient.email).filter((email) => email && email.includes('@'));
+
+        await Promise.all(
+          crisisEmails.map((to) =>
+            emailService.sendCrisisAlertEmail({
+              to,
+              patientName: thread.patientName,
+              categoryName: thread.categoryName,
+              messageExcerpt: storedContent.substring(0, 200),
+              threadId: thread._id?.toString()
+            }).catch((emailError) => {
+              console.error('❌ Erro ao enviar e-mail de alerta de risco:', emailError);
+            })
+          )
+        );
+      }
+    }
+
     emitChatEvent(thread, 'thread_created', {
       status: thread.status,
-      actorRole: userRole
+      actorRole: userRole,
+      preview: thread.lastMessage,
+      isCrisisAlert: detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante')
     });
 
     res.status(201).json({
@@ -914,19 +986,7 @@ exports.addMessage = async (req, res, next) => {
     }
 
     // Detecção de urgência (palavras-chave de suicídio)
-    const suicideKeywords = [
-      'morrer', 'morte', 'morto', 'não aguento mais',
-      'queria estar morto', 'queria morrer', 'não quero mais viver',
-      'dormir e nunca mais acordar', 'peso para os outros', 'melhor sem mim',
-      'vocês ficariam melhor sem mim', 'não vejo saída', 'não aguento sofrimento',
-      'não tenho motivos para viver', 'não tenho mais motivos', 'vou me matar',
-      'vou acabar com tudo', 'não vejo futuro', 'o que adianta'
-    ];
-
-    const normalizedMessage = trimmedContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const detectedKeywords = suicideKeywords.filter(kw => 
-      normalizedMessage.includes(kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
-    );
+    const detectedKeywords = detectSuicideRiskKeywords(trimmedContent);
 
     let replyTo = null;
     if (replyToMessageId) {
@@ -1008,6 +1068,46 @@ exports.addMessage = async (req, res, next) => {
 
     await thread.save();
 
+    // Alerta diferenciado quando a detecção automática de palavras-chave de risco
+    // dispara numa mensagem do próprio paciente (não numa resposta da equipe).
+    if (detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante') && !thread.isInternalStaffChat) {
+      const crisisRecipientIds = await getStaffPushRecipientIds(thread);
+
+      await Promise.all(
+        crisisRecipientIds.map((recipientId) =>
+          notifySingleStaffNativePush(recipientId, {
+            type: 'crisis_alert',
+            title: '🚨 Possível urgência detectada',
+            body: `Detecção automática de risco na mensagem de ${thread.patientName} (${thread.categoryName}).`,
+            threadId: thread._id?.toString(),
+            url: '/admin/chat',
+            requireInteraction: true,
+            tag: `chat-crisis-${thread._id?.toString()}`,
+            vibrate: [500, 100, 500, 100, 500, 100, 900]
+          })
+        )
+      );
+
+      if (crisisRecipientIds.length > 0) {
+        const crisisRecipients = await User.find({ _id: { $in: crisisRecipientIds } }).select('email');
+        const crisisEmails = crisisRecipients.map((recipient) => recipient.email).filter((email) => email && email.includes('@'));
+
+        await Promise.all(
+          crisisEmails.map((to) =>
+            emailService.sendCrisisAlertEmail({
+              to,
+              patientName: thread.patientName,
+              categoryName: thread.categoryName,
+              messageExcerpt: storedContent.substring(0, 200),
+              threadId: thread._id?.toString()
+            }).catch((emailError) => {
+              console.error('❌ Erro ao enviar e-mail de alerta de risco:', emailError);
+            })
+          )
+        );
+      }
+    }
+
     if (userRole !== 'patient' && userRole !== 'representante' && !thread.isInternalStaffChat) {
       notifyPatientPush(thread, {
         type: 'new_reply',
@@ -1051,7 +1151,8 @@ exports.addMessage = async (req, res, next) => {
     emitChatEvent(thread, 'message_added', {
       status: thread.status,
       actorRole: userRole,
-      preview: thread.lastMessage
+      preview: thread.lastMessage,
+      isCrisisAlert: detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante')
     });
 
     // Optional: send via WhatsApp if requested and 24h window is active

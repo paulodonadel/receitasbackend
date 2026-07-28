@@ -1266,6 +1266,74 @@ const buildChatButtonHtml = (threadId, label = 'Ver conversa completa') => `
 exports.CHAT_STATUS_LABELS_PT = CHAT_STATUS_LABELS_PT;
 
 /**
+ * Envia um e-mail interno urgente à equipe quando a detecção automática
+ * de palavras-chave de risco identifica uma mensagem do paciente.
+ * Serve de backup caso o push (silencioso/sem permissão) não chegue.
+ */
+exports.sendCrisisAlertEmail = async (options) => {
+  const {
+    to,
+    patientName,
+    categoryName,
+    messageExcerpt,
+    threadId
+  } = options;
+
+  const subject = `🚨 URGENTE: possível risco identificado - ${patientName || 'paciente'}`;
+  const excerpt = (messageExcerpt || '').trim();
+  const adminChatUrl = `${process.env.FRONTEND_URL || 'https://paulodonadel.com.br'}/admin/chat`;
+
+  const textBody = `
+ALERTA AUTOMATICO - POSSIVEL RISCO IDENTIFICADO
+
+Paciente: ${patientName || 'Nao identificado'}
+Assunto: ${categoryName || 'Chat'}
+
+Trecho da mensagem:
+"${excerpt || '(mensagem com anexo)'}"
+
+Nosso sistema de deteccao automatica identificou palavras-chave associadas a risco
+nesta mensagem. A conversa ja foi marcada como urgente no sistema.
+
+Acesse o quanto antes: ${adminChatUrl}
+  `.trim();
+
+  const htmlContent = `
+    <div style="text-align: center; margin-bottom: 20px; background-color: #fef2f2; padding: 16px; border-radius: 8px; border: 2px solid #dc2626;">
+      <h2 style="color: #b91c1c; margin: 0 0 8px 0;">🚨 Possível risco identificado</h2>
+      <p style="color: #7f1d1d; margin: 0;">Detecção automática de palavras-chave associadas a risco na mensagem do paciente.</p>
+    </div>
+
+    <div style="background-color: rgba(220, 38, 38, 0.05); padding: 22px; border-radius: 8px; border-left: 4px solid #dc2626;">
+      <p style="margin: 0 0 8px 0;"><strong>Paciente:</strong> ${patientName || 'Não identificado'}</p>
+      <p style="margin: 0 0 16px 0;"><strong>Assunto:</strong> ${categoryName || 'Chat'}</p>
+
+      <div style="background: rgba(255,255,255,0.9); padding: 16px; border-radius: 8px; border: 1px solid rgba(220, 38, 38, 0.25); font-style: italic; color: #334155;">
+        ${excerpt ? `"${excerpt}"` : '(mensagem com anexo)'}
+      </div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <a href="${adminChatUrl}" style="display: inline-block; background-color: #dc2626; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold;">
+          Abrir conversa agora
+        </a>
+      </div>
+
+      <p style="margin-top: 16px; font-size: 12px; color: #6c757d;">A conversa já foi marcada como urgente no sistema.</p>
+    </div>
+  `;
+
+  const htmlBody = createProfessionalEmailTemplate({
+    content: htmlContent,
+    subject,
+    useHeaderImage: false,
+    footerText: 'Alerta automático do sistema de chat — verificação humana necessária.',
+    emailType: 'notification'
+  });
+
+  return exports.sendEmail(to, subject, textBody, htmlBody);
+};
+
+/**
  * Envia um e-mail ao paciente avisando que a equipe respondeu no chat,
  * com um trecho da resposta e um link direto para a conversa.
  */
