@@ -246,6 +246,7 @@ const pushNotificationRoutes = require('./pushNotification.routes'); // Rotas de
 const massNotificationRoutes = require('./massNotification.routes'); // Rotas de notificacao em massa
 const prescriptionScheduleRoutes = require('./prescriptionSchedule.routes'); // Rotas de tabelas de prescrição
 const whatsappBotRoutes = require('./whatsappBot.routes'); // Rotas do bot WhatsApp (webhook Meta)
+const diaryRoutes = require('./diary.routes'); // Rotas do diário do paciente
 
 app.use('/api/auth', authRoutes);
 app.use('/api/receitas', prescriptionRoutes);
@@ -270,6 +271,7 @@ app.use('/api/push', pushNotificationRoutes); // Rotas de web push
 app.use('/api/mass-notifications', massNotificationRoutes); // Rotas de notificacao em massa
 app.use('/api/prescription-schedules', prescriptionScheduleRoutes); // Rotas de tabelas de prescrição
 app.use('/api/whatsapp', whatsappBotRoutes); // Bot WhatsApp (webhook Meta — sem autenticação)
+app.use('/api/diary', diaryRoutes); // Rotas do diário do paciente
 
 // Endpoint protegido: verificar janela de 24h do WhatsApp para um paciente
 const WhatsappSession = require('./models/whatsappSession.model');

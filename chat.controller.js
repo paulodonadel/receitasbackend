@@ -5,6 +5,7 @@ const ChatCategory = require('./models/chatCategory.model');
 const User = require('./models/user.model');
 const emailService = require('./emailService');
 const pushNotificationService = require('./pushNotification.service');
+const { notifyStaffOfCrisis } = require('./services/crisisAlertService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -507,40 +508,14 @@ exports.createThread = async (req, res, next) => {
 
     if (detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante')) {
       const crisisRecipientIds = await getStaffPushRecipientIds(thread);
-
-      await Promise.all(
-        crisisRecipientIds.map((recipientId) =>
-          notifySingleStaffNativePush(recipientId, {
-            type: 'crisis_alert',
-            title: '🚨 Possível urgência detectada',
-            body: `Detecção automática de risco na mensagem de ${thread.patientName} (${thread.categoryName}).`,
-            threadId: thread._id?.toString(),
-            url: '/admin/chat',
-            requireInteraction: true,
-            tag: `chat-crisis-${thread._id?.toString()}`,
-            vibrate: [500, 100, 500, 100, 500, 100, 900]
-          })
-        )
-      );
-
-      if (crisisRecipientIds.length > 0) {
-        const crisisRecipients = await User.find({ _id: { $in: crisisRecipientIds } }).select('email');
-        const crisisEmails = crisisRecipients.map((recipient) => recipient.email).filter((email) => email && email.includes('@'));
-
-        await Promise.all(
-          crisisEmails.map((to) =>
-            emailService.sendCrisisAlertEmail({
-              to,
-              patientName: thread.patientName,
-              categoryName: thread.categoryName,
-              messageExcerpt: storedContent.substring(0, 200),
-              threadId: thread._id?.toString()
-            }).catch((emailError) => {
-              console.error('❌ Erro ao enviar e-mail de alerta de risco:', emailError);
-            })
-          )
-        );
-      }
+      await notifyStaffOfCrisis({
+        recipientIds: crisisRecipientIds,
+        patientName: thread.patientName,
+        contextLabel: thread.categoryName,
+        excerpt: storedContent.substring(0, 200),
+        adminUrl: '/admin/chat',
+        pushTag: `chat-crisis-${thread._id?.toString()}`
+      });
     }
 
     emitChatEvent(thread, 'thread_created', {
@@ -1072,40 +1047,14 @@ exports.addMessage = async (req, res, next) => {
     // dispara numa mensagem do próprio paciente (não numa resposta da equipe).
     if (detectedKeywords.length > 0 && (userRole === 'patient' || userRole === 'representante') && !thread.isInternalStaffChat) {
       const crisisRecipientIds = await getStaffPushRecipientIds(thread);
-
-      await Promise.all(
-        crisisRecipientIds.map((recipientId) =>
-          notifySingleStaffNativePush(recipientId, {
-            type: 'crisis_alert',
-            title: '🚨 Possível urgência detectada',
-            body: `Detecção automática de risco na mensagem de ${thread.patientName} (${thread.categoryName}).`,
-            threadId: thread._id?.toString(),
-            url: '/admin/chat',
-            requireInteraction: true,
-            tag: `chat-crisis-${thread._id?.toString()}`,
-            vibrate: [500, 100, 500, 100, 500, 100, 900]
-          })
-        )
-      );
-
-      if (crisisRecipientIds.length > 0) {
-        const crisisRecipients = await User.find({ _id: { $in: crisisRecipientIds } }).select('email');
-        const crisisEmails = crisisRecipients.map((recipient) => recipient.email).filter((email) => email && email.includes('@'));
-
-        await Promise.all(
-          crisisEmails.map((to) =>
-            emailService.sendCrisisAlertEmail({
-              to,
-              patientName: thread.patientName,
-              categoryName: thread.categoryName,
-              messageExcerpt: storedContent.substring(0, 200),
-              threadId: thread._id?.toString()
-            }).catch((emailError) => {
-              console.error('❌ Erro ao enviar e-mail de alerta de risco:', emailError);
-            })
-          )
-        );
-      }
+      await notifyStaffOfCrisis({
+        recipientIds: crisisRecipientIds,
+        patientName: thread.patientName,
+        contextLabel: thread.categoryName,
+        excerpt: storedContent.substring(0, 200),
+        adminUrl: '/admin/chat',
+        pushTag: `chat-crisis-${thread._id?.toString()}`
+      });
     }
 
     if (userRole !== 'patient' && userRole !== 'representante' && !thread.isInternalStaffChat) {
