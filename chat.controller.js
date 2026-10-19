@@ -484,7 +484,7 @@ exports.createThread = async (req, res, next) => {
 
     // Atualizar thread com informações da última mensagem
     thread.messageCount = 1;
-    thread.lastMessage = storedContent.substring(0, 40);
+    thread.lastMessage = storedContent.substring(0, 200);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = patientId;
     thread.lastMessageUserName = patient.name;
@@ -599,7 +599,7 @@ exports.createThreadForStaff = async (req, res, next) => {
     await message.save();
 
     thread.messageCount = 1;
-    thread.lastMessage = storedContent.substring(0, 40);
+    thread.lastMessage = storedContent.substring(0, 200);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = req.user.id;
     thread.lastMessageUserName = actorName;
@@ -1016,7 +1016,7 @@ exports.addMessage = async (req, res, next) => {
 
     // Atualizar thread
     thread.messageCount += 1;
-    thread.lastMessage = storedContent.substring(0, 40);
+    thread.lastMessage = storedContent.substring(0, 200);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = userId;
     thread.lastMessageUserName = user.name;
@@ -1561,7 +1561,7 @@ exports.deleteThreadMessage = async (req, res, next) => {
     thread.messageCount = messageCount;
 
     if (latestMessage) {
-      thread.lastMessage = latestMessage.content.substring(0, 40);
+      thread.lastMessage = latestMessage.content.substring(0, 200);
       thread.lastMessageAt = latestMessage.createdAt;
       thread.lastMessageUserId = latestMessage.sender || null;
       thread.lastMessageUserName = latestMessage.senderName || '';

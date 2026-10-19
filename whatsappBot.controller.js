@@ -115,7 +115,7 @@ const createBotChatThread = async (user, categoryNameHint, messageContent, desti
     await message.save();
 
     thread.messageCount = 1;
-    thread.lastMessage = messageContent.substring(0, 40);
+    thread.lastMessage = messageContent.substring(0, 200);
     thread.lastMessageAt = new Date();
     thread.lastMessageUserId = user._id;
     thread.lastMessageUserName = user.name;

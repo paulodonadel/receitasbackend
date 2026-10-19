@@ -238,7 +238,7 @@ const ChatThreadSchema = new mongoose.Schema({
 
   lastMessage: {
     type: String,
-    maxlength: 40, // Apenas primeiros 40 caracteres
+    maxlength: 200, // Apenas primeiros 200 caracteres (prévia de 2 linhas no dashboard)
     default: ''
   },
 
