@@ -312,12 +312,20 @@ exports.updateVisit = async (req, res) => {
   try {
     const { status, visitDate, notes, products, checkInTime, checkOutTime } = req.body;
     
-    const visit = await RepVisit.findById(req.params.id);
-    
+    const visit = await RepVisit.findById(req.params.id).populate('repId', 'userId');
+
     if (!visit) {
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
     }
-    
+
+    if (req.user?.role === 'representante') {
+      const requesterId = req.user?._id?.toString() || req.user?.id?.toString();
+      const ownerId = visit.repId?.userId?.toString();
+      if (!ownerId || ownerId !== requesterId) {
+        return res.status(403).json({ success: false, error: 'Você só pode editar suas próprias visitas.' });
+      }
+    }
+
     // Atualizar campos
     if (status !== undefined) visit.status = status;
     if (visitDate !== undefined) visit.visitDate = visitDate;
@@ -757,13 +765,167 @@ exports.viewNotification = async (req, res) => {
     
     visit.notificationViewed = true;
     await visit.save();
-    
+
     res.status(200).json({
       success: true,
       data: visit
     });
   } catch (error) {
     console.error('Erro ao marcar notificação como visualizada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const buildVisitDateFilter = (startDate, endDate) => {
+  const dateFilter = {};
+  if (startDate || endDate) {
+    dateFilter.visitDate = {};
+    if (startDate) {
+      dateFilter.visitDate.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const endDateTime = new Date(endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+      dateFilter.visitDate.$lte = endDateTime;
+    }
+  }
+  return dateFilter;
+};
+
+// Status que contam como "visita que deveria ter acontecido" para a taxa de não
+// comparecimento — cancelamentos ficam de fora, não são "falta".
+const NO_SHOW_DENOMINATOR_STATUSES = ['agendado', 'aguardando', 'confirmado', 'em_atendimento', 'concluido', 'nao_compareceu'];
+
+// @desc    Estatísticas gerais de visitas de representantes (para o painel de analytics)
+// @route   GET /api/rep-visits/stats/overview
+// @access  Admin/Secretary
+exports.getVisitStatsOverview = async (req, res) => {
+  try {
+    const { startDate, endDate, lapsedDays = 60 } = req.query;
+    const dateFilter = buildVisitDateFilter(startDate, endDate);
+
+    const [totalVisits, byStatusAgg, noShowDenominator, noShowCount, waitDurationAgg] = await Promise.all([
+      RepVisit.countDocuments(dateFilter),
+      RepVisit.aggregate([
+        { $match: dateFilter },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      RepVisit.countDocuments({ ...dateFilter, status: { $in: NO_SHOW_DENOMINATOR_STATUSES } }),
+      RepVisit.countDocuments({ ...dateFilter, status: 'nao_compareceu' }),
+      RepVisit.aggregate([
+        {
+          $match: {
+            ...dateFilter,
+            checkInTime: { $ne: null },
+            checkOutTime: { $ne: null }
+          }
+        },
+        {
+          $project: {
+            waitMs: {
+              $cond: [
+                { $ne: ['$calledAt', null] },
+                { $subtract: ['$calledAt', '$checkInTime'] },
+                null
+              ]
+            },
+            durationMs: { $subtract: ['$checkOutTime', '$checkInTime'] }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            avgWaitMs: { $avg: '$waitMs' },
+            avgDurationMs: { $avg: '$durationMs' }
+          }
+        }
+      ])
+    ]);
+
+    const byStatus = byStatusAgg.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+
+    const noShowRate = noShowDenominator > 0 ? noShowCount / noShowDenominator : 0;
+
+    const lapsedDaysNumber = Math.max(parseInt(lapsedDays, 10) || 60, 1);
+    const lapsedSince = new Date();
+    lapsedSince.setDate(lapsedSince.getDate() - lapsedDaysNumber);
+
+    const recentlyVisitedRepIds = await RepVisit.distinct('repId', {
+      visitDate: { $gte: lapsedSince },
+      repId: { $ne: null }
+    });
+
+    const lapsedReps = await LaboratoryRep.find({
+      isActive: true,
+      _id: { $nin: recentlyVisitedRepIds }
+    })
+      .populate('userId', 'name email')
+      .select('laboratory userId')
+      .sort({ laboratory: 1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalVisits,
+        byStatus,
+        noShowRate,
+        avgWaitMs: waitDurationAgg[0]?.avgWaitMs ?? null,
+        avgDurationMs: waitDurationAgg[0]?.avgDurationMs ?? null,
+        lapsedDays: lapsedDaysNumber,
+        lapsedReps
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao gerar estatísticas de visitas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Série diária de visitas (para o gráfico de tendência do painel de representantes)
+// @route   GET /api/rep-visits/stats/volume
+// @access  Admin/Secretary
+exports.getVisitStatsVolume = async (req, res) => {
+  try {
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : new Date(endDate);
+    if (!req.query.startDate) {
+      startDate.setDate(startDate.getDate() - 29);
+      startDate.setHours(0, 0, 0, 0);
+    }
+
+    const volumeData = await RepVisit.aggregate([
+      { $match: { visitDate: { $gte: startDate, $lte: endDate } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$visitDate' } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Preenche os dias sem visita com count:0, para o gráfico nunca ter buracos
+    // (mesmo padrão de reports.controller.js::getVolumeReport).
+    const completeVolumeData = [];
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    const lastDay = new Date(endDate);
+    lastDay.setHours(0, 0, 0, 0);
+
+    while (cursor <= lastDay) {
+      const dateStr = cursor.toISOString().split('T')[0];
+      const existing = volumeData.find((item) => item._id === dateStr);
+      completeVolumeData.push({ date: dateStr, count: existing ? existing.count : 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    res.status(200).json({ success: true, data: completeVolumeData });
+  } catch (error) {
+    console.error('Erro ao gerar série de visitas:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

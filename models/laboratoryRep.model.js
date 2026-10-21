@@ -1,5 +1,29 @@
 const mongoose = require('mongoose');
 
+// Produto/medicamento que o representante trabalha — subdocumento embutido,
+// editado só pelo próprio representante (ver laboratoryRep.controller.js::updateProducts).
+const RepProductSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Nome do medicamento é obrigatório'],
+    trim: true
+  },
+  presentation: {
+    type: String,
+    trim: true
+  },
+  notes: {
+    type: String,
+    trim: true
+  },
+  isMain: {
+    type: Boolean,
+    default: false
+  }
+}, {
+  timestamps: true
+});
+
 // Schema para Representantes de Laboratório
 const LaboratoryRepSchema = new mongoose.Schema({
   userId: {
@@ -39,6 +63,14 @@ const LaboratoryRepSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  products: {
+    type: [RepProductSchema],
+    default: [],
+    validate: {
+      validator: (arr) => arr.filter((p) => p.isMain).length <= 2,
+      message: 'No máximo 2 produtos podem ser marcados como principais.'
+    }
   },
   createdAt: {
     type: Date,

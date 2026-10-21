@@ -7,7 +7,9 @@ const {
   getRepByUserId,
   updateRep,
   deleteRep,
-  getSuggestions
+  getSuggestions,
+  updateProducts,
+  notifyRep
 } = require('./laboratoryRep.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
@@ -31,5 +33,11 @@ router.route('/:id')
   .get(authorize('admin', 'secretary', 'representante'), getRepById)
   .put(authorize('admin'), updateRep)
   .delete(authorize('admin'), deleteRep);
+
+// Catálogo de produtos — só o próprio representante (ou admin) edita
+router.put('/:id/products', authorize('admin', 'representante'), updateProducts);
+
+// Notificação push avulsa para um representante específico
+router.post('/:id/notify', authorize('admin', 'secretary'), notifyRep);
 
 module.exports = router;

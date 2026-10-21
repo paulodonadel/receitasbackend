@@ -12,12 +12,18 @@ const {
   checkOut,
   callRepresentative,
   renotifyDoctor,
-  viewNotification
+  viewNotification,
+  getVisitStatsOverview,
+  getVisitStatsVolume
 } = require('./repVisit.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
 // Todas as rotas são protegidas
 router.use(protect);
+
+// Estatísticas (painel de analytics) - DEVEM VIR ANTES DE /:id
+router.get('/stats/overview', authorize('admin', 'secretary'), getVisitStatsOverview);
+router.get('/stats/volume', authorize('admin', 'secretary'), getVisitStatsVolume);
 
 // Visitas de hoje - ADMIN pode ver TODAS as visitas
 router.get('/today/all/all', authorize('admin', 'secretary'), getTodayVisitsAll);

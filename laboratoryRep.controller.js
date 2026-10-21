@@ -1,5 +1,6 @@
 const LaboratoryRep = require('./models/laboratoryRep.model');
 const User = require('./models/user.model');
+const pushNotificationService = require('./pushNotification.service');
 
 // @desc    Criar novo representante
 // @route   POST /api/laboratory-reps
@@ -222,6 +223,96 @@ exports.deleteRep = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao deletar representante:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Atualizar o catálogo de produtos do representante (somente o próprio representante edita;
+//          admin/secretária só visualizam via getAllReps/getRepById, que já trazem o campo)
+// @route   PUT /api/laboratory-reps/:id/products
+// @access  Admin/Representante (dono)
+exports.updateProducts = async (req, res) => {
+  try {
+    const { products } = req.body;
+
+    if (!Array.isArray(products)) {
+      return res.status(400).json({ success: false, error: 'products deve ser uma lista' });
+    }
+
+    const mainCount = products.filter((p) => p && p.isMain).length;
+    if (mainCount > 2) {
+      return res.status(400).json({ success: false, error: 'No máximo 2 produtos podem ser marcados como principais.' });
+    }
+
+    const rep = await LaboratoryRep.findById(req.params.id);
+    if (!rep) {
+      return res.status(404).json({ success: false, error: 'Representante não encontrado' });
+    }
+
+    if (req.user?.role !== 'admin') {
+      const requesterId = req.user?._id?.toString();
+      if (!requesterId || requesterId !== rep.userId.toString()) {
+        return res.status(403).json({ success: false, error: 'Você só pode editar o seu próprio catálogo de produtos.' });
+      }
+    }
+
+    rep.products = products.map((p) => ({
+      name: p.name,
+      presentation: p.presentation,
+      notes: p.notes,
+      isMain: !!p.isMain
+    }));
+
+    await rep.save();
+
+    const updatedRep = await LaboratoryRep.findById(rep._id)
+      .populate('userId', 'name email phone profileImage');
+
+    res.status(200).json({ success: true, data: updatedRep });
+  } catch (error) {
+    console.error('Erro ao atualizar produtos do representante:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Enviar uma notificação push avulsa para um representante específico
+// @route   POST /api/laboratory-reps/:id/notify
+// @access  Admin/Secretary
+exports.notifyRep = async (req, res) => {
+  try {
+    const { title, message } = req.body;
+
+    if (!title?.trim() || !message?.trim()) {
+      return res.status(400).json({ success: false, error: 'Título e mensagem são obrigatórios' });
+    }
+    if (title.length > 200 || message.length > 500) {
+      return res.status(400).json({ success: false, error: 'Título ou mensagem muito longos' });
+    }
+
+    const rep = await LaboratoryRep.findById(req.params.id);
+    if (!rep) {
+      return res.status(404).json({ success: false, error: 'Representante não encontrado' });
+    }
+
+    const result = await pushNotificationService.sendToUser(rep.userId, {
+      title: title.trim(),
+      body: message.trim(),
+      icon: '/images/icon.png',
+      badge: '/images/icon.png',
+      tag: `rep-custom-${rep._id}-${Date.now()}`,
+      renotify: true,
+      url: '/representative/dashboard'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        delivered: result.sent > 0,
+        skippedNoSubscription: result.skipped === true
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao enviar notificação ao representante:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
