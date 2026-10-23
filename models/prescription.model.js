@@ -250,6 +250,9 @@ PrescriptionSchema.pre("validate", function(next) {
     if (!this.patientAddress) {
       this.invalidate("patientAddress", "Endereço é obrigatório para envio por e-mail");
     }
+    if (!this.patientCpf) {
+      this.invalidate("patientCpf", "CPF é obrigatório para envio por e-mail");
+    }
   }
   next();
 });
