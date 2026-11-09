@@ -177,3 +177,129 @@ exports.remove = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erro ao excluir prescrição.' });
   }
 };
+
+/**
+ * POST /api/prescription-schedules/propose
+ * Patient proposes a change to their own medication schedule (pending approval)
+ * Body: { medications, observations }
+ */
+exports.propose = async (req, res) => {
+  try {
+    const { medications, observations } = req.body;
+
+    if (!medications || !Array.isArray(medications) || medications.length === 0) {
+      return res.status(400).json({ success: false, message: 'Informe ao menos um medicamento.' });
+    }
+
+    const schedule = await PrescriptionSchedule.create({
+      patient: req.user._id,
+      createdBy: req.user._id,
+      medications,
+      observations: observations || '',
+      status: 'pendente_aprovacao'
+    });
+
+    const populated = await PrescriptionSchedule.findById(schedule._id)
+      .populate('createdBy', 'name')
+      .populate('patient', 'name email Cpf')
+      .lean();
+
+    return res.status(201).json({ success: true, data: populated });
+  } catch (err) {
+    console.error('[PrescriptionSchedule] propose error:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao enviar proposta de alteração.' });
+  }
+};
+
+/**
+ * GET /api/prescription-schedules/pending
+ * Lists schedules awaiting approval (admin/secretary/doctor only)
+ */
+exports.getPending = async (req, res) => {
+  try {
+    const schedules = await PrescriptionSchedule.find({ status: 'pendente_aprovacao' })
+      .sort({ createdAt: 1 })
+      .populate('patient', 'name email Cpf')
+      .lean();
+
+    return res.json({ success: true, data: schedules });
+  } catch (err) {
+    console.error('[PrescriptionSchedule] getPending error:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao buscar pendências.' });
+  }
+};
+
+/**
+ * GET /api/prescription-schedules/pending/count
+ * Count of schedules awaiting approval (admin/secretary/doctor only)
+ */
+exports.getPendingCount = async (req, res) => {
+  try {
+    const count = await PrescriptionSchedule.countDocuments({ status: 'pendente_aprovacao' });
+    return res.json({ success: true, count });
+  } catch (err) {
+    console.error('[PrescriptionSchedule] getPendingCount error:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao contar pendências.' });
+  }
+};
+
+/**
+ * PATCH /api/prescription-schedules/:id/review
+ * Approve or reject a pending proposal (admin/secretary/doctor only).
+ * Approving may include edits to the proposed card — in that case it's recorded as
+ * "aprovado com alterações" (approvedWithChanges), with an optional note on what changed.
+ * Body: { decision: 'aprovado' | 'rejeitada', rejectionReason?, medications?, observations?, reviewNote? }
+ */
+exports.review = async (req, res) => {
+  try {
+    const { decision, rejectionReason, medications, observations, reviewNote } = req.body;
+
+    if (!['aprovado', 'rejeitada'].includes(decision)) {
+      return res.status(400).json({ success: false, message: 'Decisão inválida. Use "aprovado" ou "rejeitada".' });
+    }
+
+    if (decision === 'rejeitada' && (!rejectionReason || rejectionReason.trim().length < 5)) {
+      return res.status(400).json({ success: false, message: 'Motivo da rejeição é obrigatório e deve ter pelo menos 5 caracteres.' });
+    }
+
+    const schedule = await PrescriptionSchedule.findById(req.params.id);
+    if (!schedule) {
+      return res.status(404).json({ success: false, message: 'Prescrição não encontrada.' });
+    }
+
+    let approvedWithChanges = false;
+    if (decision === 'aprovado') {
+      if (medications !== undefined) {
+        if (!Array.isArray(medications) || medications.length === 0) {
+          return res.status(400).json({ success: false, message: 'Informe ao menos um medicamento.' });
+        }
+        if (JSON.stringify(schedule.medications) !== JSON.stringify(medications)) approvedWithChanges = true;
+        schedule.medications = medications;
+      }
+      if (observations !== undefined) {
+        if ((schedule.observations || '') !== observations) approvedWithChanges = true;
+        schedule.observations = observations;
+      }
+    }
+
+    schedule.status = decision;
+    schedule.rejectionReason = decision === 'rejeitada' ? rejectionReason : '';
+    schedule.approvedWithChanges = decision === 'aprovado' ? approvedWithChanges : false;
+    schedule.reviewNote = (reviewNote || '').trim();
+    schedule.reviewedBy = req.user._id;
+    schedule.reviewedAt = new Date();
+
+    await schedule.save();
+
+    const populated = await PrescriptionSchedule.findById(schedule._id)
+      .populate('createdBy', 'name')
+      .populate('reviewedBy', 'name')
+      .populate('patient', 'name email Cpf')
+      .lean();
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error('[PrescriptionSchedule] review error:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao revisar proposta.' });
+  }
+};

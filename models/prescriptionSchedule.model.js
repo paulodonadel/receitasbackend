@@ -42,6 +42,31 @@ const PrescriptionScheduleSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  status: {
+    type: String,
+    enum: ['ativo', 'pendente_aprovacao', 'aprovado', 'rejeitada'],
+    default: 'ativo'
+  },
+  rejectionReason: {
+    type: String,
+    default: ''
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  reviewedAt: {
+    type: Date
+  },
+  // Preenchido quando o médico/equipe altera o cartão proposto pelo paciente antes de aprovar
+  approvedWithChanges: {
+    type: Boolean,
+    default: false
+  },
+  reviewNote: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
