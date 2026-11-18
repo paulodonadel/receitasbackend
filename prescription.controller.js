@@ -541,6 +541,7 @@ exports.updatePrescriptionStatus = async (req, res, next) => {
     if (status === "pronta") prescription.readyAt = now;
     if (status === "enviada") prescription.sentAt = now;
     if (status === "entregue") prescription.deliveredAt = now;
+    if (status === "rejeitada") prescription.rejectedAt = now;
 
     const updatedPrescription = await prescription.save();
 

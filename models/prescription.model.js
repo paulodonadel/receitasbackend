@@ -168,6 +168,9 @@ const PrescriptionSchema = new mongoose.Schema({
   deliveredAt: {
     type: Date
   },
+  rejectedAt: {
+    type: Date
+  },
 
   // Controle de usuário
   createdBy: {
@@ -225,6 +228,7 @@ PrescriptionSchema.pre("save", function(next) {
     if (this.status === "aprovada" && !this.approvedAt) this.approvedAt = now;
     if (this.status === "pronta" && !this.readyAt) this.readyAt = now;
     if (this.status === "enviada" && !this.sentAt) this.sentAt = now;
+    if (this.status === "rejeitada" && !this.rejectedAt) this.rejectedAt = now;
     
     // Calcular data estimada de entrega
     if (this.status === "aprovada" && !this.estimatedReadyDate) {

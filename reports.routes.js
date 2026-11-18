@@ -5,7 +5,8 @@ const {
   getVolumeReport,
   getTopPatients,
   getTopMedications,
-  getMedicationStats
+  getMedicationStats,
+  getProcessingTimeStats
 } = require('./reports.controller');
 const { protect, authorize } = require('./middlewares/auth.middleware');
 
@@ -83,10 +84,17 @@ router.get('/top-medications',
 );
 
 // Estatísticas por princípio ativo e classe terapêutica
-router.get('/medications', 
-  adminOnly, 
-  [...dateRangeValidation], 
+router.get('/medications',
+  adminOnly,
+  [...dateRangeValidation],
   getMedicationStats
+);
+
+// Tempo entre solicitação e desfecho (enviada / pronta / negada)
+router.get('/processing-time',
+  adminOnly,
+  [...dateRangeValidation],
+  getProcessingTimeStats
 );
 
 module.exports = router;

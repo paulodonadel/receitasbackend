@@ -414,6 +414,88 @@ exports.getVolumeReport = async (req, res) => {
   }
 };
 
+// @desc    Tempo entre solicitação e desfecho (enviada / pronta pra retirada / negada)
+// @route   GET /api/reports/processing-time
+// @access  Private (Admin)
+exports.getProcessingTimeStats = async (req, res) => {
+  try {
+    console.log("📊 [REPORTS] Iniciando processing-time stats");
+
+    const { startDate, endDate } = req.query;
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // approvedAt não serve de referência aqui — na prática quase nenhuma prescrição passa
+    // visivelmente pelo status "aprovada" (a maioria vai direto pra pronta/enviada), então ele
+    // fica ausente na maior parte dos registros. Em vez disso, mede createdAt até o primeiro
+    // carimbo de desfecho que existir (sentAt / readyAt / rejectedAt) — o que acontecer primeiro.
+    const prescriptions = await Prescription.find(dateFilter)
+      .select('createdAt sentAt readyAt rejectedAt')
+      .lean();
+
+    const buckets = { enviada: [], pronta: [], rejeitada: [] };
+    let pendingCount = 0;
+
+    prescriptions.forEach(p => {
+      const candidates = [];
+      if (p.sentAt) candidates.push({ type: 'enviada', at: p.sentAt });
+      if (p.readyAt) candidates.push({ type: 'pronta', at: p.readyAt });
+      if (p.rejectedAt) candidates.push({ type: 'rejeitada', at: p.rejectedAt });
+
+      if (!candidates.length) {
+        pendingCount++;
+        return;
+      }
+
+      candidates.sort((a, b) => new Date(a.at) - new Date(b.at));
+      const first = candidates[0];
+      const hours = (new Date(first.at) - new Date(p.createdAt)) / (1000 * 60 * 60);
+      if (hours >= 0) buckets[first.type].push(hours);
+    });
+
+    const summarize = (arr) => {
+      if (!arr.length) return { count: 0, avgHours: 0, medianHours: 0 };
+      const sorted = [...arr].sort((a, b) => a - b);
+      const avgHours = arr.reduce((sum, v) => sum + v, 0) / arr.length;
+      const mid = Math.floor(sorted.length / 2);
+      const medianHours = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      return {
+        count: arr.length,
+        avgHours: Math.round(avgHours * 10) / 10,
+        medianHours: Math.round(medianHours * 10) / 10
+      };
+    };
+
+    console.log("📊 [REPORTS] Processing-time stats gerado com sucesso");
+    res.status(200).json({
+      success: true,
+      data: {
+        enviada: summarize(buckets.enviada),
+        pronta: summarize(buckets.pronta),
+        rejeitada: summarize(buckets.rejeitada),
+        pendente: pendingCount,
+        totalConsiderado: prescriptions.length
+      }
+    });
+
+  } catch (error) {
+    console.error("📊 [REPORTS] Erro ao gerar processing-time:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro interno do servidor",
+      error: error.message
+    });
+  }
+};
+
 // @desc    Obter estatísticas por princípio ativo
 // @route   GET /api/reports/medications
 // @access  Private (Admin)
