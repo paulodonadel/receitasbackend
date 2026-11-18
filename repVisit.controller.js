@@ -9,8 +9,19 @@ const pushNotificationService = require('./pushNotification.service');
 // @access  Admin/Secretary/Representante
 exports.createVisit = async (req, res) => {
   try {
-    const { repId, doctorId, visitDate, visitType, notes, products } = req.body;
+    const { doctorId, visitDate, visitType, notes, products } = req.body;
+    let { repId } = req.body;
     const creatorUser = await User.findById(req.user.id);
+
+    // Representante nunca pode criar/auto-check-in uma visita em nome de outro representante —
+    // ignora qualquer repId vindo do cliente pra esse papel e usa sempre o próprio cadastro.
+    if (creatorUser?.role === 'representante') {
+      const myRep = await LaboratoryRep.findOne({ userId: creatorUser._id }).select('_id');
+      if (!myRep) {
+        return res.status(403).json({ success: false, error: 'Cadastro de representante não encontrado para este usuário.' });
+      }
+      repId = myRep._id.toString();
+    }
 
     let repName = 'Representante';
     let laboratory = 'Laboratório não informado';
@@ -233,11 +244,24 @@ exports.createVisit = async (req, res) => {
 exports.getVisits = async (req, res) => {
   try {
     const { doctorId, repId, status, visitType, startDate, endDate, today } = req.query;
-    
+
     let query = {};
-    
+
+    // Representante só pode listar as próprias visitas — nunca confia no repId que o cliente
+    // mandar pra esse papel, resolve sempre pro cadastro de representante do usuário logado.
+    // Sem isso, qualquer representante autenticado via GET /api/rep-visits (sem repId) via
+    // a agenda semanal de TODOS os representantes (nome, laboratório, notas, horários).
+    if (req.user?.role === 'representante') {
+      const myRep = await LaboratoryRep.findOne({ userId: req.user._id || req.user.id }).select('_id');
+      if (!myRep) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+      query.repId = myRep._id;
+    } else if (repId) {
+      query.repId = repId;
+    }
+
     if (doctorId) query.doctorId = doctorId;
-    if (repId) query.repId = repId;
     if (status) query.status = status;
     if (visitType) query.visitType = visitType;
     
@@ -294,7 +318,15 @@ exports.getVisitById = async (req, res) => {
     if (!visit) {
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
     }
-    
+
+    if (req.user?.role === 'representante') {
+      const requesterId = (req.user?._id || req.user?.id)?.toString();
+      const ownerId = visit.repId?.userId?._id?.toString();
+      if (!ownerId || ownerId !== requesterId) {
+        return res.status(403).json({ success: false, error: 'Você só pode ver suas próprias visitas.' });
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: visit
@@ -453,12 +485,21 @@ exports.getTodayVisits = async (req, res) => {
     todayEnd.setHours(23, 59, 59, 999);
     
     console.log('📅 Buscando visitas entre:', todayStart, 'e', todayEnd);
-    
-    const visits = await RepVisit.find({
+
+    const todayQuery = {
       doctorId,
       visitDate: { $gte: todayStart, $lte: todayEnd },
       status: { $in: ['aguardando', 'confirmado', 'em_atendimento'] }
-    })
+    };
+
+    // Admin/secretary veem todos os representantes que visitam esse médico hoje (uso legítimo
+    // de recepção); representante só vê a própria visita, nunca a dos outros.
+    if (req.user?.role === 'representante') {
+      const myRep = await LaboratoryRep.findOne({ userId: req.user._id || req.user.id }).select('_id');
+      todayQuery.repId = myRep ? myRep._id : null;
+    }
+
+    const visits = await RepVisit.find(todayQuery)
     .populate({
       path: 'repId',
       populate: {
@@ -467,7 +508,7 @@ exports.getTodayVisits = async (req, res) => {
       }
     })
     .sort({ visitDate: 1 });
-    
+
     console.log('✅ Visitas encontradas:', visits.length);
     if (visits.length > 0) {
       console.log('📋 Primeira visita:', JSON.stringify(visits[0], null, 2));
@@ -757,12 +798,20 @@ exports.renotifyDoctor = async (req, res) => {
 // @access  Representante
 exports.viewNotification = async (req, res) => {
   try {
-    const visit = await RepVisit.findById(req.params.id);
-    
+    const visit = await RepVisit.findById(req.params.id).populate('repId', 'userId');
+
     if (!visit) {
       return res.status(404).json({ success: false, error: 'Visita não encontrada' });
     }
-    
+
+    if (req.user?.role === 'representante') {
+      const requesterId = (req.user?._id || req.user?.id)?.toString();
+      const ownerId = visit.repId?.userId?.toString();
+      if (!ownerId || ownerId !== requesterId) {
+        return res.status(403).json({ success: false, error: 'Você só pode marcar suas próprias notificações.' });
+      }
+    }
+
     visit.notificationViewed = true;
     await visit.save();
 
