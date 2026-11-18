@@ -367,34 +367,77 @@ exports.getVolumeReport = async (req, res) => {
     const queryStart = new Date(requestedStart);
     queryStart.setUTCDate(queryStart.getUTCDate() - PADDING_DAYS);
 
-    const volumeData = await Prescription.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: queryStart, $lte: requestedEnd }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: "%Y-%m-%d",
-              date: "$createdAt"
-            }
-          },
-          count: { $sum: 1 }
+    // Busca num único passe todas as prescrições relevantes a QUALQUER um dos eventos do
+    // período (solicitada, pronta, enviada, rejeitada ou entregue) e agrupa por dia em JS —
+    // evita cinco agregações separadas e reaproveita a mesma lógica de "primeiro desfecho" do
+    // /api/reports/processing-time pra montar a tendência diária de tempo até o desfecho.
+    const inRange = (d) => d && d >= queryStart && d <= requestedEnd;
+    const prescriptions = await Prescription.find({
+      $or: [
+        { createdAt: { $gte: queryStart, $lte: requestedEnd } },
+        { readyAt: { $gte: queryStart, $lte: requestedEnd } },
+        { sentAt: { $gte: queryStart, $lte: requestedEnd } },
+        { rejectedAt: { $gte: queryStart, $lte: requestedEnd } },
+        { deliveredAt: { $gte: queryStart, $lte: requestedEnd } }
+      ]
+    }).select('createdAt readyAt sentAt rejectedAt deliveredAt isUrgent').lean();
+
+    const dayKey = (d) => new Date(d).toISOString().split('T')[0];
+    const buckets = new Map();
+    const bucket = (key) => {
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          solicitadas: 0, urgentes: 0, prontas: 0, enviadas: 0, rejeitadas: 0, entregues: 0,
+          resolutionHoursSum: 0, resolutionCount: 0
+        });
+      }
+      return buckets.get(key);
+    };
+
+    prescriptions.forEach(p => {
+      if (inRange(p.createdAt)) {
+        const b = bucket(dayKey(p.createdAt));
+        b.solicitadas++;
+        if (p.isUrgent) b.urgentes++;
+
+        // mesmo critério do /processing-time: tempo até o primeiro desfecho que existir,
+        // nunca usando approvedAt (quase nunca gravado de fato — ver reports.controller
+        // getProcessingTimeStats)
+        const candidates = [p.sentAt, p.readyAt, p.rejectedAt].filter(Boolean).map(d => new Date(d));
+        if (candidates.length) {
+          const first = candidates.sort((a, b2) => a - b2)[0];
+          const hours = (first - new Date(p.createdAt)) / (1000 * 60 * 60);
+          if (hours >= 0) { b.resolutionHoursSum += hours; b.resolutionCount++; }
         }
       }
-    ]);
-    const countByDate = new Map(volumeData.map(item => [item._id, item.count]));
+      if (inRange(p.readyAt)) bucket(dayKey(p.readyAt)).prontas++;
+      if (inRange(p.sentAt)) bucket(dayKey(p.sentAt)).enviadas++;
+      if (inRange(p.rejectedAt)) bucket(dayKey(p.rejectedAt)).rejeitadas++;
+      if (inRange(p.deliveredAt)) bucket(dayKey(p.deliveredAt)).entregues++;
+    });
 
-    // Garantir que todos os dias do intervalo (pedido + padding) estejam presentes, mesmo com count 0
+    // Garantir que todos os dias do intervalo (pedido + padding) estejam presentes, mesmo vazios
     const completeVolumeData = [];
     const totalDays = Math.round((requestedEndDay - queryStart) / (1000 * 60 * 60 * 24)) + 1;
     for (let i = 0; i < totalDays; i++) {
       const date = new Date(queryStart);
       date.setUTCDate(date.getUTCDate() + i);
       const dateStr = date.toISOString().split('T')[0];
-      completeVolumeData.push({ date: dateStr, count: countByDate.get(dateStr) || 0 });
+      const b = buckets.get(dateStr) || {
+        solicitadas: 0, urgentes: 0, prontas: 0, enviadas: 0, rejeitadas: 0, entregues: 0,
+        resolutionHoursSum: 0, resolutionCount: 0
+      };
+      completeVolumeData.push({
+        date: dateStr,
+        solicitadas: b.solicitadas,
+        urgentes: b.urgentes,
+        prontas: b.prontas,
+        enviadas: b.enviadas,
+        rejeitadas: b.rejeitadas,
+        elaboradas: b.prontas + b.enviadas + b.rejeitadas,
+        entregues: b.entregues,
+        avgResolutionHours: b.resolutionCount ? Math.round((b.resolutionHoursSum / b.resolutionCount) * 10) / 10 : null
+      });
     }
 
     console.log("📊 [REPORTS] Volume report gerado com sucesso");
