@@ -343,15 +343,34 @@ exports.getVolumeReport = async (req, res) => {
   try {
     console.log("📊 [REPORTS] Iniciando volume report");
 
-    // Consulta real ao banco de dados para os últimos 30 dias
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Respeita o período selecionado nos filtros de relatório (antes era sempre fixo nos
+    // últimos 30 dias, ignorando startDate/endDate). Sem filtro, mantém o padrão de sempre
+    // (últimos 30 dias terminando hoje).
+    // Datas são tratadas em UTC o tempo todo (igual ao agrupamento do $dateToString do Mongo,
+    // que também é UTC por padrão) — usar métodos locais (setHours/setDate) aqui causaria um
+    // desvio de um dia sempre que o servidor não rodar em UTC.
+    const { startDate, endDate } = req.query;
+
+    const requestedEndDay = endDate ? new Date(endDate) : new Date();
+    requestedEndDay.setUTCHours(0, 0, 0, 0);
+    const requestedEnd = new Date(requestedEndDay);
+    requestedEnd.setUTCHours(23, 59, 59, 999); // só pro $lte da consulta, inclui o dia inteiro
+
+    const requestedStart = startDate ? new Date(startDate) : new Date(requestedEndDay);
+    if (!startDate) requestedStart.setUTCDate(requestedStart.getUTCDate() - 29);
+    requestedStart.setUTCHours(0, 0, 0, 0);
+
+    // Além do período pedido, busca mais dias pra trás como contexto — o frontend mostra o
+    // gráfico já aberto no período selecionado, mas dá pra arrastar a barra de rolagem pra
+    // ver além dele, sem precisar refazer a consulta.
+    const PADDING_DAYS = 60;
+    const queryStart = new Date(requestedStart);
+    queryStart.setUTCDate(queryStart.getUTCDate() - PADDING_DAYS);
 
     const volumeData = await Prescription.aggregate([
       {
         $match: {
-          createdAt: { $gte: thirtyDaysAgo, $lte: today }
+          createdAt: { $gte: queryStart, $lte: requestedEnd }
         }
       },
       {
@@ -364,38 +383,25 @@ exports.getVolumeReport = async (req, res) => {
           },
           count: { $sum: 1 }
         }
-      },
-      {
-        $project: {
-          date: "$_id",
-          count: 1,
-          _id: "$_id"
-        }
-      },
-      {
-        $sort: { date: 1 }
       }
     ]);
+    const countByDate = new Map(volumeData.map(item => [item._id, item.count]));
 
-    // Garantir que todos os dias dos últimos 30 dias estejam presentes (mesmo com count 0)
+    // Garantir que todos os dias do intervalo (pedido + padding) estejam presentes, mesmo com count 0
     const completeVolumeData = [];
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    const totalDays = Math.round((requestedEndDay - queryStart) / (1000 * 60 * 60 * 24)) + 1;
+    for (let i = 0; i < totalDays; i++) {
+      const date = new Date(queryStart);
+      date.setUTCDate(date.getUTCDate() + i);
       const dateStr = date.toISOString().split('T')[0];
-      
-      const existingData = volumeData.find(item => item.date === dateStr);
-      completeVolumeData.push({
-        date: dateStr,
-        count: existingData ? existingData.count : 0,
-        _id: dateStr
-      });
+      completeVolumeData.push({ date: dateStr, count: countByDate.get(dateStr) || 0 });
     }
 
     console.log("📊 [REPORTS] Volume report gerado com sucesso");
     res.status(200).json({
       success: true,
-      data: completeVolumeData
+      data: completeVolumeData,
+      requestedStart: requestedStart.toISOString().split('T')[0]
     });
 
   } catch (error) {
